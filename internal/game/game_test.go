@@ -12,7 +12,7 @@ import (
 
 func newGame(t *testing.T) *Game {
 	t.Helper()
-	g, err := New(1)
+	g, err := New(Options{Seed: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,6 +68,7 @@ func TestHeadlessRunEndsOnCtrlC(t *testing.T) {
 func onFloor(t *testing.T) *Game {
 	t.Helper()
 	g := newGame(t)
+	g.Play()
 	g.world, g.player = floor(), *standing()
 	return g
 }

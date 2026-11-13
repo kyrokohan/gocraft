@@ -22,11 +22,11 @@ func main() {
 }
 
 func run() error {
-	seed := flag.Int64("seed", 1, "the number the world is made from")
+	seed := flag.Int64("seed", 0, "the number a new world is made from; 0 takes one from the clock")
 	shot := flag.String("shot", "", "draw one frame into this PNG file and quit, instead of playing")
 	flag.Parse()
 
-	g, err := game.New(*seed)
+	g, err := game.New(game.Options{Seed: *seed})
 	if err != nil {
 		return err
 	}
@@ -36,13 +36,21 @@ func run() error {
 	return engine.Run(context.Background(), g, engine.Config{FPS: 30})
 }
 
-// writeShot draws one frame of the game as a terminal of 240 by 67 cells would show it
-// and saves its pixels, each four across, so the picture can be looked at without one.
-// Text is not in it: it is drawn in cells, not pixels.
-func writeShot(g engine.Game, path string) error {
+// writeShot draws one frame of play as a terminal of 240 by 67 cells would show it and
+// saves its pixels, each four across, so the picture can be looked at without one. Text
+// is not in it: it is drawn in cells, not pixels.
+func writeShot(g *game.Game, path string) error {
 	fb, err := engine.NewFrameBuffer(240, 67)
 	if err != nil {
 		return err
+	}
+	g.Play()
+	// A second of play with no keys, so that the player has landed and taken aim.
+	keys := engine.NewKeyboard()
+	for range 30 {
+		if err := g.Update(1.0/30, keys.Input()); err != nil {
+			return err
+		}
 	}
 	g.Draw(fb)
 
