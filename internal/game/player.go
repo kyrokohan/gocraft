@@ -73,7 +73,36 @@ func keyDown(held func(engine.Key) bool, letter rune) bool {
 	return held(engine.Key(letter)) || held(engine.Key(unicode.ToUpper(letter)))
 }
 
-// readControls turns the keys into what the player asks for.
+// taps tells a key going down from a key that is held and repeating. glonk's
+// Input.Pressed is true for both (glonk issue #48), which is right for digging on and
+// wrong for a switch: held, it would flip many times a second.
+//
+// A key counts as going down when it is pressed and was not down the frame before. In a
+// terminal that does not report key releases a held key reads as up for a moment before
+// the OS starts to repeat it, so there a long hold counts twice, and not more.
+type taps struct {
+	down map[engine.Key]bool // whether each key asked about was down the frame before
+}
+
+// tapped reports whether a key went down this frame. It is what remembers the frame
+// before, so it must be asked every frame for every key it is used for.
+func (t *taps) tapped(in *engine.Input, k engine.Key) bool {
+	if t.down == nil {
+		t.down = make(map[engine.Key]bool)
+	}
+	was := t.down[k]
+	t.down[k] = in.IsDown(k)
+	return in.Pressed(k) && !was
+}
+
+// letter is tapped for a letter key in either case, as keyDown is for held keys.
+func (t *taps) letter(in *engine.Input, letter rune) bool {
+	lower, upper := t.tapped(in, engine.Key(letter)), t.tapped(in, engine.Key(unicode.ToUpper(letter)))
+	return lower || upper
+}
+
+// readControls turns the keys into what the player asks for, all but toggleFly: that
+// is a switch, and the game sets it from a tap.
 func readControls(in *engine.Input) controls {
 	axis := func(plus, minus bool) float64 {
 		switch {
@@ -85,13 +114,12 @@ func readControls(in *engine.Input) controls {
 		return 0
 	}
 	return controls{
-		forward:   axis(keyDown(in.IsDown, 'w'), keyDown(in.IsDown, 's')),
-		strafe:    axis(keyDown(in.IsDown, 'd'), keyDown(in.IsDown, 'a')),
-		turn:      axis(in.IsDown(engine.KeyRight), in.IsDown(engine.KeyLeft)),
-		tilt:      axis(in.IsDown(engine.KeyUp), in.IsDown(engine.KeyDown)),
-		rise:      in.IsDown(engine.Key(' ')),
-		sink:      keyDown(in.IsDown, 'x'),
-		toggleFly: keyDown(in.Pressed, 'f'),
+		forward: axis(keyDown(in.IsDown, 'w'), keyDown(in.IsDown, 's')),
+		strafe:  axis(keyDown(in.IsDown, 'd'), keyDown(in.IsDown, 'a')),
+		turn:    axis(in.IsDown(engine.KeyRight), in.IsDown(engine.KeyLeft)),
+		tilt:    axis(in.IsDown(engine.KeyUp), in.IsDown(engine.KeyDown)),
+		rise:    in.IsDown(engine.Key(' ')),
+		sink:    keyDown(in.IsDown, 'x'),
 	}
 }
 

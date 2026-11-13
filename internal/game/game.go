@@ -61,6 +61,7 @@ type Game struct {
 
 	screen screen
 	menu   widget.Menu
+	taps   taps    // for the keys that are switches: Escape and F
 	spin   float64 // how far the view behind the title has turned
 	fps    float64
 
@@ -167,12 +168,18 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		g.fps = 0.9*g.fps + 0.1/dt
 	}
 
+	// Asked every frame, whatever is showing, so that a key held from one screen into
+	// the next is not taken for a new press there.
+	escape, fly := g.taps.tapped(in, engine.KeyEscape), g.taps.letter(in, 'f')
+
 	if g.screen == playing {
-		if in.Pressed(engine.KeyEscape) {
+		if escape {
 			g.show(paused)
 			return nil
 		}
-		g.player.Step(g.world, readControls(in), dt)
+		c := readControls(in)
+		c.toggleFly = fly
+		g.player.Step(g.world, c, dt)
 		g.build(in)
 		return nil
 	}
@@ -181,7 +188,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 	if g.screen != paused {
 		g.spin += 0.12 * dt
 	}
-	if in.Pressed(engine.KeyEscape) {
+	if escape {
 		switch g.screen {
 		case onTitle:
 			return engine.ErrQuit

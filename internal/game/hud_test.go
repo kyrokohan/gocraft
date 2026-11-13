@@ -20,7 +20,12 @@ func drawn(t *testing.T, g *Game) (string, *engine.FrameBuffer) {
 }
 
 // press runs one frame of the game with keys pressed and returns what Update returned.
+// A frame with every key up comes first, as there is between two presses of a key:
+// without it a second press of the same key would be that key still held.
 func press(g *Game, keys ...engine.Key) error {
+	if err := g.Update(frame, engine.NewKeyboard().Input()); err != nil {
+		return err
+	}
 	kb := engine.NewKeyboard()
 	kb.Press(keys...)
 	return g.Update(frame, kb.Input())
