@@ -223,6 +223,14 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *
 		farther[level] = pixelsPerBlock / tile.Size * 1.5 * float64(int(1)<<level)
 	}
 
+	levelAt := func(dist float64) int {
+		level := 0
+		for level < len(farther) && dist > farther[level] {
+			level++
+		}
+		return level
+	}
+
 	for py := range v.h {
 		sy := (float64(v.h)/2 - (float64(py) + 0.5)) * v.ky
 		row := v.look.Add(v.up.Scale(sy))
@@ -261,11 +269,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *
 					solid, found, outlined = hit, true, true
 					break
 				}
-				level := 0
-				for level < len(farther) && dist > farther[level] {
-					level++
-				}
-				if pixel = r.texel(hit, fu, fv, level); pixel>>24 != 0 {
+				if pixel = r.texel(hit, fu, fv, levelAt(dist)); pixel>>24 != 0 {
 					solid, found = hit, true
 					break
 				}
@@ -294,7 +298,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *
 					through = (solid.T - surface.T) / unit
 				}
 				su, sv := onFace(surface, eye.Add(d.Scale(surface.T)))
-				ripple := unpack(r.texel(surface, su, sv, 0)).lit(faceLight[surface.Face])
+				ripple := unpack(r.texel(surface, su, sv, levelAt(surface.T/unit))).lit(faceLight[surface.Face])
 				col = col.mix(ripple, part(0.45+0.12*through)*230>>8)
 				depth = surface.T
 			}
