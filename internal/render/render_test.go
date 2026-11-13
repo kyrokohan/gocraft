@@ -1,0 +1,296 @@
+package render
+
+import (
+	"math"
+	"math/rand/v2"
+	"testing"
+
+	"glonk.dev/engine"
+	"glonk.dev/geometry"
+	"glonk.dev/mesh"
+
+	"github.com/kyrokohan/gocraft/internal/assets"
+	"github.com/kyrokohan/gocraft/internal/world"
+)
+
+func newRenderer(t testing.TB) *Renderer {
+	t.Helper()
+	set, err := assets.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return New(set)
+}
+
+func newCanvas(t testing.TB, cols, rows int) *engine.Canvas {
+	t.Helper()
+	fb, err := engine.NewFrameBuffer(cols, rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fb.Canvas()
+}
+
+// wall fills a slab of the world one block thick, at layer z, with one kind of block.
+func wall(w *world.World, z int, b world.Block) {
+	for y := range 24 {
+		for x := range 24 {
+			w.Set(x, y, z, b)
+		}
+	}
+}
+
+// facing is a camera in front of the middle of such a wall, looking at it along +z.
+var facing = mesh.Camera{Position: geometry.Vector3{X: 12.5, Y: 12.5, Z: 2.5}, FOV: math.Pi / 3}
+
+// The rays must use glonk's projection exactly, or meshes drawn by glonk would not line
+// up with the blocks. If this fails after a glonk upgrade, glonk's projection changed.
+func TestRaysAgreeWithGlonkProjection(t *testing.T) {
+	rng := rand.New(rand.NewPCG(3, 4))
+	const w, h = 200, 120 // pixels: 200 by 60 cells
+
+	for i := range 300 {
+		cam := mesh.Camera{
+			Position: geometry.Vector3{X: rng.Float64() * 20, Y: rng.Float64() * 20, Z: rng.Float64() * 20},
+			Yaw:      rng.Float64()*8 - 4,
+			Pitch:    rng.Float64()*3 - 1.5,
+			FOV:      0.4 + rng.Float64()*2,
+		}
+		if i%3 == 0 {
+			cam.FOV = 0 // glonk's default
+		}
+		depth := 0.5 + rng.Float64()*30
+		sideways, upward := rng.Float64()*2-1, rng.Float64()*2-1
+		p := cam.Position.
+			Add(cam.Look().Scale(depth)).
+			Add(cam.Right().Scale(sideways * depth * 0.4)).
+			Add(cam.Look().Cross(cam.Right()).Scale(upward * depth * 0.3))
+
+		x, y, ok := cam.Project(p, w, h/2)
+		if !ok {
+			t.Fatalf("case %d: glonk could not project %v", i, p)
+		}
+		v, ok := NewView(cam, w, h)
+		if !ok {
+			t.Fatalf("case %d: no view for %+v", i, cam)
+		}
+
+		// A point on the ray through that place, at the point's depth, is the point.
+		got := cam.Position.Add(v.Direction(x, 2*y).Scale(depth))
+		if got.Distance(p) > 1e-9 {
+			t.Fatalf("case %d: the ray through glonk's pixel (%v, %v) reaches %v, wanted %v", i, x, 2*y, got, p)
+		}
+	}
+}
+
+func TestViewOfABrokenCameraIsNone(t *testing.T) {
+	for _, cam := range []mesh.Camera{
+		{FOV: -1}, {FOV: math.Pi}, {FOV: math.NaN()}, {CellAspect: -2}, {CellAspect: math.Inf(1)},
+	} {
+		if _, ok := NewView(cam, 80, 48); ok {
+			t.Errorf("camera %+v should see nothing", cam)
+		}
+	}
+	if _, ok := NewView(mesh.Camera{}, 0, 48); ok {
+		t.Error("a canvas with no width should have no view")
+	}
+}
+
+func TestEmptyWorldIsAllSkyWithNoDepth(t *testing.T) {
+	c := newCanvas(t, 40, 20)
+
+	newRenderer(t).Draw(c, world.New(), facing)
+
+	for y := range c.Height() {
+		for x := range c.Width() {
+			r, _, b := c.At(x, y).RGB()
+			if c.At(x, y).IsDefault() || b <= r {
+				t.Fatalf("pixel %d,%d is %v, wanted sky", x, y, c.At(x, y))
+			}
+			// The sky has no depth, so anything with one can still be drawn over it.
+			if !c.SetDepth(x, y, 1e9, engine.RGB(1, 2, 3)) {
+				t.Fatalf("pixel %d,%d of the sky has a depth", x, y)
+			}
+		}
+	}
+}
+
+func TestAWallFillsTheViewWithItsTile(t *testing.T) {
+	w := world.New()
+	wall(w, 5, world.Stone)
+	c := newCanvas(t, 40, 20)
+
+	newRenderer(t).Draw(c, w, facing)
+
+	for y := range c.Height() {
+		for x := range c.Width() {
+			r, g, b := c.At(x, y).RGB()
+			// Stone is gray, a little blue, and a side face is drawn darker than the tile.
+			if int(b)-int(r) > 14 || int(b) < int(r) || g < 40 || g > 110 {
+				t.Fatalf("pixel %d,%d is %v, wanted the gray of a stone side", x, y, c.At(x, y))
+			}
+		}
+	}
+}
+
+func TestTheTopOfABlockIsBrighterThanItsSide(t *testing.T) {
+	w := world.New()
+	for z := range 24 {
+		for x := range 24 {
+			w.Set(x, 10, z, world.Snow)
+		}
+	}
+	wall(w, 20, world.Snow) // far enough that the lowest rays land on the floor first
+	c := newCanvas(t, 40, 20)
+	cam := facing
+	cam.Position = geometry.Vector3{X: 12.5, Y: 12.5, Z: 9.5}
+
+	newRenderer(t).Draw(c, w, cam)
+
+	_, side, _ := c.At(20, 4).RGB()   // the wall ahead, above the middle
+	_, floor, _ := c.At(20, 38).RGB() // the floor, near the bottom
+	if floor <= side {
+		t.Errorf("floor green %d, wall green %d: the top should be brighter", floor, side)
+	}
+}
+
+func TestHolesShowWhatIsBehind(t *testing.T) {
+	w := world.New()
+	wall(w, 4, world.Glass)
+	wall(w, 6, world.Brick)
+	c := newCanvas(t, 40, 20)
+
+	newRenderer(t).Draw(c, w, facing)
+
+	red := 0
+	for y := range c.Height() {
+		for x := range c.Width() {
+			if r, g, _ := c.At(x, y).RGB(); int(r) > int(g)+25 {
+				red++
+			}
+		}
+	}
+	if total := c.Width() * c.Height(); red < total/2 {
+		t.Errorf("%d of %d pixels show brick through the glass, wanted most", red, total)
+	}
+}
+
+func TestWaterTintsWhatIsUnderIt(t *testing.T) {
+	dry, wet := world.New(), world.New()
+	wall(dry, 6, world.Sand)
+	wall(wet, 6, world.Sand)
+	wall(wet, 4, world.Water)
+	wall(wet, 5, world.Water)
+	a, b := newCanvas(t, 40, 20), newCanvas(t, 40, 20)
+	rend := newRenderer(t)
+
+	rend.Draw(a, dry, facing)
+	rend.Draw(b, wet, facing)
+
+	dr, _, db := a.At(20, 20).RGB()
+	wr, _, wb := b.At(20, 20).RGB()
+	if db >= dr {
+		t.Fatalf("dry sand is %v, wanted more red than blue", a.At(20, 20))
+	}
+	if wb <= wr {
+		t.Errorf("sand under water is %v, wanted more blue than red", b.At(20, 20))
+	}
+	if wr <= 52 {
+		t.Errorf("sand under water is %v: the sand does not show through", b.At(20, 20))
+	}
+}
+
+func TestDistantBlocksFadeIntoTheSky(t *testing.T) {
+	near, far := world.New(), world.New()
+	wall(near, 10, world.Deepstone)
+	wall(far, 2+int(ViewDistance)-2, world.Deepstone)
+	a, b := newCanvas(t, 40, 20), newCanvas(t, 40, 20)
+	rend := newRenderer(t)
+
+	rend.Draw(a, near, facing)
+	rend.Draw(b, far, facing)
+
+	_, _, nb := a.At(20, 20).RGB()
+	_, _, fb := b.At(20, 20).RGB()
+	if fb < nb+80 {
+		t.Errorf("blue of a dark block near %d and far %d: the far one should be nearly sky", nb, fb)
+	}
+}
+
+// What glonk draws into the canvas after the world is hidden by nearer blocks and shows
+// in front of farther ones: the blocks carry glonk's depth.
+func TestGlonkMeshesAreHiddenByNearerBlocks(t *testing.T) {
+	w := world.New()
+	wall(w, 8, world.Stone)
+	rend := newRenderer(t)
+	marker := engine.RGB(255, 0, 255)
+
+	count := func(z float64) int {
+		c := newCanvas(t, 40, 20)
+		rend.Draw(c, w, facing)
+		cube := mesh.Cube(1)
+		cube.Transform.Position = geometry.Vector3{X: 12.5, Y: 12.5, Z: z}
+		cube.DrawDepthPixels(c, facing, marker)
+		n := 0
+		for y := range c.Height() {
+			for x := range c.Width() {
+				if c.At(x, y) == marker {
+					n++
+				}
+			}
+		}
+		return n
+	}
+
+	if n := count(6); n == 0 {
+		t.Error("a cube in front of the wall is not drawn")
+	}
+	if n := count(11); n != 0 {
+		t.Errorf("a cube behind the wall shows through it in %d pixels", n)
+	}
+}
+
+func TestAViewFromUnderWaterIsBlue(t *testing.T) {
+	w := world.New()
+	for z := range 24 {
+		for y := range 24 {
+			for x := range 24 {
+				w.Set(x, y, z, world.Water)
+			}
+		}
+	}
+	wall(w, 6, world.Sand)
+	c := newCanvas(t, 40, 20)
+
+	newRenderer(t).Draw(c, w, facing)
+
+	if r, _, b := c.At(20, 20).RGB(); b <= r {
+		t.Errorf("sand seen from under water is %v, wanted more blue than red", c.At(20, 20))
+	}
+}
+
+// One frame of a generated world at 240 by 67 cells, which is 240 by 134 pixels.
+func BenchmarkDraw(b *testing.B) {
+	w := world.Generate(1)
+	rend := newRenderer(b)
+	c := newCanvas(b, 240, 67)
+	spawn := w.Spawn()
+	cam := mesh.Camera{
+		Position: geometry.Vector3{X: spawn.X, Y: spawn.Y + 1.6, Z: spawn.Z},
+		Pitch:    -0.2,
+		FOV:      math.Pi / 3,
+	}
+
+	for _, view := range []struct {
+		name string
+		yaw  float64
+	}{{"north", 0}, {"east", math.Pi / 2}, {"south", math.Pi}, {"west", -math.Pi / 2}} {
+		cam.Yaw = view.yaw
+		b.Run(view.name, func(b *testing.B) {
+			for b.Loop() {
+				c.Clear()
+				rend.Draw(c, w, cam)
+			}
+		})
+	}
+}
