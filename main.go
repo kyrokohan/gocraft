@@ -3,10 +3,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"image/png"
 	"os"
+	"path/filepath"
 
 	"glonk.dev/engine"
 
@@ -16,24 +18,45 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, "gocraft:", err)
 		os.Exit(1)
 	}
 }
 
 func run() error {
 	seed := flag.Int64("seed", 0, "the number a new world is made from; 0 takes one from the clock")
-	shot := flag.String("shot", "", "draw one frame into this PNG file and quit, instead of playing")
+	worldPath := flag.String("world", "", "the file the world is saved in (default: gocraft/world.sav in your config folder)")
+	shot := flag.String("shot", "", "draw one frame of play into this PNG file and quit; nothing is loaded or saved")
 	flag.Parse()
 
-	g, err := game.New(game.Options{Seed: *seed})
+	if *shot != "" {
+		g, err := game.New(game.Options{Seed: *seed})
+		if err != nil {
+			return err
+		}
+		return writeShot(g, *shot)
+	}
+
+	path := *worldPath
+	if path == "" {
+		dir, err := os.UserConfigDir()
+		if err != nil {
+			return fmt.Errorf("no folder to save the world in (%w): name a file with -world", err)
+		}
+		path = filepath.Join(dir, "gocraft", "world.sav")
+	}
+	g, err := game.New(game.Options{Seed: *seed, SavePath: path})
 	if err != nil {
 		return err
 	}
-	if *shot != "" {
-		return writeShot(g, *shot)
+
+	// Run returns when the player quits, and also on Ctrl-C, kill and a closing window,
+	// so saving here keeps the world however the game ends.
+	err = engine.Run(context.Background(), g, engine.Config{FPS: 30})
+	if saveErr := g.Save(); saveErr != nil {
+		err = errors.Join(err, fmt.Errorf("the world was not saved: %w", saveErr))
 	}
-	return engine.Run(context.Background(), g, engine.Config{FPS: 30})
+	return err
 }
 
 // writeShot draws one frame of play as a terminal of 240 by 67 cells would show it and

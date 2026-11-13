@@ -139,8 +139,13 @@ func (g *Game) drawTitle(fb *engine.FrameBuffer, c *engine.Canvas) {
 	g.set.Title.DrawScaled(c, (c.Width()-w)/2, top, w, h)
 	c.Compose()
 
+	question, width := "", menuWidth
+	if g.screen == confirming {
+		question = "replace your saved world?"
+		width = engine.TextWidth(question) + 8
+	}
 	y := min((top+h)/2+2, fb.Height()-len(g.menu.Items)-3)
-	under := g.drawMenu(fb, "", (fb.Width()-menuWidth)/2, y, menuWidth, 0)
+	under := g.drawMenu(fb, question, (fb.Width()-width)/2, y, width, 0)
 	widget.Label{Text: hint, Align: widget.Center, Style: hudText}.Draw(fb, 0, under+1, fb.Width())
 }
 

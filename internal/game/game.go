@@ -2,6 +2,8 @@
 package game
 
 import (
+	"errors"
+	"io/fs"
 	"math"
 	"time"
 
@@ -23,6 +25,10 @@ type Options struct {
 	// Seed is the number a new world is made from. 0 takes one from the clock, so that
 	// every new world is a different one.
 	Seed int64
+
+	// SavePath is the file the world is kept in between runs. It is read when the game
+	// is made, and written by Save. Empty means the world is not kept.
+	SavePath string
 }
 
 // screen is what the game is showing.
@@ -31,15 +37,20 @@ type screen uint8
 const (
 	onTitle screen = iota // the name of the game and a menu, over a view of the world
 	playing
-	paused // the world standing still under a menu
+	paused     // the world standing still under a menu
+	confirming // the title, asking whether a new world may take the place of the saved one
 )
 
 // The lines of the menus. What a line does is decided by its text, so the order of a
 // menu can change without anything else changing.
 const (
-	itemNew    = "New world"
-	itemResume = "Resume"
-	itemQuit   = "Quit"
+	itemContinue = "Continue"
+	itemNew      = "New world"
+	itemQuit     = "Quit"
+	itemKeep     = "No, keep it"
+	itemReplace  = "Yes, start a new one"
+	itemResume   = "Resume"
+	itemSave     = "Save and quit"
 )
 
 // Game is the whole game. It implements engine.Game.
@@ -53,8 +64,10 @@ type Game struct {
 	spin   float64 // how far the view behind the title has turned
 	fps    float64
 
-	world  *world.World
-	player Player
+	world   *world.World
+	player  Player
+	saved   bool // the world is the one in the save file
+	started bool // play has begun, so there is something worth saving
 
 	selected int       // the slot of the hotbar in use
 	target   world.Hit // the block the player aims at, if aimed is set
@@ -68,9 +81,49 @@ func New(opts Options) (*Game, error) {
 		return nil, err
 	}
 	g := &Game{opts: opts, set: set, rend: render.New(set), fps: 30}
-	g.newWorld()
+	if err := g.load(); err != nil {
+		return nil, err
+	}
 	g.show(onTitle)
 	return g, nil
+}
+
+// load takes the world from the save file if there is one, and makes a new world if
+// there is not. A save file that is there and cannot be used is an error: carrying on
+// would write a new world over it when the game ends.
+func (g *Game) load() error {
+	if g.opts.SavePath != "" {
+		s, err := world.Read(g.opts.SavePath)
+		switch {
+		case err == nil:
+			g.world = s.World
+			g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
+			g.selected = min(max(s.Slot, 0), len(hotbar)-1)
+			g.saved = true
+			return nil
+		case !errors.Is(err, fs.ErrNotExist):
+			return err
+		}
+	}
+	g.newWorld()
+	return nil
+}
+
+// Save writes the world and the player to the save file. It does nothing if the game
+// has no save file, or if play never began: a world nobody has stood in is not worth
+// keeping, and must not take the place of one that is.
+func (g *Game) Save() error {
+	if g.opts.SavePath == "" || !g.started {
+		return nil
+	}
+	return world.Write(g.opts.SavePath, world.Save{
+		World:  g.world,
+		Pos:    g.player.Pos,
+		Yaw:    g.player.Yaw,
+		Pitch:  g.player.Pitch,
+		Flying: g.player.Flying,
+		Slot:   g.selected,
+	})
 }
 
 // newWorld makes a world and stands the player in it.
@@ -81,7 +134,7 @@ func (g *Game) newWorld() {
 	}
 	g.world = world.Generate(seed)
 	g.player = Player{Pos: g.world.Spawn()}
-	g.selected, g.aimed = 0, false
+	g.selected, g.aimed, g.saved = 0, false, false
 }
 
 // show changes what the game is showing, and gives the menu the lines of that screen.
@@ -91,8 +144,15 @@ func (g *Game) show(s screen) {
 	switch s {
 	case onTitle:
 		g.menu.Items = []string{itemNew, itemQuit}
+		if g.saved {
+			g.menu.Items = []string{itemContinue, itemNew, itemQuit}
+		}
+	case confirming:
+		g.menu.Items = []string{itemKeep, itemReplace}
 	case paused:
-		g.menu.Items = []string{itemResume, itemQuit}
+		g.menu.Items = []string{itemResume, itemSave}
+	case playing:
+		g.started = true
 	}
 }
 
@@ -117,15 +177,19 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		return nil
 	}
 
-	// A menu: the title's, or the pause menu's.
-	if g.screen == onTitle {
+	// A menu: the title's, its question, or the pause menu's.
+	if g.screen != paused {
 		g.spin += 0.12 * dt
 	}
 	if in.Pressed(engine.KeyEscape) {
-		if g.screen == onTitle {
+		switch g.screen {
+		case onTitle:
 			return engine.ErrQuit
+		case confirming:
+			g.show(onTitle)
+		case paused:
+			g.show(playing)
 		}
-		g.show(playing)
 		return nil
 	}
 	choice, chosen := g.menu.Update(in)
@@ -133,9 +197,22 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		return nil
 	}
 	switch g.menu.Items[choice] {
-	case itemNew, itemResume:
+	case itemContinue, itemResume:
 		g.show(playing)
-	case itemQuit:
+	case itemNew:
+		if g.saved {
+			g.show(confirming) // a new world would take the place of the saved one
+		} else {
+			g.show(playing)
+		}
+	case itemKeep:
+		g.show(onTitle)
+	case itemReplace:
+		g.newWorld()
+		g.show(playing)
+	case itemQuit, itemSave:
+		// The world is saved by whoever runs the game, once Run has returned: that
+		// covers Ctrl-C and a closing window as well as this menu.
 		return engine.ErrQuit
 	}
 	return nil
@@ -144,7 +221,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 // Draw renders the game into fb.
 func (g *Game) Draw(fb *engine.FrameBuffer) {
 	c := fb.Canvas()
-	if g.screen == onTitle {
+	if g.screen == onTitle || g.screen == confirming {
 		// The world from a little above where the player will stand, turning slowly.
 		cam := g.player.Camera()
 		cam.Position.Y += 4

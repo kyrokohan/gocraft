@@ -105,7 +105,7 @@ func TestEscapePausesAndTheWorldStandsStill(t *testing.T) {
 		t.Errorf("screen %d, player moved %v: wanted a pause with nothing changed", g.screen, g.player != before)
 	}
 	text, _ := drawn(t, g)
-	for _, want := range []string{"paused", itemResume, itemQuit, "W A S D", "break"} {
+	for _, want := range []string{"paused", itemResume, itemSave, "W A S D", "break"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the pause menu does not show %q:\n%s", want, text)
 		}
@@ -120,7 +120,7 @@ func TestThePauseMenuResumesAndQuits(t *testing.T) {
 	}{
 		{"Escape resumes", []engine.Key{engine.KeyEscape}, false},
 		{"Resume resumes", []engine.Key{engine.KeyEnter}, false},
-		{"Quit quits", []engine.Key{engine.KeyDown, engine.KeyEnter}, true},
+		{"Save and quit quits", []engine.Key{engine.KeyDown, engine.KeyEnter}, true},
 	} {
 		g := onFloor(t)
 		press(g, engine.KeyEscape)
@@ -184,7 +184,7 @@ func TestTheHotbarShowsAPictureOfEachBlock(t *testing.T) {
 // Every screen draws on a frame of any size, down to nothing, without failing.
 func TestEveryScreenDrawsAtAnySize(t *testing.T) {
 	for _, size := range [][2]int{{1, 1}, {3, 2}, {10, 4}, {30, 9}, {80, 24}, {250, 70}} {
-		for _, s := range []screen{onTitle, playing, paused} {
+		for _, s := range []screen{onTitle, confirming, playing, paused} {
 			g := onFloor(t)
 			g.show(s)
 			fb, err := engine.NewFrameBuffer(size[0], size[1])
