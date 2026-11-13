@@ -22,6 +22,10 @@ type Game struct {
 	rend   *render.Renderer
 	world  *world.World
 	player Player
+
+	selected int       // the slot of the hotbar in use
+	target   world.Hit // the block the player aims at, if aimed is set
+	aimed    bool
 }
 
 // New returns a game in the world a seed makes, ready for engine.Run.
@@ -45,12 +49,17 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		return engine.ErrQuit
 	}
 	g.player.Step(g.world, readControls(in), dt)
+	g.build(in)
 	return nil
 }
 
 // Draw renders the game into fb.
 func (g *Game) Draw(fb *engine.FrameBuffer) {
 	c := fb.Canvas()
-	g.rend.Draw(c, g.world, g.player.Camera())
+	var aim *world.Hit
+	if g.aimed {
+		aim = &g.target
+	}
+	g.rend.Draw(c, g.world, g.player.Camera(), aim)
 	c.Compose()
 }

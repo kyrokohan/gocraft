@@ -121,6 +121,18 @@ func (p *Player) box() (lo, hi [3]float64) {
 		[3]float64{p.Pos.X + half, p.Pos.Y + playerHeight, p.Pos.Z + half}
 }
 
+// overlaps reports whether the player's box is in any part of a cell.
+func (p *Player) overlaps(x, y, z int) bool {
+	lo, hi := p.box()
+	cell := [3]float64{float64(x), float64(y), float64(z)}
+	for a := range 3 {
+		if hi[a] <= cell[a] || lo[a] >= cell[a]+1 {
+			return false
+		}
+	}
+	return true
+}
+
 // swimming reports whether the player's feet are in water.
 func (p *Player) swimming(w *world.World) bool {
 	return w.At(int(math.Floor(p.Pos.X)), int(math.Floor(p.Pos.Y+0.1)), int(math.Floor(p.Pos.Z))) == world.Water

@@ -39,6 +39,7 @@ var (
 	skyZenith  = color{70, 130, 220}
 	sunColor   = color{255, 244, 200}
 	deepWater  = color{24, 60, 130}
+	outline    = color{255, 214, 64} // round the block the player aims at
 )
 
 // sunDirection is where the sun stands, one long.
@@ -116,6 +117,31 @@ func (v View) Direction(x, y float64) geometry.Vector3 {
 	return v.look.Add(v.right.Scale(sx)).Add(v.up.Scale(sy))
 }
 
+// onOutline reports whether the ray along d, which met a block at (fu, fv) on one of
+// its faces, is on the outline of that face: a band along each edge, one pixel wide and
+// never thinner than a twentieth of the block.
+//
+// A pixel covers more of a face the shallower the angle the face is seen at, a long
+// strip of it in the end, so the width of the band is worked out on the face itself: it
+// is how far across the face the rays through the next pixel over and the next pixel
+// down land. A band that wide always has a pixel in it, so no edge goes missing.
+func (v View) onOutline(hit world.Hit, d geometry.Vector3, fu, fv float64) bool {
+	axis := hit.Face >> 1
+	plane := float64([3]int{hit.X, hit.Y, hit.Z}[axis] + int(hit.Face&1))
+	eye := [3]float64{v.eye.X, v.eye.Y, v.eye.Z}[axis]
+
+	bandU, bandV := 0.05, 0.05
+	for _, next := range [2]geometry.Vector3{d.Add(v.right.Scale(v.kx)), d.Sub(v.up.Scale(v.ky))} {
+		t := (plane - eye) / [3]float64{next.X, next.Y, next.Z}[axis]
+		u, w := onFace(hit, v.eye.Add(next.Scale(t)))
+		// A quarter over, as the rays spread and the next pixel is not quite as far
+		// along the face everywhere.
+		bandU, bandV = max(bandU, 1.25*math.Abs(u-fu)), max(bandV, 1.25*math.Abs(w-fv))
+	}
+	bandU, bandV = min(bandU, 0.5), min(bandV, 0.5)
+	return fu < bandU || fu > 1-bandU || fv < bandV || fv > 1-bandV
+}
+
 // Renderer draws worlds. Make one with New and keep it.
 type Renderer struct {
 	tiles    *[tile.Count]assets.Texture
@@ -136,20 +162,23 @@ func New(set *assets.Set) *Renderer {
 	return r
 }
 
-// texel returns the pixel of a block's tile where a ray met it at the point p, from the
-// tile's copy at the given level, 0 for a hole.
-func (r *Renderer) texel(hit world.Hit, p geometry.Vector3, level int) uint32 {
+// onFace returns where on the face of a block a ray met it at the point p: u across
+// and v down, each from 0 to 1, as a tile is laid on the face.
+func onFace(hit world.Hit, p geometry.Vector3) (u, v float64) {
 	fx, fy, fz := p.X-float64(hit.X), p.Y-float64(hit.Y), p.Z-float64(hit.Z)
-	var u, v float64
 	switch hit.Face >> 1 {
 	case 0:
-		u, v = fz, 1-fy
+		return fz, 1 - fy
 	case 1:
-		u, v = fx, fz
-	default:
-		u, v = fx, 1-fy
+		return fx, fz
 	}
-	// The point is on the face only to within rounding, so it can be a hair outside.
+	return fx, 1 - fy
+}
+
+// texel returns the pixel of a block's tile at a place on one of its faces, from the
+// tile's copy at the given level, 0 for a hole.
+func (r *Renderer) texel(hit world.Hit, u, v float64, level int) uint32 {
+	// The place is on the face only to within rounding, so it can be a hair outside.
 	side := assets.Side(level)
 	ui := min(max(int(u*float64(side)), 0), side-1)
 	vi := min(max(int(v*float64(side)), 0), side-1)
@@ -172,7 +201,12 @@ func sky(climb, toSun float64) color {
 
 // Draw draws the world as the camera sees it into every pixel of the canvas. Blocks are
 // written with their depth and the sky without one, so that it is behind everything.
-func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
+//
+// aim, if it is not nil, is a block to mark: the edges of its faces are drawn as an
+// outline. The rays draw it themselves. A wireframe drawn by glonk with a depth lies on
+// the very faces it outlines, and comes out in dashes wherever a face is seen at a
+// shallow angle.
+func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *world.Hit) {
 	v, ok := NewView(cam, c.Width(), c.Height())
 	if !ok {
 		return
@@ -207,7 +241,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 			ray := world.NewRay(eye, d)
 			var solid, surface world.Hit
 			var pixel uint32
-			found, wet := false, false
+			found, wet, outlined := false, false, false
 			for {
 				hit, ok := w.Next(&ray, reach)
 				if !ok {
@@ -222,11 +256,16 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 					continue
 				}
 				dist := hit.T / unit
+				fu, fv := onFace(hit, eye.Add(d.Scale(hit.T)))
+				if aim != nil && hit.X == aim.X && hit.Y == aim.Y && hit.Z == aim.Z && v.onOutline(hit, d, fu, fv) {
+					solid, found, outlined = hit, true, true
+					break
+				}
 				level := 0
 				for level < len(farther) && dist > farther[level] {
 					level++
 				}
-				if pixel = r.texel(hit, eye.Add(d.Scale(hit.T)), level); pixel>>24 != 0 {
+				if pixel = r.texel(hit, fu, fv, level); pixel>>24 != 0 {
 					solid, found = hit, true
 					break
 				}
@@ -241,7 +280,10 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 			}
 
 			col, depth := above, solid.T
-			if found {
+			switch {
+			case outlined:
+				col = outline
+			case found:
 				col = unpack(pixel).lit(faceLight[solid.Face])
 			}
 			if wet {
@@ -251,7 +293,8 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 				if found {
 					through = (solid.T - surface.T) / unit
 				}
-				ripple := unpack(r.texel(surface, eye.Add(d.Scale(surface.T)), 0)).lit(faceLight[surface.Face])
+				su, sv := onFace(surface, eye.Add(d.Scale(surface.T)))
+				ripple := unpack(r.texel(surface, su, sv, 0)).lit(faceLight[surface.Face])
 				col = col.mix(ripple, part(0.45+0.12*through)*230>>8)
 				depth = surface.T
 			}
