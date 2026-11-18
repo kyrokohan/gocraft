@@ -6,9 +6,6 @@ import (
 
 	"glonk.dev/engine"
 	"glonk.dev/widget"
-
-	"github.com/kyrokohan/gocraft/internal/assets"
-	"github.com/kyrokohan/gocraft/internal/tile"
 )
 
 // The look of everything drawn over the world: light text and frames on a dark ground,
@@ -49,34 +46,10 @@ func barOrigin(fb *engine.FrameBuffer) (x, y int) {
 	return (fb.Width() - barWidth) / 2, fb.Height() - barHeight
 }
 
-// drawHotbarIcons draws the picture of each hotbar block into the pixels of its slot.
-// It comes before Canvas.Compose; the frame round the slots is cells, and comes after.
-func (g *Game) drawHotbarIcons(fb *engine.FrameBuffer, c *engine.Canvas) {
-	x0, y0 := barOrigin(fb)
-	for i, b := range hotbar {
-		x, y := x0+1+i*slotPitch, 2*(y0+1)
-		c.FillRect(x-1, y, slotPitch+1, slotSize, hudGround) // also under the lines between slots
-		drawIcon(c, &g.set.Tiles[b.Info().Top], x, y, slotSize)
-	}
-}
-
-// drawIcon draws a tile size pixels across with its top left pixel at (x, y), leaving
-// its holes alone.
-func drawIcon(c *engine.Canvas, tex *assets.Texture, x, y, size int) {
-	for j := range size {
-		for i := range size {
-			// The pixel of the tile under the middle of this one.
-			p := tex[0][((2*j+1)*tile.Size/(2*size))*tile.Size+(2*i+1)*tile.Size/(2*size)]
-			if p>>24 != 0 {
-				c.Set(x+i, y+j, engine.RGB(uint8(p>>16), uint8(p>>8), uint8(p)))
-			}
-		}
-	}
-}
-
 // drawHUD draws what lies over the world while playing: the crosshair, a line of
-// numbers, and the frame of the hotbar with the name of the block in use.
-func (g *Game) drawHUD(fb *engine.FrameBuffer) {
+// numbers, and the hotbar with the name of the block in use. It comes after
+// Canvas.Compose, so the world is in the frame already.
+func (g *Game) drawHUD(fb *engine.FrameBuffer, c *engine.Canvas) {
 	// The crosshair keeps the color of the world under it as its background.
 	cx, cy := fb.Width()/2, fb.Height()/2
 	cross := fb.At(cx, cy)
@@ -93,7 +66,7 @@ func (g *Game) drawHUD(fb *engine.FrameBuffer) {
 	widget.Label{Text: status, Style: hudText}.Draw(fb, 0, 0, fb.Width())
 
 	x0, y0 := barOrigin(fb)
-	widget.Panel{Style: hudFrame}.Draw(fb, x0, y0, barWidth, barHeight)
+	widget.Panel{Style: hudFrame, Fill: hudFill}.Draw(fb, x0, y0, barWidth, barHeight)
 	for i := range hotbar {
 		x := x0 + i*slotPitch
 		if i > 0 {
@@ -116,6 +89,14 @@ func (g *Game) drawHUD(fb *engine.FrameBuffer) {
 	fb.Set(x+slotPitch/2, y0, number)
 	name := " " + hotbar[g.selected].Info().Name + " "
 	widget.Label{Text: name, Align: widget.Center, Style: hudText}.Draw(fb, x0, y0-1, barWidth)
+
+	// The pictures are pixels put down over the cells of the panel. The world's
+	// pixels under the bar are rubbed out first, or they would be put down with them.
+	c.FillRect(x0, 2*y0, barWidth, 2*barHeight, engine.Color{})
+	for i, b := range hotbar {
+		g.set.Icons[b.Info().Top].DrawScaled(c, x0+1+i*slotPitch, 2*(y0+1), slotSize, slotSize)
+	}
+	c.ComposeRect(x0, 2*y0, barWidth, 2*barHeight)
 }
 
 // drawMenu draws the menu in a panel w cells wide with its top left corner at (x, y),

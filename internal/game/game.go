@@ -248,9 +248,8 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		}
 		g.box.DrawOnSurfacePixels(c, cam, hudPick.Foreground)
 	}
-	g.drawHotbarIcons(fb, c)
 	c.Compose()
-	g.drawHUD(fb)
+	g.drawHUD(fb, c)
 	if g.screen == paused {
 		g.drawPause(fb)
 	}

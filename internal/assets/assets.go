@@ -31,8 +31,12 @@ func Side(level int) int {
 
 // Set is every picture the game uses.
 type Set struct {
-	// Tiles are the block textures, indexed by tile.ID.
+	// Tiles are the block textures, indexed by tile.ID, as the renderer reads them.
 	Tiles [tile.Count]Texture
+
+	// Icons are the same tiles as pictures glonk can draw, for the hotbar: each is a
+	// view of its part of the strip.
+	Icons [tile.Count]*bitmap.Bitmap
 
 	// Title is the name of the game, for the title screen.
 	Title *bitmap.Bitmap
@@ -61,6 +65,7 @@ func Load() (*Set, error) {
 			}
 		}
 		set.Tiles[id][0] = full
+		set.Icons[id] = strip.Sub(id*tile.Size, 0, tile.Size, tile.Size)
 		for level := 1; level < Levels; level++ {
 			set.Tiles[id][level] = halve(set.Tiles[id][level-1], Side(level-1))
 		}

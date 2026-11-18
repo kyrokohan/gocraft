@@ -73,3 +73,27 @@ func TestHalveAveragesColorsAndIgnoresHoles(t *testing.T) {
 		}
 	}
 }
+
+func TestEveryTileHasAnIconOfItsOwnPixels(t *testing.T) {
+	set, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for id, icon := range set.Icons {
+		if icon.Width() != tile.Size || icon.Height() != tile.Size {
+			t.Fatalf("icon %d is %d by %d, wanted %d by %d", id, icon.Width(), icon.Height(), tile.Size, tile.Size)
+		}
+		for _, at := range [][2]int{{0, 0}, {5, 9}, {15, 15}} {
+			want := set.Tiles[id][0][at[1]*tile.Size+at[0]]
+			got := icon.At(at[0], at[1])
+			if hole := want>>24 == 0; hole != got.IsDefault() {
+				t.Errorf("icon %d pixel %v: hole %v in the tile, %v in the icon", id, at, hole, got.IsDefault())
+				continue
+			}
+			if r, g, b := got.RGB(); want>>24 != 0 && (uint32(r) != want>>16&0xFF || uint32(g) != want>>8&0xFF || uint32(b) != want&0xFF) {
+				t.Errorf("icon %d pixel %v is %v, the tile has %06X", id, at, got, want&0xFFFFFF)
+			}
+		}
+	}
+}
