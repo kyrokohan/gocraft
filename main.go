@@ -13,6 +13,7 @@ import (
 	"glonk.dev/engine"
 
 	"github.com/kyrokohan/gocraft/internal/game"
+	"github.com/kyrokohan/gocraft/internal/sound"
 )
 
 func main() {
@@ -28,6 +29,7 @@ func run() error {
 	worldsPath := flag.String("worlds", "", "the folder of the worlds the title lists (default: gocraft/worlds in your config folder)")
 	mouse := flag.Bool("mouse", true, "aim, break and place with the mouse; false leaves the pointer to the terminal, to select text")
 	shot := flag.String("shot", "", "draw one frame of play into this PNG file and quit; nothing is loaded or saved")
+	mute := flag.Bool("mute", false, "play with no sound, and leave the sound device alone")
 	flag.Parse()
 
 	if *shot != "" {
@@ -61,6 +63,14 @@ func run() error {
 	g, err := game.New(opts)
 	if err != nil {
 		return err
+	}
+	if !*mute {
+		// A machine with no sound device is played on in silence; the title says why.
+		if speaker, err := sound.Open(g.Mixer()); err != nil {
+			g.NoSound(err)
+		} else {
+			defer speaker.Close()
+		}
 	}
 
 	// Run returns when the player quits, and also on Ctrl-C, kill and a closing window,
