@@ -111,6 +111,31 @@ var painters = [tile.Count]painter{
 
 	tile.Berries: berries,
 	tile.Cracks:  cracks,
+
+	tile.WorkbenchTop:  workbenchTop,
+	tile.WorkbenchSide: workbenchSide,
+	tile.KilnTop:       kilnTop,
+	tile.KilnSide:      kilnSide,
+
+	tile.Stick:        stick,
+	tile.Coal:         coal,
+	tile.CopperBar:    bar(rgb{214, 128, 74}),
+	tile.IronBar:      bar(rgb{206, 208, 214}),
+	tile.CrystalShard: shard,
+	tile.Fruit:        fruit,
+	tile.BerryLoaf:    berryLoaf,
+	tile.WoodPick:     tool(toolPick, woodHead),
+	tile.WoodAxe:      tool(toolAxe, woodHead),
+	tile.WoodShovel:   tool(toolShovel, woodHead),
+	tile.StonePick:    tool(toolPick, stoneHead),
+	tile.StoneAxe:     tool(toolAxe, stoneHead),
+	tile.StoneShovel:  tool(toolShovel, stoneHead),
+	tile.CopperPick:   tool(toolPick, copperHead),
+	tile.CopperAxe:    tool(toolAxe, copperHead),
+	tile.CopperShovel: tool(toolShovel, copperHead),
+	tile.IronPick:     tool(toolPick, ironHead),
+	tile.IronAxe:      tool(toolAxe, ironHead),
+	tile.IronShovel:   tool(toolShovel, ironHead),
 }
 
 func grassTop(x, y int) (rgb, bool) {
@@ -629,6 +654,192 @@ func cracks(x, y int) (rgb, bool) {
 	// The red says how far a block must be broken for the pixel to show: the middle
 	// first, the ends last. The renderer draws it dark whatever its color.
 	return rgb{float64(crackSteps[y][x]) * 255 / 14, 0, 0}, true
+}
+
+func workbenchTop(x, y int) (rgb, bool) {
+	// Boards with a frame round them, and a mallet left lying on them.
+	switch {
+	case x == 0 || y == 0 || x == size-1 || y == size-1:
+		return grain(rgb{96, 68, 40}, 0.06, x, y, 109), true
+	case x >= 8 && x <= 12 && y >= 3 && y <= 5:
+		return grain(rgb{150, 106, 62}, 0.06, x, y, 110), true // the mallet's head
+	case x+y == 14 && x >= 3 && x < 9, x+y == 15 && x >= 4 && x < 9:
+		return rgb{92, 62, 36}, true // its handle
+	}
+	return planks(x, y)
+}
+
+func workbenchSide(x, y int) (rgb, bool) {
+	// The top board, and under it the legs, with the shadow between them.
+	switch {
+	case y < 4:
+		return planks(x, y)
+	case y == 4:
+		return grain(rgb{96, 68, 40}, 0.06, x, y, 111), true
+	case x <= 2 || x >= size-3:
+		return grain(rgb{140, 106, 64}, 0.08, x/2, y, 112), true
+	case y == 9:
+		return grain(rgb{120, 88, 52}, 0.06, x, y, 113), true // a rail between the legs
+	}
+	return grain(rgb{58, 42, 28}, 0.1, x, y, 114), true
+}
+
+func kilnTop(x, y int) (rgb, bool) {
+	// Cobble round a flue, warm at the bottom.
+	dx, dy := float64(x)-7.5, float64(y)-7.5
+	switch d := dx*dx + dy*dy; {
+	case d < 4:
+		return rgb{140, 62, 30}, true
+	case d < 10:
+		return grain(rgb{40, 36, 36}, 0.1, x, y, 115), true
+	}
+	return cobble(x, y)
+}
+
+func kilnSide(x, y int) (rgb, bool) {
+	// Cobble with an arched mouth and the embers in it.
+	dx, dy := float64(x)-7.5, float64(y)-9
+	inside := math.Abs(dx) < 4 && y >= 9 || dx*dx+dy*dy < 16
+	switch {
+	case inside && y >= 13:
+		return grain(rgb{236, 130, 46}, 0.2, x, y, 116), true
+	case inside && y >= 12:
+		return grain(rgb{170, 70, 30}, 0.2, x, y, 117), true
+	case inside:
+		return grain(rgb{34, 28, 28}, 0.1, x, y, 118), true
+	}
+	return cobble(x, y)
+}
+
+// The things that are not blocks are drawn on holes, as they would lie in a hand.
+
+func stick(x, y int) (rgb, bool) {
+	switch {
+	case x+y == 15 && x >= 3 && x <= 12:
+		return grain(rgb{150, 110, 66}, 0.08, x, y, 119), true
+	case x+y == 16 && x >= 4 && x <= 12:
+		return grain(rgb{104, 74, 44}, 0.08, x, y, 120), true
+	}
+	return rgb{}, false
+}
+
+func coal(x, y int) (rgb, bool) {
+	dx, dy := float64(x)-7.5, float64(y)-8.5
+	if dx*dx/30+dy*dy/20 > 1 || blotch(x, y, 4, 121) < 0.25 && dx*dx+dy*dy > 12 {
+		return rgb{}, false
+	}
+	if hash(x, y, 122) < 0.12 {
+		return rgb{120, 120, 132}, true // where it catches the light
+	}
+	return grain(rgb{36, 36, 42}, 0.2, x, y, 123), true
+}
+
+// bar returns the painter of a bar of metal of a color, seen from above at a slant.
+func bar(metal rgb) painter {
+	return func(x, y int) (rgb, bool) {
+		switch {
+		case y >= 5 && y <= 7 && x >= 4+(7-y) && x <= 11+(7-y):
+			return grain(metal.scale(1.15), 0.04, x, y, 124), true // the top
+		case y >= 8 && y <= 11 && x >= 2 && x <= 13:
+			return grain(metal.scale(0.85), 0.04, x, y, 125), true // the side
+		case y >= 8 && y <= 11 && x == 14 && y <= 10:
+			return metal.scale(0.6), true
+		}
+		return rgb{}, false
+	}
+}
+
+func shard(x, y int) (rgb, bool) {
+	dx, dy := math.Abs(float64(x)-7.5), math.Abs(float64(y)-7.5)
+	if dx/3.2+dy/7 > 1 {
+		return rgb{}, false
+	}
+	if float64(x) < 7.5 && dx/3.2+dy/7 > 0.55 {
+		return rgb{224, 252, 252}, true
+	}
+	return grain(rgb{120, 220, 230}, 0.08, x, y, 126), true
+}
+
+func fruit(x, y int) (rgb, bool) {
+	// A round fruit with a stem and a leaf.
+	switch {
+	case x == 8 && y >= 2 && y <= 4:
+		return rgb{96, 66, 38}, true
+	case y >= 2 && y <= 3 && x >= 9 && x <= 11:
+		return grain(rgb{78, 148, 62}, 0.1, x, y, 127), true
+	}
+	dx, dy := float64(x)-7.5, float64(y)-9.5
+	switch d := dx*dx + dy*dy; {
+	case d < 2.5 && dx < -1 && dy < -1:
+		return rgb{254, 226, 150}, true
+	case d < 30:
+		return grain(rgb{232, 150, 52}.scale(1-0.02*max(dx+dy, 0)), 0.05, x, y, 128), true
+	}
+	return rgb{}, false
+}
+
+func berryLoaf(x, y int) (rgb, bool) {
+	dx, dy := float64(x)-7.5, float64(y)-9
+	if dx*dx/49+dy*dy/20 > 1 {
+		return rgb{}, false
+	}
+	switch {
+	case hash(x, y, 129) < 0.12 && dy < 2:
+		return rgb{176, 40, 76}, true // a berry baked in
+	case dy < -1.5:
+		return grain(rgb{200, 144, 80}, 0.06, x, y, 130), true // the crust on top
+	}
+	return grain(rgb{164, 104, 56}, 0.06, x, y, 131), true
+}
+
+// The kinds of tool, and the colors of their heads by what they are made of.
+const (
+	toolPick = iota
+	toolAxe
+	toolShovel
+)
+
+var (
+	woodHead   = rgb{172, 132, 80}
+	stoneHead  = rgb{136, 136, 144}
+	copperHead = rgb{214, 128, 74}
+	ironHead   = rgb{216, 218, 226}
+)
+
+// tool returns the painter of a tool: a handle from the bottom left to the top right,
+// with a head of its kind at the top.
+func tool(kind int, head rgb) painter {
+	return func(x, y int) (rgb, bool) {
+		// a runs along the handle, up to the right, and p across it, down to the right.
+		fx, fy := float64(x)+0.5, float64(y)+0.5
+		a, p := fx-fy, fx+fy-16
+		on := false
+		switch kind {
+		case toolPick:
+			// A head across the top of the handle, its two points bent back.
+			on = math.Abs(p) < 7.5 && math.Abs(a-(8-0.07*p*p)) < 1.4-0.12*math.Abs(p)
+		case toolAxe:
+			// A blade out to one side of the top of the handle, its edge curved.
+			on = p > 0.5 && a > 6.5-0.6*p && a < 8.5+0.25*p && p < 6.5-0.08*(a-6)*(a-6)
+		case toolShovel:
+			// A rounded blade on the end of the handle.
+			w := 2.8
+			if a > 10 {
+				w *= math.Sqrt(max(1-(a-10)*(a-10)/5, 0))
+			}
+			on = a > 5.5 && a < 12.3 && math.Abs(p) < w
+		}
+		if on {
+			return grain(head.scale(1.05-0.03*(fx-fy)/4), 0.06, x, y, 132+kind), true
+		}
+		switch {
+		case x+y == 15 && x >= 2 && x <= 11:
+			return grain(rgb{150, 110, 66}, 0.08, x, y, 119), true
+		case x+y == 16 && x >= 3 && x <= 11:
+			return grain(rgb{104, 74, 44}, 0.08, x, y, 120), true
+		}
+		return rgb{}, false
+	}
 }
 
 // drawBlocks draws the strip: every tile side by side, in the order of package tile.

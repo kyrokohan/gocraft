@@ -51,6 +51,10 @@ const (
 	DryBush
 	Mushroom
 	Torch
+	WorkbenchTop
+	WorkbenchSide
+	KilnTop
+	KilnSide
 
 	// Pictures that are on no block.
 
@@ -58,6 +62,25 @@ const (
 	// Cracks is laid over a block as it is broken. How red a pixel of it is says how far
 	// the breaking must have gone for that pixel to show.
 	Cracks
+	Stick
+	Coal
+	CopperBar
+	IronBar
+	CrystalShard
+	Fruit
+	BerryLoaf
+	WoodPick
+	WoodAxe
+	WoodShovel
+	StonePick
+	StoneAxe
+	StoneShovel
+	CopperPick
+	CopperAxe
+	CopperShovel
+	IronPick
+	IronAxe
+	IronShovel
 
 	// Count is the number of tiles in the strip.
 	Count
