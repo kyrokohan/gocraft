@@ -82,7 +82,7 @@ func rayBox(origin, dir, pos geometry.Vector3, width, height float64) (float64, 
 
 // strike hits the creature aimed at with what is in hand, which wears a tool.
 func (g *Game) strike(p prey) {
-	g.hitWait = hitWait
+	g.hitWait, g.swing = hitWait, swingTime
 	from := g.player.Pos
 	if p.gloam {
 		g.gloams[p.i].hit(from, g.items[g.selected].Item.Damage())

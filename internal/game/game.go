@@ -141,6 +141,8 @@ type Game struct {
 	scatter *rand.Rand
 	pieces  []render.Bit
 
+	swing float64 // seconds left of a swing of the hand
+
 	// The player's body, in survival.
 	health, food, air float64
 	hunger, mend      float64 // seconds since food last went down, and since the body last mended
@@ -437,6 +439,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		g.herd.step(g.world, g.player.Pos, dt)
 		g.worldSounds(dt)
 		g.flash = max(g.flash-dt, 0)
+		g.swing = max(g.swing-dt, 0)
 		if g.survival {
 			if g.live(dt); g.screen != playing {
 				return nil // the player fainted
@@ -687,6 +690,9 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 			X: float64(g.target.X) + 0.5, Y: float64(g.target.Y) + 0.5, Z: float64(g.target.Z) + 0.5,
 		}
 		g.box.DrawOnSurfacePixels(c, cam, hudPick.Foreground)
+	}
+	if g.screen != inBag {
+		g.look.DrawHand(c, g.inHand()) // last, over everything in the world
 	}
 	if g.flash > 0 {
 		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(200, 20, 20), 0.4*g.flash/hurtFlash)

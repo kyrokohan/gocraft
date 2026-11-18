@@ -109,6 +109,7 @@ func (g *Game) eat() bool {
 	}
 	g.food = min(g.food+float64(s.Item.Food()), maxFood)
 	g.ears.PlayNear(sound.Eat, 0.8)
+	g.swing = swingTime
 	g.items.takeOne(g.selected)
 	return true
 }

@@ -32,12 +32,13 @@ type Lying struct {
 type Drops struct {
 	strip  *assets.Set
 	cubes  map[world.Item]*mesh.Mesh // a cube for each item, made the first time it is drawn
+	plates map[world.Item]*mesh.Mesh // and a plate, for an item held that is not a block
 	lights [2]mesh.Light
 }
 
 // NewDrops returns a drawer of things on the ground with the tiles of set.
 func NewDrops(set *assets.Set) *Drops {
-	return &Drops{strip: set, cubes: map[world.Item]*mesh.Mesh{}}
+	return &Drops{strip: set, cubes: map[world.Item]*mesh.Mesh{}, plates: map[world.Item]*mesh.Mesh{}}
 }
 
 // cube returns the cube of an item, one block across, with its bottom in the middle of

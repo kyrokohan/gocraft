@@ -114,6 +114,7 @@ func (g *Game) digSound(before, now float64) {
 	if before == 0 || int(before/digStroke) != int(now/digStroke) {
 		t := g.target
 		g.ears.Play(sound.Dig(materialOf(t.Block)), cellMid(t.X, t.Y, t.Z), 0.7)
+		g.swing = swingTime // a stroke of the hand
 	}
 }
 
