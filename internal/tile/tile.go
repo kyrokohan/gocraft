@@ -25,6 +25,32 @@ const (
 	Snow
 	Deepstone
 
+	Gravel
+	Clay
+	SandstoneTop
+	SandstoneSide
+	Cobble
+	CoalOre
+	CopperOre
+	IronOre
+	CrystalOre
+	PineLogSide
+	PineLogTop
+	PineNeedles
+	PaleLogSide
+	PaleLogTop
+	PaleLeaves
+	CactusSide
+	CactusTop
+	Ice
+	TallGrass
+	RedFlower
+	YellowFlower
+	Bush
+	Reed
+	DryBush
+	Mushroom
+
 	// Count is the number of tiles in the strip.
 	Count
 )

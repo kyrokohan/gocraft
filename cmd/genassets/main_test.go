@@ -6,6 +6,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/kyrokohan/gocraft/internal/tile"
@@ -49,7 +50,7 @@ func TestCommittedPicturesAreCurrent(t *testing.T) {
 	}
 }
 
-func TestOnlyLeavesAndGlassHaveHoles(t *testing.T) {
+func TestOnlyLeavesGlassAndPlantsHaveHoles(t *testing.T) {
 	for id, paint := range painters {
 		holes := 0
 		for y := range size {
@@ -59,7 +60,10 @@ func TestOnlyLeavesAndGlassHaveHoles(t *testing.T) {
 				}
 			}
 		}
-		seeThrough := tile.ID(id) == tile.Leaves || tile.ID(id) == tile.Glass
+		seeThrough := slices.Contains([]tile.ID{
+			tile.Leaves, tile.Glass, tile.PineNeedles, tile.PaleLeaves,
+			tile.TallGrass, tile.RedFlower, tile.YellowFlower, tile.Bush, tile.Reed, tile.DryBush, tile.Mushroom,
+		}, tile.ID(id))
 		if seeThrough && holes == 0 {
 			t.Errorf("tile %d should have holes and has none", id)
 		}

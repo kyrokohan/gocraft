@@ -81,6 +81,32 @@ var painters = [tile.Count]painter{
 	tile.Water:     water,
 	tile.Snow:      snow,
 	tile.Deepstone: deepstone,
+
+	tile.Gravel:        gravel,
+	tile.Clay:          clay,
+	tile.SandstoneTop:  sandstoneTop,
+	tile.SandstoneSide: sandstoneSide,
+	tile.Cobble:        cobble,
+	tile.CoalOre:       ore(rgb{44, 44, 50}, 50),
+	tile.CopperOre:     ore(rgb{204, 122, 70}, 51),
+	tile.IronOre:       ore(rgb{206, 172, 142}, 52),
+	tile.CrystalOre:    ore(rgb{140, 228, 236}, 53),
+	tile.PineLogSide:   pineLogSide,
+	tile.PineLogTop:    pineLogTop,
+	tile.PineNeedles:   pineNeedles,
+	tile.PaleLogSide:   paleLogSide,
+	tile.PaleLogTop:    paleLogTop,
+	tile.PaleLeaves:    paleLeaves,
+	tile.CactusSide:    cactusSide,
+	tile.CactusTop:     cactusTop,
+	tile.Ice:           ice,
+	tile.TallGrass:     tallGrass,
+	tile.RedFlower:     flower(rgb{214, 58, 52}, rgb{244, 208, 72}),
+	tile.YellowFlower:  flower(rgb{244, 206, 60}, rgb{226, 132, 44}),
+	tile.Bush:          bush,
+	tile.Reed:          reed,
+	tile.DryBush:       dryBush,
+	tile.Mushroom:      mushroom,
 }
 
 func grassTop(x, y int) (rgb, bool) {
@@ -300,6 +326,225 @@ func drawMossback() *image.NRGBA {
 	return img
 }
 
+func gravel(x, y int) (rgb, bool) {
+	// Pebbles two pixels across, each its own gray, with dark gaps between some.
+	c := rgb{132, 128, 126}.scale(0.72 + 0.5*hash(x/2, y/2, 60))
+	if hash(x, y, 61) < 0.12 {
+		c = c.scale(0.68)
+	}
+	return grain(c, 0.05, x, y, 62), true
+}
+
+func clay(x, y int) (rgb, bool) {
+	c := rgb{150, 158, 170}.scale(0.95 + 0.08*hash(0, y/3, 63)) // laid down in faint bands
+	return grain(c, 0.03, x, y, 64), true
+}
+
+func sandstoneTop(x, y int) (rgb, bool) {
+	return grain(rgb{208, 190, 136}, 0.04, x, y, 65), true
+}
+
+func sandstoneSide(x, y int) (rgb, bool) {
+	c := rgb{208, 190, 136}.scale(0.9 + 0.16*hash(0, y/3, 66)) // beds of sand, one on another
+	if y%6 == 5 {
+		c = c.scale(0.86)
+	}
+	return grain(c, 0.035, x, y, 67), true
+}
+
+func cobble(x, y int) (rgb, bool) {
+	// Stones four across in courses three high, every other course shifted, with
+	// mortar in the joints.
+	row := y / 4
+	shifted := x + row%2*2
+	if y%4 == 3 || shifted%4 == 3 {
+		return grain(rgb{78, 78, 84}, 0.06, x, y, 68), true
+	}
+	c := rgb{136, 136, 142}.scale(0.82 + 0.34*hash(shifted/4, row, 69))
+	return grain(c, 0.05, x, y, 70), true
+}
+
+// ore returns the painter of stone with lumps of something in it.
+func ore(lump rgb, seed int) painter {
+	return func(x, y int) (rgb, bool) {
+		if blotch(x, y, 2, seed) > 0.7 && hash(x, y, seed+100) > 0.15 {
+			return grain(lump, 0.1, x, y, seed+200), true
+		}
+		return stone(x, y)
+	}
+}
+
+func pineLogSide(x, y int) (rgb, bool) {
+	c := rgb{86, 60, 46}.scale(0.78 + 0.44*hash(x, 0, 71)) // bark runs up and down
+	return grain(c, 0.08, x, y, 72), true
+}
+
+func pineLogTop(x, y int) (rgb, bool) {
+	d := max(math.Abs(float64(x)-7.5), math.Abs(float64(y)-7.5))
+	if d > 6.6 {
+		return grain(rgb{78, 54, 42}, 0.08, x, y, 73), true
+	}
+	c := rgb{196, 142, 96}
+	if int(d)%2 == 1 {
+		c = rgb{166, 110, 72}
+	}
+	return grain(c, 0.04, x, y, 74), true
+}
+
+func pineNeedles(x, y int) (rgb, bool) {
+	if hash(x, y, 75) < 0.15 {
+		return rgb{}, false
+	}
+	c := grain(rgb{40, 88, 62}, 0.12, x, y, 76)
+	if (x+2*y)%5 == 0 {
+		c = c.scale(1.3) // needles lie in rows
+	}
+	return c, true
+}
+
+func paleLogSide(x, y int) (rgb, bool) {
+	if hash(x/3, y, 77) < 0.1 && y%3 != 0 {
+		return grain(rgb{62, 58, 54}, 0.1, x, y, 78), true // a dark scar across the bark
+	}
+	return grain(rgb{216, 210, 198}, 0.04, x, y, 79), true
+}
+
+func paleLogTop(x, y int) (rgb, bool) {
+	d := max(math.Abs(float64(x)-7.5), math.Abs(float64(y)-7.5))
+	if d > 6.6 {
+		return grain(rgb{206, 200, 188}, 0.05, x, y, 80), true
+	}
+	c := rgb{226, 206, 160}
+	if int(d)%2 == 1 {
+		c = rgb{204, 180, 132}
+	}
+	return grain(c, 0.04, x, y, 81), true
+}
+
+func paleLeaves(x, y int) (rgb, bool) {
+	if hash(x, y, 82) < 0.22 {
+		return rgb{}, false
+	}
+	c := grain(rgb{134, 170, 74}, 0.12, x, y, 83)
+	if hash(x, y, 84) < 0.12 {
+		c = c.scale(1.2)
+	}
+	return c, true
+}
+
+func cactusSide(x, y int) (rgb, bool) {
+	c := rgb{76, 142, 78}
+	if x%4 == 0 {
+		c = c.scale(0.74) // a furrow between two ribs
+	}
+	if x%4 == 2 && hash(x, y, 85) < 0.22 {
+		return rgb{226, 226, 190}, true // a spine
+	}
+	return grain(c, 0.05, x, y, 86), true
+}
+
+func cactusTop(x, y int) (rgb, bool) {
+	d := max(math.Abs(float64(x)-7.5), math.Abs(float64(y)-7.5))
+	c := rgb{76, 142, 78}.scale(1.25 - 0.05*d)
+	return grain(c, 0.05, x, y, 87), true
+}
+
+func ice(x, y int) (rgb, bool) {
+	c := grain(rgb{168, 208, 240}, 0.03, x, y, 88)
+	if (x+y)%7 == 0 && hash(x/2, y/2, 89) < 0.6 {
+		c = rgb{226, 240, 252} // a crack that catches the light
+	}
+	return c, true
+}
+
+// The plants are drawn as they stand: the bottom row of the tile is the ground. Most of
+// a plant's tile is holes.
+
+func tallGrass(x, y int) (rgb, bool) {
+	height := 5 + int(hash(x, 0, 90)*9) // each column is a blade of its own height
+	if hash(x, 1, 91) < 0.3 || size-1-y >= height {
+		return rgb{}, false
+	}
+	c := rgb{84, 150, 62}.scale(0.8 + 0.5*float64(size-1-y)/float64(size)) // lighter toward the tip
+	return grain(c, 0.08, x, y, 92), true
+}
+
+// flower returns the painter of a flower with petals of one color round a middle of
+// another, on a stem with two leaves.
+func flower(petal, middle rgb) painter {
+	return func(x, y int) (rgb, bool) {
+		dx, dy := x-7, y-5 // the middle of the bloom
+		switch {
+		case dx == 0 && dy == 0, dx == 1 && dy == 0:
+			return middle, true
+		case dx >= -2 && dx <= 3 && dy >= -2 && dy <= 2 && !(abs(2*dx-1) >= 5 && abs(dy) == 2):
+			return grain(petal, 0.08, x, y, 93), true
+		case (x == 7 || x == 8) && y > 7:
+			return rgb{66, 128, 58}, true // the stem
+		case y == 11 && (x == 5 || x == 6), y == 12 && (x == 9 || x == 10):
+			return rgb{84, 150, 62}, true // a leaf
+		}
+		return rgb{}, false
+	}
+}
+
+func abs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
+func bush(x, y int) (rgb, bool) {
+	// A round mound of leaves on the ground, with berries in it.
+	dx, dy := float64(x)-7.5, float64(y)-10
+	if dx*dx/49+dy*dy/30 > 1 || hash(x, y, 94) < 0.1 {
+		return rgb{}, false
+	}
+	if hash(x, y, 95) < 0.06 {
+		return rgb{196, 52, 70}, true // a berry
+	}
+	return grain(rgb{52, 110, 56}, 0.14, x, y, 96), true
+}
+
+func reed(x, y int) (rgb, bool) {
+	// A few stalks of different heights, each with a brown head.
+	for i, stalk := range []int{2, 6, 9, 13} {
+		top := 1 + int(hash(i, 0, 97)*5)
+		if x != stalk || y < top {
+			continue
+		}
+		if y < top+3 {
+			return rgb{122, 86, 52}, true
+		}
+		return grain(rgb{128, 164, 84}, 0.06, x, y, 98), true
+	}
+	return rgb{}, false
+}
+
+func dryBush(x, y int) (rgb, bool) {
+	// Bare twigs that spread as they rise from one foot.
+	spread := (size - 1 - y) / 2
+	dx := abs(x - 7)
+	if y < 5 || dx > spread || (dx != spread && dx != spread/2 && dx != 0) || hash(x, y, 99) < 0.15 {
+		return rgb{}, false
+	}
+	return grain(rgb{132, 100, 66}, 0.1, x, y, 100), true
+}
+
+func mushroom(x, y int) (rgb, bool) {
+	switch {
+	case y >= 12 && (x == 7 || x == 8):
+		return rgb{226, 216, 196}, true // the stem
+	case y >= 8 && y < 12 && abs(2*x-15) <= 9-2*(11-y):
+		if hash(x, y, 101) < 0.18 {
+			return rgb{236, 226, 206}, true // a spot on the cap
+		}
+		return grain(rgb{166, 84, 62}, 0.06, x, y, 102), true
+	}
+	return rgb{}, false
+}
+
 // drawBlocks draws the strip: every tile side by side, in the order of package tile.
 func drawBlocks() *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, size*int(tile.Count), size))
@@ -387,9 +632,21 @@ func enlarge(src *image.NRGBA, k int) *image.NRGBA {
 	return out
 }
 
+// inRows lays the tiles of a strip out in rows of a number of tiles, so that a long
+// strip can be looked at.
+func inRows(strip *image.NRGBA, perRow int) *image.NRGBA {
+	tiles := strip.Bounds().Dx() / size
+	out := image.NewNRGBA(image.Rect(0, 0, perRow*size, (tiles+perRow-1)/perRow*size))
+	for i := range tiles {
+		at := image.Rect(i%perRow*size, i/perRow*size, i%perRow*size+size, i/perRow*size+size)
+		draw.Draw(out, at, strip, image.Pt(i*size, 0), draw.Src)
+	}
+	return out
+}
+
 // drawPreview is every picture, enlarged, one above the other.
 func drawPreview() *image.NRGBA {
-	pictures := []*image.NRGBA{enlarge(drawBlocks(), 6), enlarge(drawTitle(), 6), enlarge(drawMossback(), 12)}
+	pictures := []*image.NRGBA{enlarge(inRows(drawBlocks(), 13), 6), enlarge(drawTitle(), 6), enlarge(drawMossback(), 12)}
 	w, h := 0, 0
 	for _, p := range pictures {
 		w, h = max(w, p.Bounds().Dx()), h+p.Bounds().Dy()+12
