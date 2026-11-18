@@ -25,6 +25,12 @@ const (
 	// spread is how much the pitch of a sound is moved, up or down at random, each time
 	// it plays, so that one played again and again does not sound the same each time.
 	spread = 0.06
+
+	// boost is how much louder the mix is made at the end. The clips leave room above
+	// them, and a sound loses loudness to its distance and to the two ears' share of it,
+	// so without it the game is far quieter than other programs; limit takes what goes
+	// past full.
+	boost = 3.0
 )
 
 // voice is a sound playing.
@@ -186,8 +192,9 @@ func (m *Mixer) Read(p []byte) (int, error) {
 			}
 		}
 
-		binary.LittleEndian.PutUint32(p[8*f:], math.Float32bits(float32(limit(left*m.volume))))
-		binary.LittleEndian.PutUint32(p[8*f+4:], math.Float32bits(float32(limit(right*m.volume))))
+		gain := boost * m.volume
+		binary.LittleEndian.PutUint32(p[8*f:], math.Float32bits(float32(limit(left*gain))))
+		binary.LittleEndian.PutUint32(p[8*f+4:], math.Float32bits(float32(limit(right*gain))))
 	}
 	return frames * 8, nil
 }

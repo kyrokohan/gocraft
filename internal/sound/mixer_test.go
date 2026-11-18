@@ -102,11 +102,11 @@ func nearPower(d float64) float64 {
 
 func TestASoundPlaysOnceThroughAndIsGone(t *testing.T) {
 	m := mixer(noLoops())
-	m.voices = append(m.voices, voice{clip: Pickup, rate: 1, left: 1, right: 1})
+	m.voices = append(m.voices, voice{clip: Pickup, rate: 1, left: 0.4, right: 0.4})
 
 	left, right := read(m, Rate/10+50)
-	if math.Abs(left[10]-0.5) > 1e-6 || math.Abs(right[10]-0.5) > 1e-6 {
-		t.Errorf("while it plays: %.3f, %.3f, wanted 0.5 in each", left[10], right[10])
+	if want := 0.5 * 0.4 * boost; math.Abs(left[10]-want) > 1e-6 || math.Abs(right[10]-want) > 1e-6 {
+		t.Errorf("while it plays: %.3f, %.3f, wanted %.3f in each", left[10], right[10], want)
 	}
 	if left[Rate/10+20] != 0 || len(m.Playing()) != 0 {
 		t.Errorf("after its end: %.3f, and %v still playing", left[Rate/10+20], m.Playing())
@@ -169,10 +169,10 @@ func TestTheLoopsComeUpSlowlyAndGoRound(t *testing.T) {
 func TestVolumeScalesEverything(t *testing.T) {
 	m := mixer(noLoops())
 	m.SetVolume(0.5)
-	m.voices = append(m.voices, voice{clip: Pickup, rate: 1, left: 1, right: 1})
+	m.voices = append(m.voices, voice{clip: Pickup, rate: 1, left: 0.4, right: 0.4})
 	left, _ := read(m, 10)
-	if math.Abs(left[5]-0.25) > 1e-6 {
-		t.Errorf("at half volume a half-level sound is %.3f, wanted 0.25", left[5])
+	if want := 0.5 * 0.4 * boost * 0.5; math.Abs(left[5]-want) > 1e-6 {
+		t.Errorf("at half volume a sound is %.3f, wanted %.3f", left[5], want)
 	}
 	m.SetVolume(0)
 	m.PlayNear(Eat, 1)
