@@ -13,7 +13,6 @@ import (
 	"glonk.dev/engine"
 
 	"github.com/kyrokohan/gocraft/internal/game"
-	"github.com/kyrokohan/gocraft/internal/render"
 )
 
 func main() {
@@ -60,8 +59,8 @@ func run() error {
 }
 
 // writeShot draws one frame of play as a terminal of 240 by 67 cells would show it and
-// saves its pixels, each four across, so the picture can be looked at without one. Text
-// is not in it: it is drawn in cells, not pixels.
+// saves it as a picture, each pixel four across, so the frame can be looked at without
+// one. glonk draws the picture: a letter is a mark in its color where it stands.
 func writeShot(g *game.Game, path string) error {
 	fb, err := engine.NewFrameBuffer(240, 67)
 	if err != nil {
@@ -81,7 +80,7 @@ func writeShot(g *game.Game, path string) error {
 	if err != nil {
 		return err
 	}
-	if err := png.Encode(f, render.Picture(fb.Canvas(), 4)); err != nil {
+	if err := png.Encode(f, fb.Image(engine.ImageOptions{Scale: 4})); err != nil {
 		f.Close()
 		return err
 	}
