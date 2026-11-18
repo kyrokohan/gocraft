@@ -337,13 +337,23 @@ func (w *World) Save(dir string, m Meta) error {
 // is not one, or is of another version, or holds something this game cannot use, gives
 // an error and never a panic.
 func Open(dir string) (*World, Meta, error) {
-	path := filepath.Join(dir, metaName)
-	data, err := os.ReadFile(path)
+	m, err := Peek(dir)
 	if err != nil {
 		return nil, Meta{}, err
 	}
-	bad := func(why string) (*World, Meta, error) {
-		return nil, Meta{}, fmt.Errorf("%s: %w: %s", path, errBadSave, why)
+	return newWorld(m.Seed, Terrain(m.Seed), dir, m.Pos.X, m.Pos.Z), m, nil
+}
+
+// Peek reads what a saved world holds beside its blocks, as Open does, without making
+// the world: to list the worlds there are.
+func Peek(dir string) (Meta, error) {
+	path := filepath.Join(dir, metaName)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Meta{}, err
+	}
+	bad := func(why string) (Meta, error) {
+		return Meta{}, fmt.Errorf("%s: %w: %s", path, errBadSave, why)
 	}
 
 	var m Meta
@@ -353,5 +363,5 @@ func Open(dir string) (*World, Meta, error) {
 	if why := m.check(); why != "" {
 		return bad(why)
 	}
-	return newWorld(m.Seed, Terrain(m.Seed), dir, m.Pos.X, m.Pos.Z), m, nil
+	return m, nil
 }
