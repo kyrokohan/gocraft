@@ -16,4 +16,4 @@ assets:
 	go run ./cmd/genassets
 
 bench:
-	go test -run '^$$' -bench . -benchmem ./internal/render
+	go test -run '^$$' -bench . -benchmem ./internal/render ./internal/game
