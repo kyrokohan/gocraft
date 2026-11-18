@@ -4,7 +4,7 @@ A block-building game that runs in the terminal, built on [glonk](https://glonk.
 
 Walk a world with no end, made from a seed: seas and shores, plains in flower, forest, desert, snowy tundra and bare crags, with caves and ores under them, drifting clouds over them and mossbacks grazing on the grass. The sun crosses the sky and sets, the stars come out, and the caves are dark until you bring a torch: in survival, the gloam gathers in the dark and comes for you. Play it in survival, where you dig what you need, carry it, eat and stay alive, or in creative, with every block and nothing to fear. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art is original and drawn by code in this repo.
 
-> A list of worlds, settings and sound are still to come. See [Not in yet](#not-in-yet).
+> Sound is still to come. See [Not in yet](#not-in-yet).
 
 ## Run
 
@@ -32,7 +32,7 @@ Requires Go 1.26 or newer.
 | I | your things: move them between the hotbar and the pack, and make things from them (in creative: every block) |
 | T | move the clock on six hours |
 | F3 | frame numbers: where the time of a frame goes and how much is sent, the seed, the day and the hour |
-| Esc | pause menu, with these keys on it |
+| Esc | pause menu, with these keys on it; on a menu, back |
 
 | Mouse | Action |
 |---|---|
@@ -42,6 +42,7 @@ Requires Go 1.26 or newer.
 | Wheel | pick a slot |
 | Click a hotbar slot | pick that slot |
 | Click in the bag (I) | take what is in a slot, or put down what you hold; make a line of the list |
+| Move and click on a menu | pick a line and choose it |
 
 - **Whichever you used last aims.** Move or click the mouse and the pointer aims. Press an arrow key and the middle of the view aims again, with its crosshair.
 - **Drag to look.** A terminal reports the pointer in cells and cannot lock it, so the view cannot follow the mouse as it does in a window. Holding the left button and dragging turns it, a cell at a time; a press let go where it is stays a click. The arrows turn it too.
@@ -64,23 +65,31 @@ Requires Go 1.26 or newer.
 
 - A day lasts ten minutes of play, and the clock stands still in a pause. A new world starts in the morning.
 
-## Saving
+## Worlds and saving
 
-The world is saved when you choose **Save and quit**, and also on Ctrl-C or when the window closes. Next time the title offers **Continue**. **New world** asks before it takes the place of a saved one.
+The title lists your worlds, the last played first, with how each is played and its day. Choose one to play it, or to delete it: that asks twice, and a deleted world is gone for good. **New world** asks for a name, then a seed (leave it empty for any), then how it is played.
 
-- A world is a folder: `gocraft/worlds/world` in your config folder (`~/Library/Application Support` on macOS, `~/.config` on Linux), or the one named with `-world`. It holds `world.json` (the seed, the mode, the day and the hour, where you were, what you carry, how your body is, and what lies on the ground) and one small file for each chunk you changed. The rest of the world is made again from the seed.
+The world is saved when you choose **Save and leave**, which goes back to the list, and also on **Quit**, Ctrl-C or when the window closes.
+
+- A world is a folder of `gocraft/worlds` in your config folder (`~/Library/Application Support` on macOS, `~/.config` on Linux), named as you named the world; `-worlds` names another folder of worlds. A world saved before there was a list is there as **world**. It holds `world.json` (the seed, the mode, the day and the hour, where you were, what you carry, how your body is, and what lies on the ground) and one small file for each chunk you changed. The rest of the world is made again from the seed.
 - Every file is written beside the old one and then put in its place, so a write that fails leaves the old file.
-- A `world.json` that cannot be read stops the game with an error instead of being written over. Move the folder away, or name another with `-world`.
+- A world whose `world.json` cannot be read is listed as such and does not open, so it is never written over. It can still be deleted.
+- `-world folder` plays the one world in that folder, with no list, as the game did before: the title offers **Continue**, **New world** asks before it takes the place of the saved world, and a `world.json` there that cannot be read stops the game with an error.
 - A chunk file that cannot be read does not stop the game. The chunk is made again from the seed, a line on screen says so, and the file is never written over, so what you build in that chunk is not kept.
 - **The one world of the first version** (`gocraft/world.sav`) cannot be played by this one. It is left where it is, untouched.
 - The mossbacks are saved, where they stood and with their moss shorn or grown. A world saved before they were finds a new herd round you.
+
+## Settings
+
+**Settings**, on the title and the pause menu, has the mouse speed (how far a drag turns the view), the view distance (32, 48 or 64 blocks: less is a little faster) and the field of view (50° to 90°). Left and Right, or a click, change a line. They are kept in `gocraft/settings.json` in your config folder, apart from any world.
 
 ## Flags
 
 | Flag | Meaning |
 |---|---|
-| `-seed n` | the number a new world is made from; the same number makes the same world. 0, the default, takes one from the clock |
-| `-world folder` | where the world is saved |
+| `-seed n` | the number a new world is made from, offered as its seed; the same number makes the same world. 0, the default, takes one from the clock |
+| `-worlds folder` | the folder of the worlds the title lists |
+| `-world folder` | play only the world in this folder, with no list |
 | `-mouse=false` | leave the pointer to the terminal |
 | `-shot file.png` | draw one frame of play into a PNG and quit, to look at it without a terminal. A letter is a mark in its color where it stands |
 
@@ -112,7 +121,7 @@ Light from the sky falls straight down to the first block that stops it, dimmed 
 
 Tests check the light against a plain, slow flood fill: in chunks of jumbled blocks that come in in any order, after random changes, and across the edges of chunks.
 
-glonk also runs the loop and the terminal, reads the keys and the mouse, draws the title picture (`bitmap`), the menus, the HUD and the health and food bars (`widget`), puts the pictures of the hotbar and the bag down over their panels (`Canvas.ComposeRect`), reports the frame numbers (`Stats`), draws the `-shot` picture (`FrameBuffer.Image`), and runs every test without a terminal.
+glonk also runs the loop and the terminal, reads the keys, the mouse and what is typed or pasted for a name (`Input.Text`, `Input.Paste`), draws the title picture (`bitmap`), the menus, the HUD and the health and food bars (`widget`), puts the pictures of the hotbar and the bag down over their panels (`Canvas.ComposeRect`), reports the frame numbers (`Stats`), draws the `-shot` picture (`FrameBuffer.Image`), and runs every test without a terminal.
 
 ## Pictures
 
@@ -138,7 +147,7 @@ The race detector needs cgo. Where there is no C compiler, run `make check RACE=
 |---|---|
 | `internal/world` | the blocks round the player in a sliding window and their light, the land a seed makes, rays through the grid, items, saved worlds |
 | `internal/render` | the blocks drawn by rays into a glonk `Canvas`, the sky at each hour, and the clouds, creatures and things on the ground drawn into it as glonk meshes |
-| `internal/game` | the game glonk runs: the player and its body, the creatures, digging and building, what is carried and what is made from it, the mouse, the HUD, the bag, the title and pause menus |
+| `internal/game` | the game glonk runs: the player and its body, the creatures, digging and building, what is carried and what is made from it, the mouse, the HUD, the bag, the list of worlds, the settings, the title and pause menus |
 | `internal/assets` | the pictures, read once at start-up, each block tile in five sizes |
 | `internal/tile` | the names of the tiles in the strip |
 | `cmd/genassets` | draws the pictures |
@@ -153,3 +162,4 @@ gocraft uses glonk v0.12.0.
 - A kiln that takes its time, and crates to keep things in.
 - The I screen needs a terminal about 25 rows tall in creative, and 21 rows tall and 90 columns wide in survival.
 - A view that follows the mouse without a button held, and sound.
+- Renaming a world, or making a copy of one.
