@@ -121,6 +121,9 @@ var painters = [tile.Count]painter{
 	tile.WorkbenchSide: workbenchSide,
 	tile.KilnTop:       kilnTop,
 	tile.KilnSide:      kilnSide,
+	tile.CrateTop:      crateTop,
+	tile.CrateSide:     crateSide,
+	tile.Bedroll:       bedroll,
 
 	tile.Stick:        stick,
 	tile.Coal:         coal,
@@ -777,6 +780,62 @@ func kilnSide(x, y int) (rgb, bool) {
 		return grain(rgb{34, 28, 28}, 0.1, x, y, 118), true
 	}
 	return cobble(x, y)
+}
+
+// crateTop is the lid of a crate: boards in a frame, with a nail at each corner.
+func crateTop(x, y int) (rgb, bool) {
+	if c, ok := crateFrame(x, y); ok {
+		return c, true
+	}
+	return planks(x, y)
+}
+
+// crateSide is a side of a crate: boards in a frame, braced from corner to corner.
+func crateSide(x, y int) (rgb, bool) {
+	if c, ok := crateFrame(x, y); ok {
+		return c, true
+	}
+	if d := x - y; d >= -1 && d <= 0 {
+		return grain(rgb{128, 92, 54}, 0.06, x, y, 180), true // the brace
+	}
+	if d := x - y; d == 1 || d == -2 {
+		return grain(rgb{88, 62, 36}, 0.06, x, y, 181), true // its shadow on the boards
+	}
+	return planks(x, y)
+}
+
+// crateFrame is the dark frame round each face of a crate, with its nails.
+func crateFrame(x, y int) (rgb, bool) {
+	edge := func(v int) bool { return v <= 1 || v >= size-2 }
+	switch {
+	case (x == 1 || x == size-2) && (y == 1 || y == size-2):
+		return rgb{168, 168, 160}, true // a nail head
+	case edge(x) || edge(y):
+		return grain(rgb{104, 74, 42}, 0.07, x, y, 182), true
+	}
+	return rgb{}, false
+}
+
+// bedroll is a bedroll laid out flat, seen from above: a roll for the head across the
+// top, and a blanket of woven moss down the rest, on the ground it lies on.
+func bedroll(x, y int) (rgb, bool) {
+	if x < 2 || x > size-3 || y < 1 || y > size-2 {
+		return rgb{}, false // the ground shows round it
+	}
+	switch {
+	case y <= 4:
+		c := rgb{222, 206, 168}.scale(1 - 0.08*math.Abs(float64(y)-2.5)) // the roll, round
+		return grain(c, 0.04, x, y, 183), true
+	case y == 5:
+		return grain(rgb{120, 96, 62}, 0.05, x, y, 184), true // the shadow of the roll
+	case x == 2 || x == size-3 || y == size-2:
+		return grain(rgb{58, 90, 46}, 0.06, x, y, 185), true // the blanket's hem
+	}
+	c := moss.scale(1 + 0.12*float64((x+y)%2)) // woven: a check of two greens
+	if (y-6)%4 == 3 {
+		c = c.mix(rgb{200, 176, 120}, 0.35) // a stripe of the tan thread it is sewn with
+	}
+	return grain(c, 0.05, x, y, 186), true
 }
 
 // The things that are not blocks are drawn on holes, as they would lie in a hand.

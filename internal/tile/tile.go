@@ -55,6 +55,9 @@ const (
 	WorkbenchSide
 	KilnTop
 	KilnSide
+	CrateTop
+	CrateSide
+	Bedroll
 
 	// Pictures that are on no block.
 
