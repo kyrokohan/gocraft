@@ -12,7 +12,7 @@ import (
 	"github.com/kyrokohan/gocraft/internal/tile"
 )
 
-//go:embed img/blocks.png img/title.png
+//go:embed img/blocks.png img/title.png img/mossback.png
 var files embed.FS
 
 // Levels is how many sizes each tile is kept in: 16, 8, 4, 2 and 1 pixels across. A
@@ -40,6 +40,10 @@ type Set struct {
 
 	// Title is the name of the game, for the title screen.
 	Title *bitmap.Bitmap
+
+	// Mossback is the picture laid on the boxes the creature is built from: four
+	// square tiles side by side, its back, its hide, its face and a leg.
+	Mossback *bitmap.Bitmap
 }
 
 // Load reads the pictures built into the program.
@@ -73,6 +77,13 @@ func Load() (*Set, error) {
 
 	if set.Title, err = decode("img/title.png"); err != nil {
 		return nil, err
+	}
+	if set.Mossback, err = decode("img/mossback.png"); err != nil {
+		return nil, err
+	}
+	if set.Mossback.Width() != 4*set.Mossback.Height() {
+		return nil, fmt.Errorf("assets: mossback.png is %d by %d, wanted four square tiles side by side",
+			set.Mossback.Width(), set.Mossback.Height())
 	}
 	return set, nil
 }

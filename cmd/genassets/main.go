@@ -1,4 +1,5 @@
-// Command genassets draws gocraft's pictures: the strip of block tiles and the title.
+// Command genassets draws gocraft's pictures: the strip of block tiles, the title and
+// the creature.
 // Everything is drawn by the code in this file, from a fixed hash, so the pictures are
 // the same every run and nothing is downloaded or copied from anywhere.
 //
@@ -218,6 +219,87 @@ func deepstone(x, y int) (rgb, bool) {
 	return grain(c, 0.05, x, y, 30), true
 }
 
+// The mossback is gocraft's one creature: a squat animal with moss growing on its back.
+// Its picture is four tiles side by side, which the renderer lays on the boxes it is
+// built from, in this order: the back, the hide of its sides, its face, and a leg.
+var mossbackTiles = [...]painter{mossBack, mossHide, mossFace, mossLeg}
+
+var (
+	moss  = rgb{78, 122, 62}
+	cream = rgb{224, 208, 172}
+)
+
+func mossBack(x, y int) (rgb, bool) {
+	c := moss.scale(0.84 + 0.32*blotch(x, y, 4, 40))
+	c = grain(c, 0.06, x, y, 41)
+	switch h := hash(x, y, 42); {
+	case h < 0.03:
+		return grain(cream, 0.04, x, y, 43), true // a bare patch
+	case h < 0.13:
+		c = c.scale(1.26) // a tuft
+	}
+	return c, true
+}
+
+func mossHide(x, y int) (rgb, bool) {
+	hang := 4 + int(hash(x, 0, 44)*4) // the moss hangs 4 to 7 pixels down the side
+	if y < hang {
+		c, _ := mossBack(x, y)
+		if y == hang-1 {
+			c = c.scale(0.74)
+		}
+		return c, true
+	}
+	c := grain(cream, 0.05, x, y, 45)
+	if hash(x, y, 46) < 0.05 {
+		c = c.scale(0.86)
+	}
+	return c, true
+}
+
+// mossFace is the same from left to right as from right to left, so that it does not
+// matter which way round a face of a box takes its picture.
+func mossFace(x, y int) (rgb, bool) {
+	mx := min(x, size-1-x) // the distance from the nearer side
+	switch {
+	case y < 3:
+		c, _ := mossBack(mx, y)
+		return c, true // a fringe of moss over the brow
+	case (mx == 4 || mx == 5) && y >= 6 && y <= 8:
+		if mx == 4 && y == 6 {
+			return rgb{236, 238, 244}, true // a glint
+		}
+		return rgb{40, 36, 48}, true // an eye
+	case mx == 7 && y == 11:
+		return rgb{176, 112, 112}, true // the nose
+	case mx >= 6 && y == 13:
+		return rgb{150, 128, 100}, true // the mouth
+	}
+	return grain(cream, 0.04, mx, y, 47), true
+}
+
+func mossLeg(x, y int) (rgb, bool) {
+	if y >= size-4 {
+		return grain(rgb{70, 60, 52}, 0.08, x, y, 48), true // a hoof
+	}
+	return grain(rgb{186, 160, 120}, 0.06, x, y, 49), true
+}
+
+// drawMossback draws the creature's picture: its tiles side by side.
+func drawMossback() *image.NRGBA {
+	img := image.NewNRGBA(image.Rect(0, 0, size*len(mossbackTiles), size))
+	for i, paint := range mossbackTiles {
+		for y := range size {
+			for x := range size {
+				if c, ok := paint(x, y); ok {
+					img.SetNRGBA(i*size+x, y, c.nrgba())
+				}
+			}
+		}
+	}
+	return img
+}
+
 // drawBlocks draws the strip: every tile side by side, in the order of package tile.
 func drawBlocks() *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, size*int(tile.Count), size))
@@ -305,14 +387,20 @@ func enlarge(src *image.NRGBA, k int) *image.NRGBA {
 	return out
 }
 
-// drawPreview is the strip and the title, enlarged, one above the other.
+// drawPreview is every picture, enlarged, one above the other.
 func drawPreview() *image.NRGBA {
-	blocks, title := enlarge(drawBlocks(), 6), enlarge(drawTitle(), 6)
-	w := max(blocks.Bounds().Dx(), title.Bounds().Dx())
-	out := image.NewNRGBA(image.Rect(0, 0, w, blocks.Bounds().Dy()+title.Bounds().Dy()+12))
+	pictures := []*image.NRGBA{enlarge(drawBlocks(), 6), enlarge(drawTitle(), 6), enlarge(drawMossback(), 12)}
+	w, h := 0, 0
+	for _, p := range pictures {
+		w, h = max(w, p.Bounds().Dx()), h+p.Bounds().Dy()+12
+	}
+	out := image.NewNRGBA(image.Rect(0, 0, w, h))
 	draw.Draw(out, out.Bounds(), image.NewUniform(color.NRGBA{R: 30, G: 30, B: 38, A: 255}), image.Point{}, draw.Src)
-	draw.Draw(out, blocks.Bounds(), blocks, image.Point{}, draw.Src)
-	draw.Draw(out, title.Bounds().Add(image.Pt(0, blocks.Bounds().Dy()+12)), title, image.Point{}, draw.Src)
+	y := 0
+	for _, p := range pictures {
+		draw.Draw(out, p.Bounds().Add(image.Pt(0, y)), p, image.Point{}, draw.Src)
+		y += p.Bounds().Dy() + 12
+	}
 	return out
 }
 
@@ -340,6 +428,9 @@ func run() error {
 		return err
 	}
 	if err := writePNG(filepath.Join(*out, "title.png"), drawTitle()); err != nil {
+		return err
+	}
+	if err := writePNG(filepath.Join(*out, "mossback.png"), drawMossback()); err != nil {
 		return err
 	}
 	if *preview != "" {
