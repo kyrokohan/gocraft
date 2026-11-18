@@ -25,6 +25,7 @@ func main() {
 func run() error {
 	seed := flag.Int64("seed", 0, "the number a new world is made from; 0 takes one from the clock")
 	worldPath := flag.String("world", "", "the file the world is saved in (default: gocraft/world.sav in your config folder)")
+	mouse := flag.Bool("mouse", true, "aim, break and place with the mouse; false leaves the pointer to the terminal, to select text")
 	shot := flag.String("shot", "", "draw one frame of play into this PNG file and quit; nothing is loaded or saved")
 	flag.Parse()
 
@@ -51,7 +52,7 @@ func run() error {
 
 	// Run returns when the player quits, and also on Ctrl-C, kill and a closing window,
 	// so saving here keeps the world however the game ends.
-	err = engine.Run(context.Background(), g, engine.Config{FPS: 30})
+	err = engine.Run(context.Background(), g, engine.Config{FPS: 30, Mouse: *mouse})
 	if saveErr := g.Save(); saveErr != nil {
 		err = errors.Join(err, fmt.Errorf("the world was not saved: %w", saveErr))
 	}

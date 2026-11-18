@@ -165,7 +165,7 @@ func TestTheHotbarShowsAPictureOfEachBlock(t *testing.T) {
 	g := onFloor(t)
 	_, fb := drawn(t, g)
 	c := fb.Canvas()
-	x0, y0 := barOrigin(fb)
+	x0, y0 := barOrigin(fb.Width(), fb.Height())
 
 	// The middle of a slot's picture, in pixels.
 	at := func(slot int) (r, g, b uint8) {

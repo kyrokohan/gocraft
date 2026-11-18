@@ -40,24 +40,28 @@ var help = []string{
 	"Space     jump, up     X       down",
 	"F         fly on, off  Esc     this menu",
 	"F3        frame numbers",
-	"Q         break        E       place",
-	"1 to 9    pick block   Tab     next block",
+	"Q, click  break        E, right click  place",
+	"1 to 9    pick block   Tab, wheel      next block",
 }
 
-// barOrigin returns the top left cell of the hotbar: along the bottom, in the middle.
-func barOrigin(fb *engine.FrameBuffer) (x, y int) {
-	return (fb.Width() - barWidth) / 2, fb.Height() - barHeight
+// barOrigin returns the top left cell of the hotbar in a frame of a size in cells: along
+// the bottom, in the middle.
+func barOrigin(width, height int) (x, y int) {
+	return (width - barWidth) / 2, height - barHeight
 }
 
 // drawHUD draws what lies over the world while playing: the crosshair, a line of
 // numbers, and the hotbar with the name of the block in use. It comes after
 // Canvas.Compose, so the world is in the frame already.
 func (g *Game) drawHUD(fb *engine.FrameBuffer, c *engine.Canvas) {
-	// The crosshair keeps the color of the world under it as its background.
-	cx, cy := fb.Width()/2, fb.Height()/2
-	cross := fb.At(cx, cy)
-	cross.Character, cross.Foreground, cross.Attrs = '+', hudText.Foreground, engine.Bold
-	fb.Set(cx, cy, cross)
+	// The crosshair marks the middle of the view while that is what aims. It keeps the
+	// color of the world under it as its background.
+	if !g.pointing {
+		cx, cy := fb.Width()/2, fb.Height()/2
+		cross := fb.At(cx, cy)
+		cross.Character, cross.Foreground, cross.Attrs = '+', hudText.Foreground, engine.Bold
+		fb.Set(cx, cy, cross)
+	}
 
 	mode := ""
 	if g.player.Flying {
@@ -77,7 +81,7 @@ func (g *Game) drawHUD(fb *engine.FrameBuffer, c *engine.Canvas) {
 		g.drawNumbers(fb, row)
 	}
 
-	x0, y0 := barOrigin(fb)
+	x0, y0 := barOrigin(fb.Width(), fb.Height())
 	widget.Panel{Style: hudFrame, Fill: hudFill}.Draw(fb, x0, y0, barWidth, barHeight)
 	for i := range hotbar {
 		x := x0 + i*slotPitch

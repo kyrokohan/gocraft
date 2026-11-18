@@ -76,7 +76,12 @@ type Game struct {
 	selected int       // the slot of the hotbar in use
 	target   world.Hit // the block the player aims at, if aimed is set
 	aimed    bool
-	box      mesh.Mesh // the outline drawn round that block: the edges of a cube its size
+
+	cols, rows     int        // the size of the frame in cells, once glonk has said
+	pointing       bool       // the pointer aims, and not the middle of the view
+	mouseX, mouseY int        // the cell the pointer was last in
+	clickWait      [3]float64 // for each mouse button, the time until it acts again while held
+	box            mesh.Mesh  // the outline drawn round that block: the edges of a cube its size
 }
 
 // New returns a game showing its title, ready for engine.Run.
@@ -189,7 +194,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			return nil
 		}
 		g.player.Step(g.world, readControls(in), dt)
-		g.build(in)
+		g.build(in, dt)
 		return nil
 	}
 
