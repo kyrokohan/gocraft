@@ -40,6 +40,79 @@ type Meta struct {
 	// the morning the world began. A save from before there was a clock has none, and
 	// so begins that morning again.
 	Days float64 `json:"days"`
+
+	// Mode is how the world is played: Survival or Creative. A save from before there
+	// were modes has none, and is played as Creative.
+	Mode string `json:"mode,omitempty"`
+
+	// Items is what the player carries, slot by slot: the hotbar and then the pack. A save
+	// from before there were items has none.
+	Items []Stack `json:"items,omitempty"`
+
+	// Health, Food and Air are how the player's body is, in survival.
+	Health float64 `json:"health,omitempty"`
+	Food   float64 `json:"food,omitempty"`
+	Air    float64 `json:"air,omitempty"`
+
+	// Drops are the things lying on the ground to be picked up.
+	Drops []Drop `json:"drops,omitempty"`
+}
+
+// The ways a world is played, as Meta.Mode names them.
+const (
+	// Survival is played with what the player finds, and the player can be hurt.
+	Survival = "survival"
+
+	// Creative has every block without end, and nothing hurts.
+	Creative = "creative"
+)
+
+// Drop is a stack lying on the ground, to be picked up.
+type Drop struct {
+	Stack
+	Pos geometry.Vector3 `json:"pos"`
+
+	// Age is how many seconds it has lain there.
+	Age float64 `json:"age"`
+}
+
+// The most a save may hold of what is carried and of what lies on the ground: far more
+// than a game makes, and few enough that a file cannot make the game hold a lot.
+const (
+	maxSlots = 256
+	maxDrops = 1 << 14
+)
+
+// check returns what is wrong with what a save says beside its blocks, or "".
+func (m Meta) check() string {
+	switch {
+	case m.Version != saveVersion:
+		return fmt.Sprintf("it is version %d, and this game reads version %d", m.Version, saveVersion)
+	case !finite(m.Pos.X, m.Pos.Y, m.Pos.Z, m.Yaw, m.Pitch):
+		return "its player is nowhere"
+	case !finite(m.Days):
+		return "its clock does not tell a time"
+	case math.Abs(m.Pos.X) > 1e9 || math.Abs(m.Pos.Z) > 1e9:
+		// A place so far out that it cannot be counted in blocks is no place either.
+		return "its player is too far away to be anywhere"
+	case m.Mode != "" && m.Mode != Survival && m.Mode != Creative:
+		return fmt.Sprintf("it is played in a way this game does not have: %q", m.Mode)
+	case !finite(m.Health, m.Food, m.Air):
+		return "its player's body is not one"
+	case len(m.Items) > maxSlots || len(m.Drops) > maxDrops:
+		return "it holds more things than a game can make"
+	}
+	for _, s := range m.Items {
+		if !s.valid() {
+			return fmt.Sprintf("its player carries %d of a kind of item %d, which a slot cannot hold", s.Count, s.Item)
+		}
+	}
+	for _, d := range m.Drops {
+		if !d.valid() || d.Count == 0 || !finite(d.Pos.X, d.Pos.Y, d.Pos.Z, d.Age) {
+			return "something lying on its ground is not a thing this game has"
+		}
+	}
+	return ""
 }
 
 const (
@@ -256,19 +329,8 @@ func Open(dir string) (*World, Meta, error) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return bad("it cannot be read: " + err.Error())
 	}
-	if m.Version != saveVersion {
-		return bad(fmt.Sprintf("it is version %d, and this game reads version %d", m.Version, saveVersion))
+	if why := m.check(); why != "" {
+		return bad(why)
 	}
-	if !finite(m.Pos.X, m.Pos.Y, m.Pos.Z, m.Yaw, m.Pitch) {
-		return bad("its player is nowhere")
-	}
-	if !finite(m.Days) {
-		return bad("its clock does not tell a time")
-	}
-	// A place so far out that it cannot be counted in blocks is no place either.
-	if math.Abs(m.Pos.X) > 1e9 || math.Abs(m.Pos.Z) > 1e9 {
-		return bad("its player is too far away to be anywhere")
-	}
-
 	return newWorld(m.Seed, Terrain(m.Seed), dir, m.Pos.X, m.Pos.Z), m, nil
 }

@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -29,6 +30,12 @@ func played(t *testing.T) (*World, Meta) {
 		Pitch:  -0.25,
 		Flying: true,
 		Slot:   7,
+		Mode:   Survival,
+		Items:  []Stack{{Dirt.Item(), 12}, {}, {Berries, 3}},
+		Health: 15,
+		Food:   11.5,
+		Air:    4,
+		Drops:  []Drop{{Stack: Stack{Cobble.Item(), 1}, Pos: geometry.Vector3{X: 703.5, Y: 91, Z: 2.5}, Age: 12}},
 	}
 }
 
@@ -62,6 +69,10 @@ func TestASavedWorldComesBackAsItWas(t *testing.T) {
 	}
 	if back.Pos != meta.Pos || back.Yaw != meta.Yaw || back.Pitch != meta.Pitch || !back.Flying || back.Slot != 7 {
 		t.Errorf("the player came back as %+v", back)
+	}
+	if back.Mode != Survival || back.Health != 15 || back.Food != 11.5 || back.Air != 4 ||
+		!slices.Equal(back.Items, meta.Items) || !slices.Equal(back.Drops, meta.Drops) {
+		t.Errorf("the player's body and things came back as %+v", back)
 	}
 	// The world opens round the player, with what was built there.
 	if !got.Loaded(702, 1) || got.At(705, 102, 3) != Sand {
@@ -174,6 +185,12 @@ func TestABrokenWorldFileIsAnErrorAndNeverAPanic(t *testing.T) {
 		"player nowhere": strings.Replace(text, `"X": 702.25`, `"X": 1e999`, 1),
 		"player too far": strings.Replace(text, `"X": 702.25`, `"X": 1e15`, 1),
 		"a word for yaw": strings.Replace(text, `"yaw": 1.5`, `"yaw": "left"`, 1),
+		"another mode":   strings.Replace(text, `"mode": "survival"`, `"mode": "peaceful"`, 1),
+		"unknown item":   strings.Replace(text, `"item": 2,`, `"item": 999,`, 1),
+		"too many":       strings.Replace(text, `"count": 12`, `"count": 65`, 1),
+		"none of a kind": strings.Replace(text, `"count": 12`, `"count": 0`, 1),
+		"body nowhere":   strings.Replace(text, `"health": 15`, `"health": 1e999`, 1),
+		"an empty drop":  strings.Replace(text, `"count": 1,`, `"count": 0,`, 1),
 	} {
 		if content == text {
 			t.Fatalf("%s: the test did not change the file", name)
