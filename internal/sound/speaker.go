@@ -35,6 +35,7 @@ func Open(m *Mixer) (*Speaker, error) {
 		return nil, err
 	}
 	p := ctx.NewPlayer(m)
+	p.SetBufferSize(Rate / 16 * 8) // oto reads half a second ahead unless told, and a sound would come that late
 	p.Play()
 	return &Speaker{player: p}, nil
 }
