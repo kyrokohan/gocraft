@@ -40,16 +40,22 @@ func wall(w *world.World, z int, b world.Block) {
 	}
 }
 
-// facing is a camera in front of the middle of such a wall, looking at it along +z.
-var facing = mesh.Camera{Position: geometry.Vector3{X: 12.5, Y: 12.5, Z: 2.5}, FOV: math.Pi / 3}
+// facing is a camera in front of the middle of such a wall, looking at it along +z, with
+// the far plane and the fog of the camera the game uses.
+var facing = mesh.Camera{
+	Position: geometry.Vector3{X: 12.5, Y: 12.5, Z: 2.5},
+	FOV:      math.Pi / 3,
+	Far:      ViewDistance,
+	Fog:      Fog,
+}
 
-// The rays must use glonk's projection exactly, or meshes drawn by glonk would not line
-// up with the blocks. If this fails after a glonk upgrade, glonk's projection changed.
-func TestRaysAgreeWithGlonkProjection(t *testing.T) {
+// A frame is worked out from three of glonk's rays. What that gives for a pixel must be
+// the ray glonk gives for it, or meshes drawn by glonk would not line up with the blocks.
+func TestRaysAreGlonksRaysAtEveryPixel(t *testing.T) {
 	rng := rand.New(rand.NewPCG(3, 4))
-	const w, h = 200, 120 // pixels: 200 by 60 cells
+	c := newCanvas(t, 200, 60)
 
-	for i := range 300 {
+	for i := range 100 {
 		cam := mesh.Camera{
 			Position: geometry.Vector3{X: rng.Float64() * 20, Y: rng.Float64() * 20, Z: rng.Float64() * 20},
 			Yaw:      rng.Float64()*8 - 4,
@@ -59,40 +65,38 @@ func TestRaysAgreeWithGlonkProjection(t *testing.T) {
 		if i%3 == 0 {
 			cam.FOV = 0 // glonk's default
 		}
-		depth := 0.5 + rng.Float64()*30
-		sideways, upward := rng.Float64()*2-1, rng.Float64()*2-1
-		p := cam.Position.
-			Add(cam.Look().Scale(depth)).
-			Add(cam.Right().Scale(sideways * depth * 0.4)).
-			Add(cam.Look().Cross(cam.Right()).Scale(upward * depth * 0.3))
-
-		x, y, ok := cam.Project(p, w, h/2)
+		v, ok := newRays(cam, c)
 		if !ok {
-			t.Fatalf("case %d: glonk could not project %v", i, p)
-		}
-		v, ok := NewView(cam, w, h)
-		if !ok {
-			t.Fatalf("case %d: no view for %+v", i, cam)
+			t.Fatalf("case %d: no rays for %+v", i, cam)
 		}
 
-		// A point on the ray through that place, at the point's depth, is the point.
-		got := cam.Position.Add(v.Direction(x, 2*y).Scale(depth))
-		if got.Distance(p) > 1e-9 {
-			t.Fatalf("case %d: the ray through glonk's pixel (%v, %v) reaches %v, wanted %v", i, x, 2*y, got, p)
+		for range 20 {
+			px, py := rng.IntN(c.Width()), rng.IntN(c.Height())
+			origin, want, ok := cam.RayPixels(float64(px)+0.5, float64(py)+0.5, c)
+			if got := v.through(px, py); !ok || origin != v.eye || got.Distance(want) > 1e-9 {
+				t.Fatalf("case %d, pixel %d,%d: got %v from %v, glonk gives %v from %v (ok %v)",
+					i, px, py, got, v.eye, want, origin, ok)
+			}
 		}
 	}
 }
 
-func TestViewOfABrokenCameraIsNone(t *testing.T) {
+func TestABrokenCameraDrawsNothing(t *testing.T) {
+	w := world.New()
+	wall(w, 5, world.Stone)
+	rend := newRenderer(t)
+
 	for _, cam := range []mesh.Camera{
 		{FOV: -1}, {FOV: math.Pi}, {FOV: math.NaN()}, {CellAspect: -2}, {CellAspect: math.Inf(1)},
 	} {
-		if _, ok := NewView(cam, 80, 48); ok {
-			t.Errorf("camera %+v should see nothing", cam)
+		cam.Position = facing.Position
+		c := newCanvas(t, 40, 20)
+
+		rend.Draw(c, w, cam, nil)
+
+		if !c.At(20, 20).IsDefault() {
+			t.Errorf("camera %+v drew %v, wanted nothing", cam, c.At(20, 20))
 		}
-	}
-	if _, ok := NewView(mesh.Camera{}, 0, 48); ok {
-		t.Error("a canvas with no width should have no view")
 	}
 }
 
@@ -217,6 +221,37 @@ func TestDistantBlocksFadeIntoTheSky(t *testing.T) {
 	}
 }
 
+func TestNothingIsDrawnBeyondTheFarPlane(t *testing.T) {
+	w := world.New()
+	wall(w, int(facing.Position.Z+ViewDistance)+2, world.Deepstone)
+	c := newCanvas(t, 40, 20)
+
+	newRenderer(t).Draw(c, w, facing, nil)
+
+	// The sky: bright, and more blue than red. The wall would be dark.
+	if r, _, b := c.At(20, 20).RGB(); b <= r || b < 200 {
+		t.Errorf("the middle of the view is %v, wanted sky", c.At(20, 20))
+	}
+	// And with no depth, as the sky has none.
+	if !c.SetDepth(20, 20, 1e9, engine.RGB(1, 2, 3)) {
+		t.Error("a pixel beyond the far plane has a depth")
+	}
+}
+
+func TestACameraWithNoFogDrawsFarBlocksInTheirOwnColor(t *testing.T) {
+	w := world.New()
+	wall(w, 2+int(ViewDistance)-2, world.Deepstone)
+	c := newCanvas(t, 40, 20)
+	cam := facing
+	cam.Fog = nil
+
+	newRenderer(t).Draw(c, w, cam, nil)
+
+	if _, _, b := c.At(20, 20).RGB(); b > 90 {
+		t.Errorf("a dark block far away is %v with no fog, wanted it dark", c.At(20, 20))
+	}
+}
+
 // What glonk draws into the canvas after the world is hidden by nearer blocks and shows
 // in front of farther ones: the blocks carry glonk's depth.
 func TestGlonkMeshesAreHiddenByNearerBlocks(t *testing.T) {
@@ -279,6 +314,8 @@ func BenchmarkDraw(b *testing.B) {
 		Position: geometry.Vector3{X: spawn.X, Y: spawn.Y + 1.6, Z: spawn.Z},
 		Pitch:    -0.2,
 		FOV:      math.Pi / 3,
+		Far:      ViewDistance,
+		Fog:      Fog,
 	}
 
 	for _, view := range []struct {

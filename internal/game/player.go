@@ -8,6 +8,7 @@ import (
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
 
+	"github.com/kyrokohan/gocraft/internal/render"
 	"github.com/kyrokohan/gocraft/internal/world"
 )
 
@@ -97,13 +98,16 @@ func readControls(in *engine.Input) controls {
 	}
 }
 
-// Camera returns the view from the player's eyes.
+// Camera returns the view from the player's eyes, as deep and with the fog the world is
+// drawn with, so that what glonk draws through it ends and fades where the blocks do.
 func (p *Player) Camera() mesh.Camera {
 	return mesh.Camera{
 		Position: geometry.Vector3{X: p.Pos.X, Y: p.Pos.Y + eyeHeight, Z: p.Pos.Z},
 		Yaw:      p.Yaw,
 		Pitch:    p.Pitch,
 		FOV:      fieldOfView,
+		Far:      render.ViewDistance,
+		Fog:      render.Fog,
 	}
 }
 

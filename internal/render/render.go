@@ -1,10 +1,12 @@
 // Package render draws the block world into a glonk Canvas, one ray for each pixel.
 //
-// glonk's meshes are filled one color to a triangle and cannot be seen through, so the
-// blocks are not meshes: every pixel sends a ray through the grid and takes the color of
-// the tile it lands on. The rays use the same projection as glonk's Camera and write the
-// same depth, so anything glonk draws into the Canvas afterwards with a depth (a mesh, a
-// wireframe) is hidden by the blocks in front of it and hides those behind.
+// The blocks are not glonk meshes. Every pixel sends a ray through the grid and takes
+// the color of the tile it lands on, which is quick, lets a far block be drawn from a
+// smaller copy of its tile so that it does not flicker, and lets water be seen into.
+// The rays are the ones glonk's Camera gives for each pixel, and they write glonk's
+// depth, so anything glonk draws into the Canvas afterwards with a depth (a mesh, a
+// line) is hidden by the blocks in front of it and hides those behind. The camera's far
+// plane and fog are followed too, so that such a thing fades with the blocks round it.
 package render
 
 import (
@@ -19,19 +21,24 @@ import (
 	"github.com/kyrokohan/gocraft/internal/world"
 )
 
-// ViewDistance is how far the world is drawn, in blocks. The last part of it fades into
-// the sky.
+// ViewDistance is how deep into the view the world is drawn, in blocks: the Far of the
+// camera the game uses. It is also how deep the rays go for a camera with no Far, since
+// a ray has to end somewhere.
 const ViewDistance = 64.0
 
-// fogStart is the part of ViewDistance that is clear, before the fade begins.
-const fogStart = 0.6
+// Fog is the fog of the camera the game uses: the last two fifths of ViewDistance fade
+// into the color the sky has at the horizon, so that the world ends in haze and not in
+// a line. Blocks and glonk's meshes both fade by it.
+var Fog = &mesh.Fog{Color: skyHorizon.engine(), Start: 0.6 * ViewDistance, End: ViewDistance}
 
 // faceLight is how bright each face of a block is drawn, out of 256, indexed by
 // world.Face: the top is fully lit, the sides less, and the bottom least. It is what
 // gives the blocks their shape, as there are no shadows.
 var faceLight = [6]uint32{205, 205, 128, 256, 166, 166}
 
-// color is a color with a channel in each field, from 0 to 255, for mixing.
+// color is a color with a channel in each field, from 0 to 255, for mixing. The pixel
+// loop mixes whole numbers with it, which is quicker there than engine.Mix on packed
+// colors.
 type color struct{ r, g, b uint32 }
 
 var (
@@ -69,52 +76,35 @@ func part(v float64) uint32 {
 	return uint32(min(max(v, 0), 1) * 256)
 }
 
-// View is a camera worked out for a canvas of one size: where each pixel looks.
-type View struct {
-	eye             geometry.Vector3
-	look, right, up geometry.Vector3
-	w, h            int
-	kx, ky          float64 // how far a ray leans for each pixel away from the middle
+// rays is where every pixel of a canvas looks from a camera.
+//
+// glonk's Camera.RayPixels gives the ray through one pixel, and works out the camera's
+// angles each time it is asked. The direction changes by the same amount from each
+// pixel to the next, so three of its rays are enough for a whole frame: the one through
+// the first pixel, and the ones through its neighbors across and down.
+type rays struct {
+	eye          geometry.Vector3
+	first        geometry.Vector3 // the direction through the middle of pixel (0, 0)
+	across, down geometry.Vector3 // what is added to it for each pixel across and down
 }
 
-// NewView returns the view of a camera on a canvas w pixels wide and h tall. ok is false
-// for a camera that sees nothing. A FOV or CellAspect of 0 means what it means to glonk:
-// a quarter turn, and cells twice as tall as wide.
-func NewView(cam mesh.Camera, w, h int) (v View, ok bool) {
-	fov, aspect := cam.FOV, cam.CellAspect
-	if fov == 0 {
-		fov = math.Pi / 2
+// newRays returns the rays of a camera on a canvas. ok is false for a camera that sees
+// nothing.
+func newRays(cam mesh.Camera, c *engine.Canvas) (r rays, ok bool) {
+	eye, first, ok0 := cam.RayPixels(0.5, 0.5, c)
+	_, right, ok1 := cam.RayPixels(1.5, 0.5, c)
+	_, below, ok2 := cam.RayPixels(0.5, 1.5, c)
+	if !ok0 || !ok1 || !ok2 {
+		return rays{}, false
 	}
-	if aspect == 0 {
-		aspect = 2
-	}
-	if !(fov > 0 && fov < math.Pi && aspect > 0) || math.IsInf(aspect, 0) || w <= 0 || h <= 0 {
-		return View{}, false
-	}
-
-	// glonk puts a point at cell x = w/2 + focal*vx/vz * cells/2 * aspect and cell
-	// y = cells/2 - focal*vy/vz * cells/2, where cells is the height in cells, half the
-	// height in pixels. Turned round, that is how far a ray leans at each pixel.
-	focal := 1 / math.Tan(fov/2)
-	cells := float64(h) / 2
-	look, right := cam.Look(), cam.Right()
-	return View{
-		eye:  cam.Position,
-		look: look, right: right, up: look.Cross(right),
-		w: w, h: h,
-		kx: 1 / (focal * cells / 2 * aspect),
-		ky: 1 / (focal * cells),
-	}, true
+	return rays{eye: eye, first: first, across: right.Sub(first), down: below.Sub(first)}, true
 }
 
-// Direction returns the way the ray through a point of the canvas runs. x and y are in
-// pixels and can fall between them: the middle of pixel (3, 5) is (3.5, 5.5). The
-// direction is not one long. It reaches one block deep into the view, so a point t along
-// it is at the depth t that glonk gives a mesh there.
-func (v View) Direction(x, y float64) geometry.Vector3 {
-	sx := (x - float64(v.w)/2) * v.kx
-	sy := (float64(v.h)/2 - y) * v.ky
-	return v.look.Add(v.right.Scale(sx)).Add(v.up.Scale(sy))
+// through returns the direction of the ray through the middle of a pixel. Like the
+// directions glonk gives, it is one deep along the camera's Look and not one long, so a
+// point t along it is at the depth t.
+func (r rays) through(px, py int) geometry.Vector3 {
+	return r.first.Add(r.across.Scale(float64(px))).Add(r.down.Scale(float64(py)))
 }
 
 // onOutline reports whether the ray along d, which met a block at (fu, fv) on one of
@@ -125,15 +115,15 @@ func (v View) Direction(x, y float64) geometry.Vector3 {
 // strip of it in the end, so the width of the band is worked out on the face itself: it
 // is how far across the face the rays through the next pixel over and the next pixel
 // down land. A band that wide always has a pixel in it, so no edge goes missing.
-func (v View) onOutline(hit world.Hit, d geometry.Vector3, fu, fv float64) bool {
+func (r rays) onOutline(hit world.Hit, d geometry.Vector3, fu, fv float64) bool {
 	axis := hit.Face >> 1
 	plane := float64([3]int{hit.X, hit.Y, hit.Z}[axis] + int(hit.Face&1))
-	eye := [3]float64{v.eye.X, v.eye.Y, v.eye.Z}[axis]
+	eye := [3]float64{r.eye.X, r.eye.Y, r.eye.Z}[axis]
 
 	bandU, bandV := 0.05, 0.05
-	for _, next := range [2]geometry.Vector3{d.Add(v.right.Scale(v.kx)), d.Sub(v.up.Scale(v.ky))} {
+	for _, next := range [2]geometry.Vector3{d.Add(r.across), d.Add(r.down)} {
 		t := (plane - eye) / [3]float64{next.X, next.Y, next.Z}[axis]
-		u, w := onFace(hit, v.eye.Add(next.Scale(t)))
+		u, w := onFace(hit, r.eye.Add(next.Scale(t)))
 		// A quarter over, as the rays spread and the next pixel is not quite as far
 		// along the face everywhere.
 		bandU, bandV = max(bandU, 1.25*math.Abs(u-fu)), max(bandV, 1.25*math.Abs(w-fv))
@@ -201,28 +191,32 @@ func sky(climb, toSun float64) color {
 
 // Draw draws the world as the camera sees it into every pixel of the canvas. Blocks are
 // written with their depth and the sky without one, so that it is behind everything.
+// The world is drawn as deep as the camera's Far (ViewDistance if it has none) and
+// fades by the camera's Fog, if it has one.
 //
 // aim, if it is not nil, is a block to mark: the edges of its faces are drawn as an
-// outline. The rays draw it themselves. A wireframe drawn by glonk with a depth lies on
-// the very faces it outlines, and comes out in dashes wherever a face is seen at a
-// shallow angle.
+// outline.
 func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *world.Hit) {
-	v, ok := NewView(cam, c.Width(), c.Height())
+	v, ok := newRays(cam, c)
 	if !ok {
 		return
 	}
 	eye := v.eye
 	underwater := w.At(int(math.Floor(eye.X)), int(math.Floor(eye.Y)), int(math.Floor(eye.Z))) == world.Water
 	top := float64(w.Height())
+	far := cam.Far
+	if far == 0 {
+		far = ViewDistance
+	}
+	fog := cam.Fog
 
 	// How far away a tile has to be before a smaller copy of it is used: where its
 	// pixels become smaller than one and a half pixels of the canvas.
-	pixelsPerBlock := 1 / v.kx // of a block one away, seen face on
+	pixelsPerBlock := 1 / v.across.Length() // of a block one away, seen face on
 	var farther [assets.Levels - 1]float64
 	for level := range farther {
 		farther[level] = pixelsPerBlock / tile.Size * 1.5 * float64(int(1)<<level)
 	}
-
 	levelAt := func(dist float64) int {
 		level := 0
 		for level < len(farther) && dist > farther[level] {
@@ -231,17 +225,16 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *
 		return level
 	}
 
-	for py := range v.h {
-		sy := (float64(v.h)/2 - (float64(py) + 0.5)) * v.ky
-		row := v.look.Add(v.up.Scale(sy))
-		for px := range v.w {
-			sx := (float64(px) + 0.5 - float64(v.w)/2) * v.kx
-			d := row.Add(v.right.Scale(sx))
-			unit := 1 / math.Sqrt(1+sx*sx+sy*sy) // 1 / the length of d
+	for py := range c.Height() {
+		row := v.first.Add(v.down.Scale(float64(py)))
+		for px := range c.Width() {
+			d := row.Add(v.across.Scale(float64(px)))
+			unit := 1 / d.Length()
 			above := sky(d.Y*unit, d.Dot(sunDirection)*unit)
 
-			// Above the highest block there is only sky, so a ray stops there.
-			reach := ViewDistance * unit
+			// A ray is one deep for each 1 along it, so the far plane is where it ends.
+			// Above the highest block there is only sky, so it ends there too.
+			reach := far
 			if d.Y > 0 {
 				reach = min(reach, (top-eye.Y)/d.Y)
 			}
@@ -263,13 +256,12 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *
 					}
 					continue
 				}
-				dist := hit.T / unit
 				fu, fv := onFace(hit, eye.Add(d.Scale(hit.T)))
 				if aim != nil && hit.X == aim.X && hit.Y == aim.Y && hit.Z == aim.Z && v.onOutline(hit, d, fu, fv) {
 					solid, found, outlined = hit, true, true
 					break
 				}
-				if pixel = r.texel(hit, fu, fv, levelAt(dist)); pixel>>24 != 0 {
+				if pixel = r.texel(hit, fu, fv, levelAt(hit.T/unit)); pixel>>24 != 0 {
 					solid, found = hit, true
 					break
 				}
@@ -302,12 +294,17 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *
 				col = col.mix(ripple, part(0.45+0.12*through)*230>>8)
 				depth = surface.T
 			}
-			dist := depth / unit
-			col = col.mix(above, part((dist/ViewDistance-fogStart)/(1-fogStart)))
-			if underwater {
-				col = col.mix(deepWater, part(0.3+0.05*dist)*235>>8)
+
+			out := col.engine()
+			if fog != nil && depth > fog.Start {
+				out = fog.Apply(out, depth)
 			}
-			c.SetDepth(px, py, depth, col.engine())
+			if underwater {
+				red, green, blue := out.RGB()
+				tinted := color{uint32(red), uint32(green), uint32(blue)}
+				out = tinted.mix(deepWater, part(0.3+0.05*depth/unit)*235>>8).engine()
+			}
+			c.SetDepth(px, py, depth, out)
 		}
 	}
 }
