@@ -68,11 +68,14 @@ type Game struct {
 	debug  bool         // whether the frame numbers are shown: F3
 	exact  bool         // whether the terminal reports key releases, so that two keys can be held
 
-	world   *world.World
-	clouds  *render.Clouds
-	player  Player
-	saved   bool // the world is the one in the save file
-	started bool // play has begun, so there is something worth saving
+	world     *world.World
+	clouds    *render.Clouds
+	creatures []Creature
+	moss      *render.Mossbacks
+	poses     []render.Mossback // the creatures as they are drawn, kept between frames
+	player    Player
+	saved     bool // the world is the one in the save file
+	started   bool // play has begun, so there is something worth saving
 
 	selected int       // the slot of the hotbar in use
 	target   world.Hit // the block the player aims at, if aimed is set
@@ -91,7 +94,10 @@ func New(opts Options) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := &Game{opts: opts, set: set, rend: render.New(set), exact: true, box: mesh.Cube(1)}
+	g := &Game{
+		opts: opts, set: set, rend: render.New(set), moss: render.NewMossbacks(set),
+		exact: true, box: mesh.Cube(1),
+	}
 	if err := g.load(); err != nil {
 		return nil, err
 	}
@@ -109,6 +115,7 @@ func (g *Game) load() error {
 		case err == nil:
 			g.world = s.World
 			g.clouds = render.NewClouds(g.world.Seed)
+			g.creatures = spawnCreatures(g.world, creatureCount) // they are not in the save file yet
 			g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
 			g.selected = min(max(s.Slot, 0), len(hotbar)-1)
 			g.saved = true
@@ -146,6 +153,7 @@ func (g *Game) newWorld() {
 	}
 	g.world = world.Generate(seed)
 	g.clouds = render.NewClouds(seed)
+	g.creatures = spawnCreatures(g.world, creatureCount)
 	g.player = Player{Pos: g.world.Spawn()}
 	g.selected, g.aimed, g.saved = 0, false, false
 }
@@ -201,6 +209,9 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			return nil
 		}
 		g.player.Step(g.world, readControls(in), dt)
+		for i := range g.creatures {
+			g.creatures[i].Step(g.world, dt)
+		}
 		g.build(in, dt)
 		return nil
 	}
@@ -246,6 +257,17 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 	return nil
 }
 
+// drawThings draws what glonk draws into the world, over the blocks: the creatures,
+// which are solid, and then the clouds, which are seen through and so come last.
+func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera) {
+	g.poses = g.poses[:0]
+	for i := range g.creatures {
+		g.poses = append(g.poses, g.creatures[i].Pose())
+	}
+	g.moss.Draw(c, cam, g.poses)
+	g.clouds.Draw(c, cam)
+}
+
 // Draw renders the game into fb.
 func (g *Game) Draw(fb *engine.FrameBuffer) {
 	c := fb.Canvas()
@@ -255,7 +277,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		cam.Position.Y += 4
 		cam.Yaw, cam.Pitch = g.spin, 0.15
 		g.rend.Draw(c, g.world, cam)
-		g.clouds.Draw(c, cam)
+		g.drawThings(c, cam)
 		g.drawTitle(fb, c)
 		return
 	}
@@ -264,7 +286,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	// depth the rays stored hides it where a block is nearer.
 	cam := g.player.Camera()
 	g.rend.Draw(c, g.world, cam)
-	g.clouds.Draw(c, cam)
+	g.drawThings(c, cam)
 	if g.aimed {
 		// The outline lies on the faces of the block, which the rays have drawn with
 		// their depth, so glonk draws it whole there and hides it behind what is nearer.

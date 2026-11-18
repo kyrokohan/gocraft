@@ -1,0 +1,253 @@
+package game
+
+import (
+	"math"
+	"math/rand/v2"
+	"testing"
+
+	"glonk.dev/engine"
+	"glonk.dev/geometry"
+
+	"github.com/kyrokohan/gocraft/internal/render"
+	"github.com/kyrokohan/gocraft/internal/world"
+)
+
+// walker is a creature on the test floor that walks the way it faces and does not
+// change its mind.
+func walker(x, z, yaw float64) *Creature {
+	return &Creature{
+		Pos:     geometry.Vector3{X: x, Y: 6, Z: z},
+		Yaw:     yaw,
+		walking: true,
+		timer:   math.Inf(1),
+		rng:     rand.New(rand.NewPCG(1, 2)),
+	}
+}
+
+// live steps a creature for a time, and calls each (if it is not nil) after every step.
+func live(c *Creature, w *world.World, seconds float64, each func()) {
+	for range int(math.Round(seconds / frame)) {
+		c.Step(w, frame)
+		if each != nil {
+			each()
+		}
+	}
+}
+
+func TestACreatureLandsOnTheGround(t *testing.T) {
+	w, c := floor(), walker(20.5, 20.5, 0)
+	c.walking = false
+	c.Pos.Y = 12
+
+	live(c, w, 3, nil)
+
+	if !near(c.Pos.Y, 6) || !c.OnGround {
+		t.Errorf("after falling the creature is at height %v, on ground %v; wanted 6, true", c.Pos.Y, c.OnGround)
+	}
+}
+
+func TestACreatureWalksTheWayItFaces(t *testing.T) {
+	w := floor()
+	for _, tc := range []struct{ yaw, dx, dz float64 }{
+		{0, 0, 1}, {math.Pi / 2, 1, 0}, {math.Pi, 0, -1},
+	} {
+		c := walker(20.5, 20.5, tc.yaw)
+
+		live(c, w, 2, nil)
+
+		wantX, wantZ := 20.5+tc.dx*2*creatureSpeed, 20.5+tc.dz*2*creatureSpeed
+		if math.Abs(c.Pos.X-wantX) > 0.05 || math.Abs(c.Pos.Z-wantZ) > 0.05 {
+			t.Errorf("facing %v the creature walked to %v, %v; wanted %v, %v", tc.yaw, c.Pos.X, c.Pos.Z, wantX, wantZ)
+		}
+	}
+}
+
+func TestTheLegsMoveOnlyWhileItWalks(t *testing.T) {
+	w, c := floor(), walker(20.5, 20.5, 0)
+
+	live(c, w, 0.5, nil)
+	if c.Stride == 0 {
+		t.Error("the legs did not move while the creature walked")
+	}
+
+	c.walking = false
+	before := c.Pos
+	live(c, w, 0.5, nil)
+	if c.Stride != 0 || c.Pos != before {
+		t.Errorf("standing, the creature moved to %v with its legs at %v", c.Pos, c.Stride)
+	}
+}
+
+func TestACreatureHopsUpOneBlock(t *testing.T) {
+	w := floor()
+	for x := range 40 {
+		for z := 24; z < 40; z++ {
+			w.Set(x, 6, z, world.Stone)
+		}
+	}
+	c := walker(20.5, 20.5, 0)
+
+	live(c, w, 6, nil)
+
+	if c.Pos.Z < 25 || !near(c.Pos.Y, 7) {
+		t.Errorf("the creature is at z=%v height %v, wanted it up on the step", c.Pos.Z, c.Pos.Y)
+	}
+}
+
+func TestACreatureTurnsAwayFromAWall(t *testing.T) {
+	w := floor()
+	for x := range 40 {
+		w.Set(x, 6, 24, world.Brick)
+		w.Set(x, 7, 24, world.Brick)
+	}
+	c := walker(20.5, 20.5, 0)
+
+	farthest, turned := 0.0, false
+	live(c, w, 20, func() {
+		farthest = max(farthest, c.Pos.Z)
+		turned = turned || c.Yaw != 0
+	})
+
+	if farthest > 24-render.MossbackWidth/2 {
+		t.Errorf("the creature got to z=%v, through a wall at 24", farthest)
+	}
+	if !turned {
+		t.Error("the creature never turned away from the wall")
+	}
+}
+
+func TestACreatureKeepsOutOfWater(t *testing.T) {
+	w := floor()
+	for x := range 40 {
+		for z := 24; z < 40; z++ {
+			w.Set(x, 5, z, world.Water) // a pool level with the ground
+		}
+	}
+	c := walker(20.5, 20.5, 0)
+
+	live(c, w, 40, func() {
+		if w.At(int(math.Floor(c.Pos.X)), 5, int(math.Floor(c.Pos.Z))) == world.Water {
+			t.Fatalf("the creature walked into the water at %v", c.Pos)
+		}
+	})
+}
+
+func TestACreatureKeepsBackFromALongDrop(t *testing.T) {
+	w := floor() // which ends at 40 on x and z, with nothing beyond it
+	c := walker(36.5, 36.5, 0)
+
+	live(c, w, 40, func() {
+		if c.Pos.Y < 5.9 {
+			t.Fatalf("the creature fell off the edge, to %v", c.Pos)
+		}
+	})
+}
+
+func TestACreatureWalksAndStandsByTurns(t *testing.T) {
+	w := floor()
+	c := walker(20.5, 20.5, 0)
+	c.walking, c.timer = false, 0 // free to change its mind
+
+	walked, stood, changes, was := 0, 0, 0, false
+	live(c, w, 90, func() {
+		if c.walking {
+			walked++
+		} else {
+			stood++
+		}
+		if c.walking != was {
+			changes++
+		}
+		was = c.walking
+	})
+
+	if walked == 0 || stood == 0 || changes < 6 {
+		t.Errorf("in 90 seconds the creature walked %d frames, stood %d and changed %d times", walked, stood, changes)
+	}
+	if !near(c.Pos.Y, 6) {
+		t.Errorf("the creature ended at height %v, wanted it still on the floor", c.Pos.Y)
+	}
+}
+
+func TestCreaturesStartOnGrassNearTheSpawn(t *testing.T) {
+	for seed := int64(1); seed <= 3; seed++ {
+		w := world.Generate(seed)
+		spawn := w.Spawn()
+
+		all := spawnCreatures(w, creatureCount)
+		again := spawnCreatures(w, creatureCount)
+
+		if len(all) != creatureCount {
+			t.Fatalf("seed %d: %d creatures, wanted %d", seed, len(all), creatureCount)
+		}
+		for i, c := range all {
+			x, y, z := int(math.Floor(c.Pos.X)), int(c.Pos.Y), int(math.Floor(c.Pos.Z))
+			if w.At(x, y-1, z) != world.Grass || w.At(x, y, z) != world.Air || w.At(x, y+1, z) != world.Air {
+				t.Errorf("seed %d: creature %d at %v is not on grass with room above", seed, i, c.Pos)
+			}
+			if d := c.Pos.Distance(spawn); d < 3 || d > 80 {
+				t.Errorf("seed %d: creature %d is %v from the spawn", seed, i, d)
+			}
+			if again[i].Pos != c.Pos || again[i].Yaw != c.Yaw {
+				t.Errorf("seed %d: creature %d is not where it was the first time", seed, i)
+			}
+		}
+	}
+}
+
+func TestCreaturesMoveInPlayAndStandStillInAPause(t *testing.T) {
+	g := onFloor(t)
+	g.creatures = []Creature{*walker(22.5, 22.5, 0)}
+
+	hold(t, g, 10)
+	moved := g.creatures[0].Pos
+	if moved.Z <= 22.5 {
+		t.Fatal("the creature did not move in play")
+	}
+
+	press(g, engine.KeyEscape)
+	hold(t, g, 10)
+	if g.creatures[0].Pos != moved {
+		t.Error("the creature moved while the game was paused")
+	}
+}
+
+func TestACreatureInViewIsDrawn(t *testing.T) {
+	g := onFloor(t) // the player faces +z from 20.5, 20.5
+	g.creatures = nil
+	_, without := drawn(t, g)
+
+	g.creatures = []Creature{*walker(20.5, 23.5, math.Pi)}
+	_, with := drawn(t, g)
+
+	n := 0
+	for y := range with.Canvas().Height() {
+		for x := range with.Canvas().Width() {
+			if with.Canvas().At(x, y) != without.Canvas().At(x, y) {
+				n++
+			}
+		}
+	}
+	if n < 60 {
+		t.Errorf("a creature three blocks ahead changed %d pixels of the frame", n)
+	}
+}
+
+// A whole frame of play: the blocks, the clouds, the creatures and the HUD, at 240 by
+// 67 cells.
+func BenchmarkFrame(b *testing.B) {
+	g, err := New(Options{Seed: 1})
+	if err != nil {
+		b.Fatal(err)
+	}
+	g.Play()
+	fb, err := engine.NewFrameBuffer(240, 67)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for b.Loop() {
+		fb.Clear()
+		g.Draw(fb)
+	}
+}
