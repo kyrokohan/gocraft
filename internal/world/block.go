@@ -46,6 +46,8 @@ const (
 	Mushroom
 
 	Torch
+	Workbench
+	Kiln
 
 	blockCount
 )
@@ -78,37 +80,42 @@ type Info struct {
 
 	// Dig is how many seconds of digging by hand break the block. 0 is at once.
 	Dig float64
+
+	// Tool is the kind of tool that digs the block faster, and Needs the tier of that
+	// tool the block needs to leave anything when it breaks: 0 for none.
+	Tool  Tool
+	Needs int
 }
 
 var infos = [256]Info{
 	Air:       {Name: "air"},
-	Grass:     dig(solid("grass", tile.GrassTop, tile.GrassSide, tile.Dirt), 0.6),
-	Dirt:      dig(cube("dirt", tile.Dirt), 0.5),
-	Stone:     dig(cube("stone", tile.Stone), 2),
-	Sand:      dig(cube("sand", tile.Sand), 0.5),
-	Log:       dig(solid("log", tile.LogTop, tile.LogSide, tile.LogTop), 1.5),
+	Grass:     byShovel(solid("grass", tile.GrassTop, tile.GrassSide, tile.Dirt), 0.6),
+	Dirt:      byShovel(cube("dirt", tile.Dirt), 0.5),
+	Stone:     byPick(cube("stone", tile.Stone), 2, TierWood),
+	Sand:      byShovel(cube("sand", tile.Sand), 0.5),
+	Log:       byAxe(solid("log", tile.LogTop, tile.LogSide, tile.LogTop), 1.5),
 	Leaves:    dig(leaves("leaves", tile.Leaves), 0.2),
-	Planks:    dig(cube("planks", tile.Planks), 1.2),
-	Brick:     dig(cube("brick", tile.Brick), 2),
-	Glass:     {Name: "glass", Top: tile.Glass, Side: tile.Glass, Bottom: tile.Glass, Solid: true, Dig: 0.3},
+	Planks:    byAxe(cube("planks", tile.Planks), 1.2),
+	Brick:     byPick(cube("brick", tile.Brick), 2, TierWood),
+	Glass:     byPick(Info{Name: "glass", Top: tile.Glass, Side: tile.Glass, Bottom: tile.Glass, Solid: true}, 0.3, 0),
 	Water:     {Name: "water", Top: tile.Water, Side: tile.Water, Bottom: tile.Water, Shade: 1},
-	Snow:      dig(cube("snow", tile.Snow), 0.3),
+	Snow:      byShovel(cube("snow", tile.Snow), 0.3),
 	Deepstone: fixed(cube("deepstone", tile.Deepstone)),
 
-	Gravel:      dig(cube("gravel", tile.Gravel), 0.6),
-	Clay:        dig(cube("clay", tile.Clay), 0.6),
-	Sandstone:   dig(solid("sandstone", tile.SandstoneTop, tile.SandstoneSide, tile.SandstoneTop), 1.2),
-	Cobble:      dig(cube("cobble", tile.Cobble), 2),
-	CoalOre:     dig(cube("coal ore", tile.CoalOre), 2.5),
-	CopperOre:   dig(cube("copper ore", tile.CopperOre), 3),
-	IronOre:     dig(cube("iron ore", tile.IronOre), 3),
-	CrystalOre:  dig(glowing(cube("crystal ore", tile.CrystalOre), 8), 3.5),
-	PineLog:     dig(solid("pine log", tile.PineLogTop, tile.PineLogSide, tile.PineLogTop), 1.5),
+	Gravel:      byShovel(cube("gravel", tile.Gravel), 0.6),
+	Clay:        byShovel(cube("clay", tile.Clay), 0.6),
+	Sandstone:   byPick(solid("sandstone", tile.SandstoneTop, tile.SandstoneSide, tile.SandstoneTop), 1.2, TierWood),
+	Cobble:      byPick(cube("cobble", tile.Cobble), 2, TierWood),
+	CoalOre:     byPick(cube("coal ore", tile.CoalOre), 2.5, TierWood),
+	CopperOre:   byPick(cube("copper ore", tile.CopperOre), 3, TierStone),
+	IronOre:     byPick(cube("iron ore", tile.IronOre), 3, TierStone),
+	CrystalOre:  byPick(glowing(cube("crystal ore", tile.CrystalOre), 8), 3.5, TierCopper),
+	PineLog:     byAxe(solid("pine log", tile.PineLogTop, tile.PineLogSide, tile.PineLogTop), 1.5),
 	PineNeedles: dig(leaves("pine needles", tile.PineNeedles), 0.2),
-	PaleLog:     dig(solid("pale log", tile.PaleLogTop, tile.PaleLogSide, tile.PaleLogTop), 1.5),
+	PaleLog:     byAxe(solid("pale log", tile.PaleLogTop, tile.PaleLogSide, tile.PaleLogTop), 1.5),
 	PaleLeaves:  dig(leaves("pale leaves", tile.PaleLeaves), 0.2),
-	Cactus:      dig(solid("cactus", tile.CactusTop, tile.CactusSide, tile.CactusTop), 0.4),
-	Ice:         dig(cube("ice", tile.Ice), 0.5),
+	Cactus:      byAxe(solid("cactus", tile.CactusTop, tile.CactusSide, tile.CactusTop), 0.4),
+	Ice:         byPick(cube("ice", tile.Ice), 0.5, 0),
 
 	TallGrass:    plant("tall grass", tile.TallGrass),
 	RedFlower:    plant("red flower", tile.RedFlower),
@@ -120,6 +127,10 @@ var infos = [256]Info{
 
 	// A torch stands on the ground as a plant does, and is drawn as one.
 	Torch: glowing(plant("torch", tile.Torch), 14),
+
+	// Standing near a workbench or a kiln lets the player make more.
+	Workbench: byAxe(solid("workbench", tile.WorkbenchTop, tile.WorkbenchSide, tile.Planks), 1.5),
+	Kiln:      byPick(solid("kiln", tile.KilnTop, tile.KilnSide, tile.Cobble), 2.5, TierWood),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for
@@ -152,6 +163,23 @@ func glowing(info Info, level uint8) Info {
 
 func dig(info Info, seconds float64) Info {
 	info.Dig = seconds
+	return info
+}
+
+// byPick, byAxe and byShovel are blocks dug faster with that tool. A block dug with a pick
+// may need one of a tier to leave anything.
+func byPick(info Info, seconds float64, needs int) Info {
+	info.Dig, info.Tool, info.Needs = seconds, Pick, needs
+	return info
+}
+
+func byAxe(info Info, seconds float64) Info {
+	info.Dig, info.Tool = seconds, Axe
+	return info
+}
+
+func byShovel(info Info, seconds float64) Info {
+	info.Dig, info.Tool = seconds, Shovel
 	return info
 }
 

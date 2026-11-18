@@ -73,17 +73,104 @@ func TestBlocksTakeTimeToDig(t *testing.T) {
 
 func TestAStackIsEmptyOrHoldsWhatASlotCan(t *testing.T) {
 	for s, want := range map[Stack]bool{
-		{}:                           true,
-		{Dirt.Item(), 1}:             true,
-		{Berries, StackSize}:         true,
-		{Dirt.Item(), 0}:             false,
-		{Dirt.Item(), StackSize + 1}: false,
-		{NoItem, 3}:                  false,
-		{Item(blockCount), 1}:        false,
-		{Dirt.Item(), -1}:            false,
+		{}:                                true,
+		{Item: Dirt.Item(), Count: 1}:     true,
+		{Item: Berries, Count: StackSize}: true,
+		{Item: Dirt.Item(), Count: 0}:     false,
+		{Item: Dirt.Item(), Count: StackSize + 1}: false,
+		{Item: NoItem, Count: 3}:                  false,
+		{Item: Item(blockCount), Count: 1}:        false,
+		{Item: Dirt.Item(), Count: -1}:            false,
 	} {
 		if s.valid() != want {
 			t.Errorf("%+v valid: %v, wanted %v", s, s.valid(), want)
 		}
+	}
+}
+
+func TestAToolIsOneToASlotAndWearsOut(t *testing.T) {
+	for _, tc := range []struct {
+		stack Stack
+		valid bool
+	}{
+		{Stack{Item: StonePick, Count: 1}, true},
+		{Stack{Item: StonePick, Count: 1, Wear: StonePick.Uses() - 1}, true},
+		{Stack{Item: StonePick, Count: 1, Wear: StonePick.Uses()}, false},
+		{Stack{Item: StonePick, Count: 2}, false},
+		{Stack{Item: StonePick, Count: 1, Wear: -1}, false},
+		{Stack{Item: Stick, Count: 1, Wear: 1}, false},
+	} {
+		if tc.stack.valid() != tc.valid {
+			t.Errorf("%+v valid: %v, wanted %v", tc.stack, tc.stack.valid(), tc.valid)
+		}
+	}
+	if WoodPick.Uses() >= IronPick.Uses() || Stick.Uses() != 0 || Stick.StackSize() != StackSize {
+		t.Error("an iron tool wears out no slower than a wood one, or a stick wears")
+	}
+}
+
+func TestTheRightToolDigsFasterAndSomeBlocksNeedOne(t *testing.T) {
+	for _, tc := range []struct {
+		block  Block
+		hand   Item
+		faster float64 // than a hand that can dig it
+		yields bool
+	}{
+		{Dirt, NoItem, 1, true},
+		{Dirt, WoodShovel, 2, true},
+		{Dirt, IronShovel, 6, true},
+		{Dirt, IronPick, 1, true},  // the wrong kind is no help
+		{Log, StoneAxe, 3, true},   // and the right kind is
+		{Stone, NoItem, 1, false},  // by hand stone gives nothing
+		{Stone, WoodPick, 2, true}, // and a pick of any tier frees it
+		{IronOre, WoodPick, 1, false},
+		{IronOre, StonePick, 3, true},
+		{CrystalOre, StonePick, 1, false},
+		{CrystalOre, CopperPick, 4, true},
+		{TallGrass, NoItem, 1, true},
+	} {
+		seconds, yields := tc.block.DigWith(tc.hand)
+		want := tc.block.Info().Dig / tc.faster
+		if !yields {
+			want = tc.block.Info().Dig * 3
+		}
+		if seconds != want || yields != tc.yields {
+			t.Errorf("%v with %q: %v s, yields %v; wanted %v s, %v", tc.block.Info().Name, tc.hand.Name(), seconds, yields, want, tc.yields)
+		}
+	}
+}
+
+func TestOresLeaveWhatIsInThem(t *testing.T) {
+	if item, n := CoalOre.Drop(); item != Coal || n != 1 {
+		t.Errorf("coal ore drops %d %q", n, item.Name())
+	}
+	if item, n := CrystalOre.Drop(); item != CrystalShard || n != 1 {
+		t.Errorf("crystal ore drops %d %q", n, item.Name())
+	}
+	if item, _ := IronOre.Drop(); item != IronOre.Item() {
+		t.Errorf("iron ore drops %q, wanted itself for the kiln", item.Name())
+	}
+}
+
+func TestSomeLeavesHoldAFruitAndAlwaysTheSameOnes(t *testing.T) {
+	fruit := 0
+	for x := range 100 {
+		for z := range 10 {
+			item, n := Leaves.DropAt(x, 40, z)
+			if again, _ := Leaves.DropAt(x, 40, z); again != item {
+				t.Fatal("the same leaves gave a fruit once and not again")
+			}
+			if item == Fruit && n == 1 {
+				fruit++
+			} else if item != NoItem {
+				t.Fatalf("leaves dropped %q", item.Name())
+			}
+		}
+	}
+	if fruit < 60 || fruit > 140 {
+		t.Errorf("%d of 1000 leaves hold a fruit, wanted about 100", fruit)
+	}
+	if item, _ := Dirt.DropAt(3, 4, 5); item != Dirt.Item() {
+		t.Error("DropAt changed what dirt drops")
 	}
 }

@@ -31,11 +31,11 @@ func played(t *testing.T) (*World, Meta) {
 		Flying: true,
 		Slot:   7,
 		Mode:   Survival,
-		Items:  []Stack{{Dirt.Item(), 12}, {}, {Berries, 3}},
+		Items:  []Stack{{Item: Dirt.Item(), Count: 12}, {}, {Item: Berries, Count: 3}, {Item: StonePick, Count: 1, Wear: 7}},
 		Health: 15,
 		Food:   11.5,
 		Air:    4,
-		Drops:  []Drop{{Stack: Stack{Cobble.Item(), 1}, Pos: geometry.Vector3{X: 703.5, Y: 91, Z: 2.5}, Age: 12}},
+		Drops:  []Drop{{Stack: Stack{Item: Cobble.Item(), Count: 1}, Pos: geometry.Vector3{X: 703.5, Y: 91, Z: 2.5}, Age: 12}},
 	}
 }
 
@@ -191,6 +191,7 @@ func TestABrokenWorldFileIsAnErrorAndNeverAPanic(t *testing.T) {
 		"none of a kind": strings.Replace(text, `"count": 12`, `"count": 0`, 1),
 		"body nowhere":   strings.Replace(text, `"health": 15`, `"health": 1e999`, 1),
 		"an empty drop":  strings.Replace(text, `"count": 1,`, `"count": 0,`, 1),
+		"worn through":   strings.Replace(text, `"wear": 7`, `"wear": 9999`, 1),
 	} {
 		if content == text {
 			t.Fatalf("%s: the test did not change the file", name)
