@@ -24,7 +24,8 @@ func main() {
 
 func run() error {
 	seed := flag.Int64("seed", 0, "the number a new world is made from; 0 takes one from the clock")
-	worldPath := flag.String("world", "", "the folder the world is saved in (default: gocraft/worlds/world in your config folder)")
+	worldPath := flag.String("world", "", "play only the world saved in this folder, with no list of worlds")
+	worldsPath := flag.String("worlds", "", "the folder of the worlds the title lists (default: gocraft/worlds in your config folder)")
 	mouse := flag.Bool("mouse", true, "aim, break and place with the mouse; false leaves the pointer to the terminal, to select text")
 	shot := flag.String("shot", "", "draw one frame of play into this PNG file and quit; nothing is loaded or saved")
 	flag.Parse()
@@ -37,13 +38,19 @@ func run() error {
 		return writeShot(g, *shot)
 	}
 
-	opts := game.Options{Seed: *seed, SavePath: *worldPath}
-	if opts.SavePath == "" {
-		dir, err := os.UserConfigDir()
-		if err != nil {
-			return fmt.Errorf("no folder to save the world in (%w): name one with -world", err)
+	if *worldPath != "" && *worldsPath != "" {
+		return errors.New("-world and -worlds cannot both be given")
+	}
+	opts := game.Options{Seed: *seed, SavePath: *worldPath, Worlds: *worldsPath}
+	dir, dirErr := os.UserConfigDir()
+	if dirErr == nil {
+		opts.Settings = filepath.Join(dir, "gocraft", "settings.json")
+	}
+	if opts.SavePath == "" && opts.Worlds == "" {
+		if dirErr != nil {
+			return fmt.Errorf("no folder to save worlds in (%w): name one with -worlds", dirErr)
 		}
-		opts.SavePath = filepath.Join(dir, "gocraft", "worlds", "world")
+		opts.Worlds = filepath.Join(dir, "gocraft", "worlds")
 
 		// The first version of the game kept its one world in a file beside this
 		// folder. It is not read and not touched; the title says that it is there.
