@@ -12,7 +12,7 @@ import (
 	"github.com/kyrokohan/gocraft/internal/tile"
 )
 
-//go:embed img/blocks.png img/title.png img/mossback.png
+//go:embed img/blocks.png img/title.png img/mossback.png img/gloam.png
 var files embed.FS
 
 // Levels is how many sizes each tile is kept in: 16, 8, 4, 2 and 1 pixels across. A
@@ -44,10 +44,20 @@ type Set struct {
 	// Title is the name of the game, for the title screen.
 	Title *bitmap.Bitmap
 
-	// Mossback is the picture laid on the boxes the creature is built from: four
-	// square tiles side by side, its back, its hide, its face and a leg.
+	// Mossback is the picture laid on the boxes the creature is built from: MossbackTiles
+	// square tiles side by side, its back, its hide, its face, a leg, and its back and its
+	// hide once it is shorn.
 	Mossback *bitmap.Bitmap
+
+	// Gloam is the same for the gloam: GloamTiles tiles, its smoke, its face and an arm.
+	Gloam *bitmap.Bitmap
 }
+
+// How many tiles the pictures of the creatures have.
+const (
+	MossbackTiles = 6
+	GloamTiles    = 3
+)
 
 // Load reads the pictures built into the program.
 func Load() (*Set, error) {
@@ -81,14 +91,26 @@ func Load() (*Set, error) {
 	if set.Title, err = decode("img/title.png"); err != nil {
 		return nil, err
 	}
-	if set.Mossback, err = decode("img/mossback.png"); err != nil {
+	if set.Mossback, err = creature("img/mossback.png", MossbackTiles); err != nil {
 		return nil, err
 	}
-	if set.Mossback.Width() != 4*set.Mossback.Height() {
-		return nil, fmt.Errorf("assets: mossback.png is %d by %d, wanted four square tiles side by side",
-			set.Mossback.Width(), set.Mossback.Height())
+	if set.Gloam, err = creature("img/gloam.png", GloamTiles); err != nil {
+		return nil, err
 	}
 	return set, nil
+}
+
+// creature reads the picture of a creature, which is a number of square tiles side by side.
+func creature(name string, tiles int) (*bitmap.Bitmap, error) {
+	bm, err := decode(name)
+	if err != nil {
+		return nil, err
+	}
+	if bm.Width() != tiles*bm.Height() {
+		return nil, fmt.Errorf("assets: %s is %d by %d, wanted %d square tiles side by side",
+			name, bm.Width(), bm.Height(), tiles)
+	}
+	return bm, nil
 }
 
 func decode(name string) (*bitmap.Bitmap, error) {

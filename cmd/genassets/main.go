@@ -53,6 +53,11 @@ type rgb struct{ r, g, b float64 }
 
 func (c rgb) scale(f float64) rgb { return rgb{c.r * f, c.g * f, c.b * f} }
 
+// mix is the color a part t of the way from c to o.
+func (c rgb) mix(o rgb, t float64) rgb {
+	return rgb{c.r + (o.r-c.r)*t, c.g + (o.g-c.g)*t, c.b + (o.b-c.b)*t}
+}
+
 func (c rgb) nrgba() color.NRGBA {
 	clamp := func(v float64) uint8 { return uint8(math.Round(min(max(v, 0), 255))) }
 	return color.NRGBA{R: clamp(c.r), G: clamp(c.g), B: clamp(c.b), A: 255}
@@ -136,6 +141,12 @@ var painters = [tile.Count]painter{
 	tile.IronPick:     tool(toolPick, ironHead),
 	tile.IronAxe:      tool(toolAxe, ironHead),
 	tile.IronShovel:   tool(toolShovel, ironHead),
+	tile.WoodBlade:    blade(woodHead),
+	tile.StoneBlade:   blade(stoneHead),
+	tile.CopperBlade:  blade(copperHead),
+	tile.IronBlade:    blade(ironHead),
+	tile.Moss:         mossClump,
+	tile.MossCake:     mossCake,
 }
 
 func grassTop(x, y int) (rgb, bool) {
@@ -274,10 +285,11 @@ func deepstone(x, y int) (rgb, bool) {
 	return grain(c, 0.05, x, y, 30), true
 }
 
-// The mossback is gocraft's one creature: a squat animal with moss growing on its back.
-// Its picture is four tiles side by side, which the renderer lays on the boxes it is
-// built from, in this order: the back, the hide of its sides, its face, and a leg.
-var mossbackTiles = [...]painter{mossBack, mossHide, mossFace, mossLeg}
+// The mossback is a squat animal with moss growing on its back. Its picture is six tiles
+// side by side, which the renderer lays on the boxes it is built from, in this order: the
+// back, the hide of its sides, its face, a leg, and the back and the sides once its moss
+// is shorn.
+var mossbackTiles = []painter{mossBack, mossHide, mossFace, mossLeg, mossBare, mossBareHide}
 
 var (
 	moss  = rgb{78, 122, 62}
@@ -340,10 +352,66 @@ func mossLeg(x, y int) (rgb, bool) {
 	return grain(rgb{186, 160, 120}, 0.06, x, y, 49), true
 }
 
-// drawMossback draws the creature's picture: its tiles side by side.
-func drawMossback() *image.NRGBA {
-	img := image.NewNRGBA(image.Rect(0, 0, size*len(mossbackTiles), size))
-	for i, paint := range mossbackTiles {
+// mossBare is the back of a shorn mossback: its hide, with a stubble of moss.
+func mossBare(x, y int) (rgb, bool) {
+	if hash(x, y, 172) < 0.14 {
+		return grain(moss.scale(0.86), 0.06, x, y, 173), true
+	}
+	return grain(cream.scale(0.96), 0.05, x, y, 174), true
+}
+
+// mossBareHide is the side of a shorn mossback: the hide, with a line of stubble along
+// the top.
+func mossBareHide(x, y int) (rgb, bool) {
+	if y == 0 {
+		return mossBare(x, y)
+	}
+	c, _ := mossHide(x, size-1) // the hide where no moss hangs
+	return grain(c, 0.03, x, y, 175), true
+}
+
+// The gloam is a creature of the dark: a tall, stooped shape of smoke with long arms,
+// which drifts after the player and fades in the light. Its picture is three tiles: its
+// smoke, its face, and an arm, ragged at the ends. Its eyes are not in the picture: they
+// are lit boxes of their own, which glow where the rest of it cannot be seen.
+var gloamTiles = []painter{gloamSmoke, gloamFace, gloamArm}
+
+var smoke = rgb{34, 30, 50}
+
+func gloamSmoke(x, y int) (rgb, bool) {
+	if y >= size-3 && hash(x, y, 176) < 0.22*float64(y-size+4) {
+		return rgb{}, false // it frays away at the bottom
+	}
+	wisp := blotch(x, y/3, 3, 177) // streaks that run up and down
+	c := smoke.mix(rgb{70, 60, 102}, 0.6*wisp*wisp)
+	return grain(c, 0.06, x, y, 178), true
+}
+
+// gloamFace is the same from left to right as from right to left, as the mossback's is.
+func gloamFace(x, y int) (rgb, bool) {
+	mx := min(x, size-1-x)
+	switch {
+	case mx >= 3 && mx <= 6 && y >= 5 && y <= 8:
+		return rgb{12, 10, 18}, true // the hollows the eyes glow from
+	case mx >= 6 && y == 12:
+		return rgb{18, 16, 26}, true // a mouth like a crack
+	}
+	c, _ := gloamSmoke(mx, min(y, size-4))
+	return c, true
+}
+
+func gloamArm(x, y int) (rgb, bool) {
+	if y >= size-4 && x%3 != 1 {
+		return rgb{}, false // long fingers
+	}
+	c, _ := gloamSmoke(x, min(y, size-4))
+	return c.scale(0.9), true
+}
+
+// drawTiles draws a creature's picture: its tiles side by side.
+func drawTiles(tiles []painter) *image.NRGBA {
+	img := image.NewNRGBA(image.Rect(0, 0, size*len(tiles), size))
+	for i, paint := range tiles {
 		for y := range size {
 			for x := range size {
 				if c, ok := paint(x, y); ok {
@@ -842,6 +910,64 @@ func tool(kind int, head rgb) painter {
 	}
 }
 
+// blade returns the painter of a blade: a grip at the bottom left with a knob on its
+// end, a guard across it, and a straight blade up to a point at the top right.
+func blade(head rgb) painter {
+	return func(x, y int) (rgb, bool) {
+		fx, fy := float64(x)+0.5, float64(y)+0.5
+		a, p := fx-fy, fx+fy-16
+		switch {
+		case a > -2.5 && a < 12.5 && math.Abs(p) < 1.7*min(1, (12.5-a)/3.5):
+			c := head
+			if p < -0.5 {
+				c = c.scale(1.2) // the edge catches the light
+			}
+			return grain(c, 0.05, x, y, 160), true
+		case a >= -4.5 && a <= -2.5 && math.Abs(p) < 3.6:
+			return grain(head.scale(0.72), 0.06, x, y, 161), true
+		case a > -11.5 && a < -4.5 && p >= -0.5 && p <= 1.5:
+			return grain(rgb{104, 74, 44}, 0.08, x, y, 162), true // the grip, wound in leather
+		case a >= -13.5 && a <= -11.5 && math.Abs(p-0.5) < 1.6:
+			return grain(head.scale(0.8), 0.06, x, y, 163), true
+		}
+		return rgb{}, false
+	}
+}
+
+// mossClump is moss shorn from a mossback: a soft heap, tufted along its top.
+func mossClump(x, y int) (rgb, bool) {
+	dx, dy := float64(x)-7.5, float64(y)-9.5
+	if dx*dx/42+dy*dy/20 > 1 || dy < -3.6+1.4*math.Sin(float64(x)*1.9) {
+		return rgb{}, false
+	}
+	c := moss.scale(1.12 - 0.05*dy + 0.3*(blotch(x, y, 3, 164)-0.5))
+	if hash(x, y, 165) < 0.1 {
+		c = c.scale(1.25) // a tuft
+	}
+	return grain(c, 0.06, x, y, 166), true
+}
+
+// mossCake is a round cake seen a little from above: a sponge with moss on its top that
+// runs down its side here and there.
+func mossCake(x, y int) (rgb, bool) {
+	dx := (float64(x) - 7.5) / 6.5
+	if math.Abs(dx) >= 1 {
+		return rgb{}, false
+	}
+	round := 2 * math.Sqrt(1-dx*dx) // how far the round top and bottom bulge from their middle lines
+	fy := float64(y) + 0.5
+	top, rim, bottom := 6-round, 6+round, 11.5+0.6*round
+	switch {
+	case fy < top || fy > bottom:
+		return rgb{}, false
+	case fy < rim || fy < rim+1+2.5*hash(x, 0, 167):
+		return grain(moss.scale(1.15+0.25*(blotch(x, y, 3, 168)-0.5)), 0.05, x, y, 169), true
+	case fy > bottom-1:
+		return grain(rgb{170, 134, 88}, 0.05, x, y, 170), true // its baked bottom
+	}
+	return grain(rgb{222, 196, 140}, 0.05, x, y, 171), true
+}
+
 // drawBlocks draws the strip: every tile side by side, in the order of package tile.
 func drawBlocks() *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, size*int(tile.Count), size))
@@ -943,7 +1069,7 @@ func inRows(strip *image.NRGBA, perRow int) *image.NRGBA {
 
 // drawPreview is every picture, enlarged, one above the other.
 func drawPreview() *image.NRGBA {
-	pictures := []*image.NRGBA{enlarge(inRows(drawBlocks(), 13), 6), enlarge(drawTitle(), 6), enlarge(drawMossback(), 12)}
+	pictures := []*image.NRGBA{enlarge(inRows(drawBlocks(), 13), 6), enlarge(drawTitle(), 6), enlarge(drawTiles(mossbackTiles), 12), enlarge(drawTiles(gloamTiles), 12)}
 	w, h := 0, 0
 	for _, p := range pictures {
 		w, h = max(w, p.Bounds().Dx()), h+p.Bounds().Dy()+12
@@ -984,7 +1110,10 @@ func run() error {
 	if err := writePNG(filepath.Join(*out, "title.png"), drawTitle()); err != nil {
 		return err
 	}
-	if err := writePNG(filepath.Join(*out, "mossback.png"), drawMossback()); err != nil {
+	if err := writePNG(filepath.Join(*out, "mossback.png"), drawTiles(mossbackTiles)); err != nil {
+		return err
+	}
+	if err := writePNG(filepath.Join(*out, "gloam.png"), drawTiles(gloamTiles)); err != nil {
 		return err
 	}
 	if *preview != "" {

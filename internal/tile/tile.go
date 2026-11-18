@@ -81,6 +81,12 @@ const (
 	IronPick
 	IronAxe
 	IronShovel
+	WoodBlade
+	StoneBlade
+	CopperBlade
+	IronBlade
+	Moss
+	MossCake
 
 	// Count is the number of tiles in the strip.
 	Count

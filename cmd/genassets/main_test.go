@@ -34,7 +34,7 @@ func readPNG(t *testing.T, name string) *image.NRGBA {
 // change to the generator, run `make assets`.
 func TestCommittedPicturesAreCurrent(t *testing.T) {
 	for name, want := range map[string]*image.NRGBA{
-		"blocks.png": drawBlocks(), "title.png": drawTitle(), "mossback.png": drawMossback(),
+		"blocks.png": drawBlocks(), "title.png": drawTitle(), "mossback.png": drawTiles(mossbackTiles), "gloam.png": drawTiles(gloamTiles),
 	} {
 		got := readPNG(t, name)
 		if got.Bounds() != want.Bounds() {
@@ -66,6 +66,7 @@ func TestOnlyLeavesGlassPlantsAndPicturesOnNoBlockHaveHoles(t *testing.T) {
 			tile.Berries, tile.Cracks, tile.Stick, tile.Coal, tile.CopperBar, tile.IronBar, tile.CrystalShard, tile.Fruit, tile.BerryLoaf,
 			tile.WoodPick, tile.WoodAxe, tile.WoodShovel, tile.StonePick, tile.StoneAxe, tile.StoneShovel,
 			tile.CopperPick, tile.CopperAxe, tile.CopperShovel, tile.IronPick, tile.IronAxe, tile.IronShovel,
+			tile.WoodBlade, tile.StoneBlade, tile.CopperBlade, tile.IronBlade, tile.Moss, tile.MossCake,
 		}, tile.ID(id))
 		if seeThrough && holes == 0 {
 			t.Errorf("tile %d should have holes and has none", id)
@@ -76,13 +77,15 @@ func TestOnlyLeavesGlassPlantsAndPicturesOnNoBlockHaveHoles(t *testing.T) {
 	}
 }
 
-func TestTheMossbacksFaceIsTheSameBothWaysRound(t *testing.T) {
-	for y := range size {
-		for x := range size {
-			a, _ := mossFace(x, y)
-			b, _ := mossFace(size-1-x, y)
-			if a != b {
-				t.Fatalf("the face differs at %d,%d from its mirror", x, y)
+func TestACreaturesFaceIsTheSameBothWaysRound(t *testing.T) {
+	for name, face := range map[string]painter{"mossback": mossFace, "gloam": gloamFace} {
+		for y := range size {
+			for x := range size {
+				a, _ := face(x, y)
+				b, _ := face(size-1-x, y)
+				if a != b {
+					t.Fatalf("the %s's face differs at %d,%d from its mirror", name, x, y)
+				}
 			}
 		}
 	}

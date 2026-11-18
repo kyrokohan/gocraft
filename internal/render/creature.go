@@ -3,6 +3,7 @@ package render
 import (
 	"math"
 
+	"glonk.dev/bitmap"
 	"glonk.dev/engine"
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
@@ -40,7 +41,8 @@ const (
 	tileHide
 	tileFace
 	tileLeg
-	mossbackTiles
+	tileBare     // the back once it is shorn
+	tileBareHide // and its sides
 )
 
 // Mossback is where one creature is and how it stands: all that drawing it needs.
@@ -57,14 +59,18 @@ type Mossback struct {
 	// Light is how bright the light it stands in is, from 0 to 1: the Sky's Brightness of
 	// the light in its cell.
 	Light float64
+
+	// Shorn is true while its moss grows back, and Hurt while it shows a hit.
+	Shorn, Hurt bool
 }
 
 // Mossbacks draws the creatures. They are glonk meshes: boxes with the creature's
 // picture on their faces, lit by glonk and faded by the camera's fog, and drawn into
 // the canvas after the blocks, whose depth hides them where a block is nearer.
 type Mossbacks struct {
-	body, head, leg mesh.Mesh
-	lights          [2]mesh.Light
+	body, bare, head, leg mesh.Mesh
+	hurt                  *bitmap.Bitmap // the picture, reddened, for a creature that was hit
+	lights                [2]mesh.Light
 }
 
 // NewMossbacks builds the boxes a creature is made of, with the picture from set.
@@ -73,16 +79,40 @@ func NewMossbacks(set *assets.Set) *Mossbacks {
 
 	// Each box says which tile goes on which of its faces, in the order of world.Face.
 	hide := [6]int{tileHide, tileHide, tileHide, tileBack, tileHide, tileHide}
+	bare := [6]int{tileBareHide, tileBareHide, tileBareHide, tileBare, tileBareHide, tileBareHide}
 	face := hide
 	face[world.FaceZPos] = tileFace
 	leg := [6]int{tileLeg, tileLeg, tileLeg, tileLeg, tileLeg, tileLeg}
 
+	const n = assets.MossbackTiles
 	return &Mossbacks{
-		body: box(-bodyWidth/2, legLength, -bodyLength/2, bodyWidth, bodyHeight, bodyLength, hide, mossbackTiles, look),
-		head: box(-headWidth/2, legLength+0.15, bodyLength/2, headWidth, headHeight, headLength, face, mossbackTiles, look),
+		body: box(-bodyWidth/2, legLength, -bodyLength/2, bodyWidth, bodyHeight, bodyLength, hide, n, look),
+		bare: box(-bodyWidth/2, legLength, -bodyLength/2, bodyWidth, bodyHeight, bodyLength, bare, n, look),
+		head: box(-headWidth/2, legLength+0.15, bodyLength/2, headWidth, headHeight, headLength, face, n, look),
 		// A leg hangs from its own origin, so that turning it there swings it from the hip.
-		leg: box(-legWidth/2, -legLength, -legWidth/2, legWidth, legLength, legWidth, leg, mossbackTiles, look),
+		leg:  box(-legWidth/2, -legLength, -legWidth/2, legWidth, legLength, legWidth, leg, n, look),
+		hurt: reddened(set.Mossback),
 	}
+}
+
+// hurtRed is the color a creature that was hit is flushed with, and hurtPart how much.
+var hurtRed = engine.RGB(220, 30, 30)
+
+const hurtPart = 0.45
+
+// reddened returns a copy of a picture flushed with red, as a creature that is hit is
+// drawn for a moment: a glonk mesh takes the colors of its picture as they are, and
+// has no tint of its own.
+func reddened(b *bitmap.Bitmap) *bitmap.Bitmap {
+	red := bitmap.New(b.Width(), b.Height())
+	for y := range b.Height() {
+		for x := range b.Width() {
+			if c := b.At(x, y); !c.IsDefault() {
+				red.Set(x, y, engine.Mix(c, hurtRed, hurtPart))
+			}
+		}
+	}
+	return red
 }
 
 // box returns a mesh of a box with one corner at (x, y, z) and the given size, with a
@@ -162,9 +192,16 @@ func (m *Mossbacks) Draw(c *engine.Canvas, cam mesh.Camera, all []Mossback, sky 
 			at := one.Pos.Add(aside.Scale(right)).Add(ahead.Scale(front))
 			at.Y += up
 			part.Transform = mesh.Transform{Position: at, Yaw: one.Yaw, Pitch: pitch}
+			if one.Hurt {
+				part.Material.Texture = m.hurt
+			}
 			part.DrawShadedPixels(c, cam, m.lights[:]...)
 		}
-		put(m.body, 0, 0, 0, 0)
+		body := m.body
+		if one.Shorn {
+			body = m.bare
+		}
+		put(body, 0, 0, 0, 0)
 		put(m.head, 0, 0, 0, 0)
 
 		// The legs at opposite corners swing together, as a walking animal's do.
