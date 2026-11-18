@@ -61,8 +61,8 @@ func (g *Game) point(in *engine.Input) (slot int) {
 	return min((g.mouseX-x0)/slotPitch, hotbarSlots-1)
 }
 
-// aim finds the block the player aims at, if one is in reach: the one under the
-// pointer while the mouse is in use, and the one in the middle of the view otherwise.
+// aim finds the block or the creature the player aims at, if one is in reach: under the
+// pointer while the mouse is in use, and in the middle of the view otherwise.
 func (g *Game) aim() {
 	cam := g.player.Camera()
 	direction := cam.Look()
@@ -74,6 +74,16 @@ func (g *Game) aim() {
 		}
 	}
 	g.target, g.aimed = g.world.Target(cam.Position, direction, reach)
+
+	// A creature in front of the block, or in reach where there is none, is aimed at in
+	// its place.
+	limit := reach
+	if g.aimed {
+		limit = g.target.T
+	}
+	if g.prey, g.preyed = g.aimCreature(cam.Position, direction, limit); g.preyed {
+		g.aimed = false
+	}
 }
 
 // drag reads the left mouse button, which does two things, and reports whether it
@@ -178,8 +188,16 @@ func (g *Game) digTime(b world.Block) (seconds float64, yields bool) {
 // wear wears the tool in hand by a block broken, which is gone once it is worn out. A
 // block that breaks at once, as a plant does, does not wear it.
 func (g *Game) wear(b world.Block) {
+	if b.Info().Dig > 0 {
+		g.wearOut()
+	}
+}
+
+// wearOut wears the tool in hand by a use, which is gone once it is worn out. Anything
+// else in hand does not wear.
+func (g *Game) wearOut() {
 	s := &g.items[g.selected]
-	if uses := s.Item.Uses(); uses > 0 && b.Info().Dig > 0 {
+	if uses := s.Item.Uses(); uses > 0 {
 		if s.Wear++; s.Wear >= uses {
 			*s = world.Stack{}
 		}
@@ -214,15 +232,28 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		if clicked || places {
 			g.selected = slot
 		}
-		g.aimed, g.digging = false, 0
+		g.aimed, g.preyed, g.digging = false, false, 0
 		return
 	}
 	places = places || keyDown(in.Pressed, 'e')
+	g.hitWait = max(g.hitWait-dt, 0)
+
+	g.aim()
+	if g.preyed {
+		// A creature is aimed at, and no block: Q or a click hits it, again while held,
+		// and E or a right click shears it. Food in hand is eaten as anywhere else.
+		g.digging = 0
+		switch {
+		case (clicked || keyDown(in.IsDown, 'q')) && g.hitWait == 0:
+			g.strike(g.prey)
+		case places && !g.shear(g.prey):
+			g.eat()
+		}
+		return
+	}
 	if places && g.eat() {
 		return
 	}
-
-	g.aim()
 	breaks := clicked || keyDown(in.Pressed, 'q')
 	if g.survival {
 		breaks = g.dig(keyDown(in.IsDown, 'q') || in.MouseDown(engine.MouseLeft) && !g.dragging, dt)

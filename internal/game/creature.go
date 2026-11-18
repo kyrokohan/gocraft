@@ -24,6 +24,14 @@ const (
 	lookAhead     = 0.35  // how far past its own front it looks before it steps
 	longDrop      = 3     // blocks: it does not walk off anything deeper
 	rethink       = 0.4   // how long it stands after something turns it back
+
+	fleeTime   = 3.0   // how long it runs from what hit it
+	fleeSpeed  = 3.4   // running
+	knockSpeed = 5.0   // how fast a hit sends it away, at first
+	knockHop   = 4.0   // and up
+	knockDrag  = 6.0   // how fast that slows, a part of it a second
+	hurtShow   = 0.3   // how long it shows a hit
+	mossRegrow = 300.0 // how long its moss takes to grow back once it is shorn
 )
 
 // Creature is one mossback: an animal that walks about, stands a while, and walks on.
@@ -46,6 +54,11 @@ type Creature struct {
 	walking bool       // or standing
 	timer   float64    // until it changes its mind
 	rng     *rand.Rand // its own, so that what it does can be told from a seed
+
+	push   geometry.Vector3 // the way a hit sends it, and how fast, along the ground
+	flee   float64          // how long it still runs from what hit it
+	hurt   float64          // how long it still shows a hit
+	regrow float64          // how long its moss still takes to grow back, or 0 if it has it
 }
 
 // herd is the mossbacks round the player. The world has no end, so they cannot all be
@@ -66,6 +79,30 @@ func newHerd(w *world.World, round geometry.Vector3) *herd {
 		h.add(w, round, 4, creatureRange)
 	}
 	return h
+}
+
+// herdFrom returns the herd a save holds, or a new one round a place if it holds none,
+// as a save from before the herd was kept does not.
+func herdFrom(w *world.World, saved []world.Mossback, round geometry.Vector3) *herd {
+	if len(saved) == 0 {
+		return newHerd(w, round)
+	}
+	h := &herd{rng: rand.New(rand.NewPCG(uint64(w.Seed), 0x6d6f7373))}
+	for _, s := range saved {
+		h.born++
+		own := rand.New(rand.NewPCG(uint64(w.Seed), h.born))
+		h.all = append(h.all, Creature{Pos: s.Pos, Yaw: s.Yaw, regrow: s.Regrow, timer: own.Float64() * 2, rng: own})
+	}
+	return h
+}
+
+// saved returns the herd as a save holds it.
+func (h *herd) saved() []world.Mossback {
+	out := make([]world.Mossback, 0, len(h.all))
+	for _, c := range h.all {
+		out = append(out, world.Mossback{Pos: c.Pos, Yaw: c.Yaw, Regrow: c.regrow})
+	}
+	return out
 }
 
 // add tries one place for a new creature, between near and far from a point: on grass,
@@ -119,7 +156,45 @@ func (h *herd) step(w *world.World, player geometry.Vector3, dt float64) {
 
 // Pose returns where the creature is and how it stands, for drawing.
 func (c *Creature) Pose() render.Mossback {
-	return render.Mossback{Pos: c.Pos, Yaw: c.Yaw, Stride: c.Stride}
+	return render.Mossback{Pos: c.Pos, Yaw: c.Yaw, Stride: c.Stride, Shorn: c.regrow > 0, Hurt: c.hurt > 0}
+}
+
+// hit is the creature being hit by the player standing at from. A mossback cannot be
+// hurt: it is knocked away, and runs.
+func (c *Creature) hit(from geometry.Vector3) {
+	away := awayFrom(c.Pos, from, c.Yaw)
+	c.push = away.Scale(knockSpeed)
+	if c.OnGround {
+		c.velY = knockHop
+	}
+	c.hurt, c.flee = hurtShow, fleeTime
+	c.walking, c.Yaw = true, yawOf(away)
+}
+
+// shear takes the creature's moss, if it has any, and reports whether it had.
+func (c *Creature) shear() bool {
+	if c.regrow > 0 {
+		return false
+	}
+	c.regrow = mossRegrow
+	return true
+}
+
+// awayFrom returns the way along the ground from a point to another, one long: the way a
+// hit at from sends what is at pos. Where the two are one above the other, it is the
+// way yaw faces.
+func awayFrom(pos, from geometry.Vector3, yaw float64) geometry.Vector3 {
+	away := pos.Sub(from)
+	away.Y = 0
+	if away.Length() < 1e-6 {
+		return mesh.Camera{Yaw: yaw}.Forward()
+	}
+	return away.Normalize()
+}
+
+// yawOf returns the Yaw that faces a way along the ground.
+func yawOf(way geometry.Vector3) float64 {
+	return math.Atan2(way.X, way.Z)
 }
 
 // decide changes the creature's mind when its time is up: it stands for one to three
@@ -163,6 +238,13 @@ func (c *Creature) wayAhead(w *world.World, ahead geometry.Vector3, afloat bool)
 
 // Step moves the creature for dt seconds.
 func (c *Creature) Step(w *world.World, dt float64) {
+	c.hurt = max(c.hurt-dt, 0)
+	c.regrow = max(c.regrow-dt, 0)
+	speed := creatureSpeed
+	if c.flee > 0 {
+		c.flee -= dt
+		c.walking, c.timer, speed = true, max(c.timer, rethink), fleeSpeed
+	}
 	if c.timer -= dt; c.timer <= 0 {
 		c.decide()
 	}
@@ -180,17 +262,21 @@ func (c *Creature) Step(w *world.World, dt float64) {
 		switch hop, blocked := c.wayAhead(w, ahead, afloat); {
 		case hop:
 			c.velY = creatureHop
+		case blocked && (c.OnGround || afloat) && c.flee > 0:
+			c.Yaw += math.Pi / 2 * float64(1-2*c.rng.IntN(2)) // running, it turns aside
 		case blocked && (c.OnGround || afloat):
 			c.turnBack() // in the air it is in the middle of a hop, and goes on
 		}
 		if c.walking {
-			move = ahead.Scale(creatureSpeed * dt)
-			c.Stride += strideRate * dt
+			move = ahead.Scale(speed * dt)
+			c.Stride += strideRate * dt * speed / creatureSpeed
 		}
 	}
 	if !c.walking {
 		c.Stride = 0
 	}
+	move = move.Add(c.push.Scale(dt))
+	c.push = c.push.Scale(max(1-knockDrag*dt, 0))
 	move.Y = c.velY * dt
 
 	stopped := travel(w, &c.Pos, render.MossbackWidth, render.MossbackHeight, move)

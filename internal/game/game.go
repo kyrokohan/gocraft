@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 	"math"
+	"math/rand/v2"
 	"time"
 
 	"glonk.dev/engine"
@@ -86,16 +87,23 @@ type Game struct {
 	debug  bool         // whether the frame numbers are shown: F3
 	exact  bool         // whether the terminal reports key releases, so that two keys can be held
 
-	world   *world.World
-	clouds  *render.Clouds
-	sky     *render.Sky // at the time of day, which days says
-	days    float64     // how long the world has been played, in days of the game
-	herd    *herd
-	moss    *render.Mossbacks
-	poses   []render.Mossback // the creatures as they are drawn, kept between frames
-	player  Player
-	saved   bool // the world is the one in the save file
-	started bool // play has begun, so there is something worth saving
+	world  *world.World
+	clouds *render.Clouds
+	sky    *render.Sky // at the time of day, which days says
+	days   float64     // how long the world has been played, in days of the game
+	herd   *herd
+	moss   *render.Mossbacks
+	poses  []render.Mossback // the creatures as they are drawn, kept between frames
+
+	// The gloams, in survival, and when a place is next looked for to gather one.
+	gloams    []gloam
+	gloamWait float64
+	gloamRng  *rand.Rand
+	shades    *render.Gloams
+	shapes    []render.Gloam // the gloams as they are drawn, kept between frames
+	player    Player
+	saved     bool // the world is the one in the save file
+	started   bool // play has begun, so there is something worth saving
 
 	survival bool // the world is played in survival, and not in creative
 	items    inventory
@@ -112,6 +120,9 @@ type Game struct {
 	selected int       // the slot of the hotbar in use
 	target   world.Hit // the block the player aims at, if aimed is set
 	aimed    bool
+	prey     prey // the creature the player aims at, if preyed is set, and then no block is
+	preyed   bool
+	hitWait  float64 // until the player can hit again
 	digAt    [3]int  // the block being dug, in survival
 	digging  float64 // for how long it has been dug
 
@@ -139,7 +150,8 @@ func New(opts Options) (*Game, error) {
 	}
 	g := &Game{
 		opts: opts, set: set, rend: render.New(set), moss: render.NewMossbacks(set), look: render.NewDrops(set),
-		exact: true, box: mesh.Cube(1),
+		shades: render.NewGloams(set),
+		exact:  true, box: mesh.Cube(1),
 	}
 	if err := g.load(); err != nil {
 		return nil, err
@@ -160,7 +172,7 @@ func (g *Game) load() error {
 			g.world = w
 			g.clouds = render.NewClouds(g.world.Seed)
 			g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
-			g.herd = newHerd(g.world, g.player.Pos) // they are not in the save yet
+			g.herd = herdFrom(g.world, s.Mossbacks, g.player.Pos)
 			g.selected = min(max(s.Slot, 0), hotbarSlots-1)
 			g.days = s.Days
 			g.saved = true
@@ -201,6 +213,7 @@ func (g *Game) Save() error {
 	for _, d := range g.drops {
 		m.Drops = append(m.Drops, d.Drop)
 	}
+	m.Mossbacks = g.herd.saved()
 	return g.world.Save(g.opts.SavePath, m)
 }
 
@@ -255,7 +268,7 @@ func (g *Game) newWorld() {
 	g.player = Player{Pos: g.world.Spawn()}
 	g.herd = newHerd(g.world, g.player.Pos)
 	g.selected, g.aimed, g.saved, g.days = 0, false, false, 0
-	g.drops = nil
+	g.drops, g.gloams = nil, nil
 	g.begin(false)
 }
 
@@ -335,6 +348,9 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			if g.live(dt); g.screen != playing {
 				return nil // the player fainted
 			}
+		}
+		if g.stepGloams(dt); g.screen != playing {
+			return nil // a gloam made the player faint
 		}
 		g.stepDrops(dt)
 		g.build(in, dt)
@@ -416,6 +432,15 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera) {
 		})
 	}
 	g.look.Draw(c, cam, g.lying, g.sky)
+
+	// A gloam is seen through as it fades, so it comes after what is solid.
+	g.shapes = g.shapes[:0]
+	for i := range g.gloams {
+		shape := g.gloams[i].pose(g.player.Pos)
+		shape.Light = g.sky.Brightness(g.lightAt(shape.Pos.Add(geometry.Vector3{Y: 1})))
+		g.shapes = append(g.shapes, shape)
+	}
+	g.shades.Draw(c, cam, g.shapes, g.sky)
 	g.clouds.Draw(c, cam, g.sky)
 }
 

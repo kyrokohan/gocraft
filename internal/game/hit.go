@@ -1,0 +1,109 @@
+package game
+
+import (
+	"math"
+
+	"glonk.dev/geometry"
+
+	"github.com/kyrokohan/gocraft/internal/render"
+	"github.com/kyrokohan/gocraft/internal/world"
+)
+
+// The player hits a creature it aims at with what breaks a block, Q or a click, and
+// shears a mossback's moss with what places one, E or a right click. A creature in front
+// of a block is aimed at before the block.
+
+// hitWait is the least time between two hits, however fast the key repeats.
+const hitWait = 0.35
+
+// The boxes a ray through the view meets a creature in: a little larger than the box
+// blocks stop, so that the head and the legs are aimed at too.
+const (
+	mossbackAimWidth = 1.1
+	gloamAimWidth    = 0.8
+	gloamAimHeight   = 1.9
+)
+
+// mossShorn is how much moss a mossback gives.
+const mossShorn = 2
+
+// prey is a creature the player aims at: a mossback, or a gloam, by its place in its
+// list. It holds for the frame it was found in.
+type prey struct {
+	gloam bool
+	i     int
+}
+
+// aimCreature finds the nearest creature a ray from origin along dir, one long, meets
+// before limit.
+func (g *Game) aimCreature(origin, dir geometry.Vector3, limit float64) (p prey, ok bool) {
+	best := limit
+	for i, c := range g.herd.all {
+		if t, hit := rayBox(origin, dir, c.Pos, mossbackAimWidth, render.MossbackHeight); hit && t < best {
+			best, p, ok = t, prey{i: i}, true
+		}
+	}
+	for i, m := range g.gloams {
+		if m.fade >= gloamBold || m.dying {
+			continue // too faded to be hit
+		}
+		if t, hit := rayBox(origin, dir, m.pos, gloamAimWidth, gloamAimHeight); hit && t < best {
+			best, p, ok = t, prey{gloam: true, i: i}, true
+		}
+	}
+	return p, ok
+}
+
+// rayBox returns how far along a ray from origin along dir it meets a box standing on
+// the point pos, if it does in front of the origin.
+func rayBox(origin, dir, pos geometry.Vector3, width, height float64) (float64, bool) {
+	lo, hi := boxOf(pos, width, height)
+	o, d := [3]float64{origin.X, origin.Y, origin.Z}, [3]float64{dir.X, dir.Y, dir.Z}
+	near, far := 0.0, math.Inf(1)
+	for a := range 3 {
+		if d[a] == 0 {
+			if o[a] < lo[a] || o[a] > hi[a] {
+				return 0, false
+			}
+			continue
+		}
+		t0, t1 := (lo[a]-o[a])/d[a], (hi[a]-o[a])/d[a]
+		if t0 > t1 {
+			t0, t1 = t1, t0
+		}
+		near, far = max(near, t0), min(far, t1)
+		if near > far {
+			return 0, false
+		}
+	}
+	return near, true
+}
+
+// strike hits the creature aimed at with what is in hand, which wears a tool.
+func (g *Game) strike(p prey) {
+	g.hitWait = hitWait
+	from := g.player.Pos
+	if p.gloam {
+		g.gloams[p.i].hit(from, g.items[g.selected].Item.Damage())
+	} else {
+		g.herd.all[p.i].hit(from)
+	}
+	if g.survival {
+		g.wearOut()
+	}
+}
+
+// shear takes the moss of the mossback aimed at, in survival, if it has grown, and puts
+// it down on the mossback's back to be picked up. It reports whether it did.
+func (g *Game) shear(p prey) bool {
+	if p.gloam || !g.survival {
+		return false
+	}
+	c := &g.herd.all[p.i]
+	if !c.shear() {
+		return false
+	}
+	at := c.Pos.Add(geometry.Vector3{Y: render.MossbackHeight})
+	g.drops = append(g.drops, drop{Drop: world.Drop{Stack: world.Stack{Item: world.Moss, Count: mossShorn}, Pos: at}})
+	return true
+}

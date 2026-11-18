@@ -56,13 +56,14 @@ type recipe struct {
 	at    station
 }
 
-// tools makes the recipes of the three tools of a tier, from what their heads are made
-// of and two sticks each.
-func tools(head world.Item, pick, axe, shovel world.Item) []recipe {
+// tools makes the recipes of the three tools and the blade of a tier, from what their
+// heads are made of and sticks.
+func tools(head world.Item, pick, axe, shovel, blade world.Item) []recipe {
 	return []recipe{
 		{pick, 1, []need{of(head, 3), of(world.Stick, 2)}, atBench},
 		{axe, 1, []need{of(head, 3), of(world.Stick, 2)}, atBench},
 		{shovel, 1, []need{of(head, 1), of(world.Stick, 2)}, atBench},
+		{blade, 1, []need{of(head, 2), of(world.Stick, 1)}, atBench},
 	}
 }
 
@@ -74,10 +75,10 @@ var recipes = func() []recipe {
 		{world.Workbench.Item(), 1, []need{of(planks, 4)}, byHand},
 		{world.Torch.Item(), 4, []need{of(world.Stick, 1), of(world.Coal, 1)}, byHand},
 	}
-	all = append(all, tools(planks, world.WoodPick, world.WoodAxe, world.WoodShovel)...)
-	all = append(all, tools(cobble, world.StonePick, world.StoneAxe, world.StoneShovel)...)
-	all = append(all, tools(world.CopperBar, world.CopperPick, world.CopperAxe, world.CopperShovel)...)
-	all = append(all, tools(world.IronBar, world.IronPick, world.IronAxe, world.IronShovel)...)
+	all = append(all, tools(planks, world.WoodPick, world.WoodAxe, world.WoodShovel, world.WoodBlade)...)
+	all = append(all, tools(cobble, world.StonePick, world.StoneAxe, world.StoneShovel, world.StoneBlade)...)
+	all = append(all, tools(world.CopperBar, world.CopperPick, world.CopperAxe, world.CopperShovel, world.CopperBlade)...)
+	all = append(all, tools(world.IronBar, world.IronPick, world.IronAxe, world.IronShovel, world.IronBlade)...)
 	return append(all,
 		recipe{world.Kiln.Item(), 1, []need{of(cobble, 8)}, atBench},
 		recipe{world.CopperBar, 1, []need{of(world.CopperOre.Item(), 1), fuel}, atKiln},
@@ -85,6 +86,7 @@ var recipes = func() []recipe {
 		recipe{world.Glass.Item(), 1, []need{of(world.Sand.Item(), 1), fuel}, atKiln},
 		recipe{world.Brick.Item(), 1, []need{of(world.Clay.Item(), 1), fuel}, atKiln},
 		recipe{world.BerryLoaf, 1, []need{of(world.Berries, 3), fuel}, atKiln},
+		recipe{world.MossCake, 1, []need{of(world.Moss, 3), fuel}, atKiln},
 	)
 }()
 
