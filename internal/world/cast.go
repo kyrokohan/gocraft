@@ -95,10 +95,19 @@ func entry(neg Face, step int) Face {
 }
 
 // Next moves the ray on to the next cell that is not air and returns it, or false once
-// the ray is more than maxT along or has left the world. The cell the ray starts in is
-// never returned. Calling Next again goes on from the last hit, so a caller can look
-// through water or the holes in leaves.
+// the ray is more than maxT along, has gone above or below the world, or has left the
+// part of the world that the window holds. The cell the ray starts in is never
+// returned. Calling Next again goes on from the last hit, so a caller can look through
+// water or the holes in leaves.
 func (w *World) Next(r *Ray, maxT float64) (Hit, bool) {
+	// The window answers for a square of chunks round its middle, and a ray ends where
+	// it leaves the square: beyond it the list holds other parts of the world.
+	loX, hiX := (w.cx-squareRadius)*ChunkSize, (w.cx+squareRadius+1)*ChunkSize
+	loZ, hiZ := (w.cz-squareRadius)*ChunkSize, (w.cz+squareRadius+1)*ChunkSize
+	if r.x < loX || r.x >= hiX || r.z < loZ || r.z >= hiZ {
+		return Hit{}, false
+	}
+
 	for {
 		// Cross the nearest cell wall.
 		var t float64
@@ -108,21 +117,21 @@ func (w *World) Next(r *Ray, maxT float64) (Hit, bool) {
 			t, face = r.nextX, r.entryX
 			r.x += r.stepX
 			r.nextX += r.deltaX
-			if (r.stepX > 0 && r.x >= SizeX) || (r.stepX < 0 && r.x < 0) {
+			if r.x < loX || r.x >= hiX {
 				return Hit{}, false
 			}
 		case r.nextY <= r.nextZ:
 			t, face = r.nextY, r.entryY
 			r.y += r.stepY
 			r.nextY += r.deltaY
-			if (r.stepY > 0 && r.y >= SizeY) || (r.stepY < 0 && r.y < 0) {
+			if (r.stepY > 0 && r.y >= Height) || (r.stepY < 0 && r.y < 0) {
 				return Hit{}, false
 			}
 		default:
 			t, face = r.nextZ, r.entryZ
 			r.z += r.stepZ
 			r.nextZ += r.deltaZ
-			if (r.stepZ > 0 && r.z >= SizeZ) || (r.stepZ < 0 && r.z < 0) {
+			if r.z < loZ || r.z >= hiZ {
 				return Hit{}, false
 			}
 		}
@@ -131,8 +140,8 @@ func (w *World) Next(r *Ray, maxT float64) (Hit, bool) {
 		if !(t <= maxT) || math.IsInf(t, 1) {
 			return Hit{}, false
 		}
-		if !inside(r.x, r.y, r.z) {
-			continue // not in the world yet
+		if uint(r.y) >= Height {
+			continue // above or below the world, and coming toward it
 		}
 		if b := w.blocks[index(r.x, r.y, r.z)]; b != Air {
 			return Hit{X: r.x, Y: r.y, Z: r.z, Face: face, T: t, Block: b}, true

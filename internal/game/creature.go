@@ -3,6 +3,7 @@ package game
 import (
 	"math"
 	"math/rand/v2"
+	"slices"
 
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
@@ -13,14 +14,16 @@ import (
 
 // How a mossback lives. Distances are in blocks, times in seconds.
 const (
-	creatureCount = 12   // in a world
-	creatureRange = 48.0 // how far from the spawn they start, at the most
-	creatureSpeed = 1.3  // walking
-	creatureHop   = 8.0  // the speed it leaves the ground at: enough to clear one block
-	strideRate    = 8.0  // radians of leg swing a second
-	lookAhead     = 0.35 // how far past its own front it looks before it steps
-	longDrop      = 3    // blocks: it does not walk off anything deeper
-	rethink       = 0.4  // how long it stands after something turns it back
+	creatureCount = 12    // in a world
+	creatureRange = 48.0  // how far from the player they start, at the most
+	creatureAwake = 88.0  // how far from the player they still move: the ground is loaded that far
+	creatureGone  = 104.0 // how far from the player they are let go
+	creatureSpeed = 1.3   // walking
+	creatureHop   = 8.0   // the speed it leaves the ground at: enough to clear one block
+	strideRate    = 8.0   // radians of leg swing a second
+	lookAhead     = 0.35  // how far past its own front it looks before it steps
+	longDrop      = 3     // blocks: it does not walk off anything deeper
+	rethink       = 0.4   // how long it stands after something turns it back
 )
 
 // Creature is one mossback: an animal that walks about, stands a while, and walks on.
@@ -45,41 +48,73 @@ type Creature struct {
 	rng     *rand.Rand // its own, so that what it does can be told from a seed
 }
 
-// spawnCreatures places n creatures on grass round the spawn of a world. The same
-// world always gets them in the same places: they come from its seed. There are fewer
-// than n only if there is not grass enough.
-func spawnCreatures(w *world.World, n int) []Creature {
-	rng := rand.New(rand.NewPCG(uint64(w.Seed), 0x6d6f7373))
-	spawn := w.Spawn()
+// herd is the mossbacks round the player. The world has no end, so they cannot all be
+// placed when it is made: they are found a place on grass near the player as it moves,
+// up to creatureCount of them, and those left far behind are let go.
+type herd struct {
+	all   []Creature
+	rng   *rand.Rand // where the next one goes: from the world's seed
+	born  uint64     // how many there have been, to give each a generator of its own
+	timer float64    // until the herd is next looked over
+}
 
-	var all []Creature
-	for try := 0; len(all) < n && try < 60*n; try++ {
-		x := int(math.Floor(spawn.X + (rng.Float64()*2-1)*creatureRange))
-		z := int(math.Floor(spawn.Z + (rng.Float64()*2-1)*creatureRange))
-		y := w.Surface(x, z)
-		if w.At(x, y, z) != world.Grass || y+2 >= world.SizeY {
-			continue // not grass, or a tree's leaves, or the edge of the world
-		}
-		pos := geometry.Vector3{X: float64(x) + 0.5, Y: float64(y + 1), Z: float64(z) + 0.5}
-		if pos.Distance(spawn) < 4 {
-			continue // not on top of the player
-		}
-		crowded := false
-		for _, other := range all {
-			crowded = crowded || other.Pos.Distance(pos) < 3
-		}
-		if crowded {
-			continue
-		}
-		own := rand.New(rand.NewPCG(uint64(w.Seed), uint64(len(all)+1)))
-		all = append(all, Creature{
-			Pos:   pos,
-			Yaw:   own.Float64()*2*math.Pi - math.Pi,
-			timer: own.Float64() * 2,
-			rng:   own,
-		})
+// newHerd returns the creatures of a world round a place, as many as there is grass
+// for, up to creatureCount. The same world and place always give the same herd.
+func newHerd(w *world.World, round geometry.Vector3) *herd {
+	h := &herd{rng: rand.New(rand.NewPCG(uint64(w.Seed), 0x6d6f7373))}
+	for try := 0; len(h.all) < creatureCount && try < 60*creatureCount; try++ {
+		h.add(w, round, 4, creatureRange)
 	}
-	return all
+	return h
+}
+
+// add tries one place for a new creature, between near and far from a point: on grass,
+// with room above, and not on top of another. It reports whether the place would do.
+func (h *herd) add(w *world.World, round geometry.Vector3, near, far float64) bool {
+	angle, away := h.rng.Float64()*2*math.Pi, near+h.rng.Float64()*(far-near)
+	x := int(math.Floor(round.X + math.Cos(angle)*away))
+	z := int(math.Floor(round.Z + math.Sin(angle)*away))
+	y := w.Surface(x, z)
+	if w.At(x, y, z) != world.Grass || y+2 >= world.Height {
+		return false // not grass, or a tree's leaves, or a place that is not loaded
+	}
+	pos := geometry.Vector3{X: float64(x) + 0.5, Y: float64(y + 1), Z: float64(z) + 0.5}
+	for _, other := range h.all {
+		if other.Pos.Distance(pos) < 3 {
+			return false
+		}
+	}
+	h.born++
+	own := rand.New(rand.NewPCG(uint64(w.Seed), h.born))
+	h.all = append(h.all, Creature{
+		Pos:   pos,
+		Yaw:   own.Float64()*2*math.Pi - math.Pi,
+		timer: own.Float64() * 2,
+		rng:   own,
+	})
+	return true
+}
+
+// step moves the creatures for dt seconds, and now and then looks the herd over:
+// creatures far behind the player are let go, and a new one is found a place ahead if
+// there are too few. Those too far off to stand on loaded ground are not moved.
+func (h *herd) step(w *world.World, player geometry.Vector3, dt float64) {
+	for i := range h.all {
+		if c := &h.all[i]; c.Pos.Distance(player) < creatureAwake {
+			c.Step(w, dt)
+		}
+	}
+
+	if h.timer -= dt; h.timer > 0 {
+		return
+	}
+	h.timer = 1
+	h.all = slices.DeleteFunc(h.all, func(c Creature) bool {
+		return c.Pos.Distance(player) > creatureGone
+	})
+	if len(h.all) < creatureCount {
+		h.add(w, player, creatureRange/2, creatureAwake-8) // out of the way, where it will be met
+	}
 }
 
 // Pose returns where the creature is and how it stands, for drawing.

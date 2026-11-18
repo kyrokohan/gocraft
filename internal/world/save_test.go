@@ -2,27 +2,29 @@ package world
 
 import (
 	"bytes"
-	"compress/gzip"
-	"encoding/binary"
 	"errors"
 	"io/fs"
-	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"glonk.dev/geometry"
 )
 
-// played is a save with a few things changed from what the seed makes.
-func played() Save {
+// played is a world with a few things changed from what its seed makes, and what its
+// player was doing. One change is in a chunk that has since left the window.
+func played(t *testing.T) (*World, Meta) {
+	t.Helper()
 	w := Generate(3)
-	w.Set(10, 40, 10, Brick)
-	w.Set(11, 40, 10, Glass)
-	w.Set(128, w.Surface(128, 128), 128, Air)
-	return Save{
-		World:  w,
-		Pos:    geometry.Vector3{X: 12.25, Y: 41, Z: 10.5},
+	w.Set(10, 100, 10, Brick)
+	w.Set(11, 100, 10, Glass)
+	w.Set(-20, 101, 7, Planks) // another chunk, below 0
+	w.Follow(700, 0)
+	w.LoadAll() // the three changes are far away now, and set aside
+	w.Set(705, 102, 3, Sand)
+	return w, Meta{
+		Pos:    geometry.Vector3{X: 702.25, Y: 90, Z: 1.5},
 		Yaw:    1.5,
 		Pitch:  -0.25,
 		Flying: true,
@@ -30,136 +32,283 @@ func played() Save {
 	}
 }
 
-func TestASaveComesBackAsItWas(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "world.sav")
-	want := played()
-
-	if err := Write(path, want); err != nil {
+func chunkFiles(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(dir, chunkFolder))
+	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := Read(path)
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	return names
+}
+
+func TestASavedWorldComesBackAsItWas(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "worlds", "one")
+	w, meta := played(t)
+
+	if err := w.Save(dir, meta); err != nil {
+		t.Fatal(err)
+	}
+	got, back, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !bytes.Equal(got.World.Bytes(), want.World.Bytes()) {
-		t.Error("the blocks changed")
+	if back.Seed != 3 || got.Seed != 3 || back.Version != saveVersion {
+		t.Errorf("seed %d and %d, version %d: wanted 3, 3 and %d", back.Seed, got.Seed, back.Version, saveVersion)
 	}
-	if got.World.Seed != 3 {
-		t.Errorf("seed %d, wanted 3", got.World.Seed)
+	if back.Pos != meta.Pos || back.Yaw != meta.Yaw || back.Pitch != meta.Pitch || !back.Flying || back.Slot != 7 {
+		t.Errorf("the player came back as %+v", back)
 	}
-	if got.Pos != want.Pos || got.Yaw != want.Yaw || got.Pitch != want.Pitch || !got.Flying || got.Slot != 7 {
-		t.Errorf("the player came back as %+v", got)
+	// The world opens round the player, with what was built there.
+	if !got.Loaded(702, 1) || got.At(705, 102, 3) != Sand {
+		t.Errorf("round the player: loaded %v, the sand is %v", got.Loaded(702, 1), got.At(705, 102, 3))
+	}
+	// And what was built far away is there when the player goes back.
+	got.Follow(10, 10)
+	got.LoadAll()
+	if got.At(10, 100, 10) != Brick || got.At(11, 100, 10) != Glass || got.At(-20, 101, 7) != Planks {
+		t.Error("what was built at the start did not come back")
 	}
 	// A ray stops at the height, so it must not be under the highest block.
-	if got.World.Height() < 41 {
-		t.Errorf("the world came back %d high, with a block at layer 40", got.World.Height())
+	if got.Height() < 102 {
+		t.Errorf("the world came back %d high, with a block at layer 101", got.Height())
 	}
 }
 
-func TestWriteMakesTheFolderAndLeavesNothingElseInIt(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "a", "b")
-	path := filepath.Join(dir, "world.sav")
+func TestOnlyChangedChunksAreSaved(t *testing.T) {
+	dir := t.TempDir()
+	w, meta := played(t)
 
-	for range 2 { // the second time over a save that is there
-		if err := Write(path, played()); err != nil {
-			t.Fatal(err)
+	if err := w.Save(dir, meta); err != nil {
+		t.Fatal(err)
+	}
+
+	// Three chunks were changed: 0,0 and -2,0 at the start, and 44,0 by the player.
+	if names := chunkFiles(t, dir); len(names) != 3 {
+		t.Errorf("the chunks folder holds %v, wanted three files", names)
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 2 {
+		t.Errorf("the world's folder holds %d things, wanted world.json and chunks", len(entries))
+	}
+}
+
+func TestSavingAgainWritesOnlyWhatChangedSince(t *testing.T) {
+	dir := t.TempDir()
+	w, meta := played(t)
+	if err := w.Save(dir, meta); err != nil {
+		t.Fatal(err)
+	}
+	before := map[string]os.FileInfo{}
+	for _, name := range chunkFiles(t, dir) {
+		before[name], _ = os.Stat(filepath.Join(dir, chunkFolder, name))
+	}
+
+	w.Set(725, 103, 0, Log) // one more chunk, the next one along
+	if err := w.Save(dir, meta); err != nil {
+		t.Fatal(err)
+	}
+
+	names := chunkFiles(t, dir)
+	if len(names) != 4 {
+		t.Fatalf("the chunks folder holds %v after a second save, wanted four files", names)
+	}
+	for _, name := range names {
+		was, old := before[name]
+		now, _ := os.Stat(filepath.Join(dir, chunkFolder, name))
+		if old && !now.ModTime().Equal(was.ModTime()) {
+			t.Errorf("%s was written again though it did not change", name)
 		}
 	}
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(entries) != 1 || entries[0].Name() != "world.sav" {
-		t.Errorf("the folder holds %v, wanted only world.sav", entries)
-	}
 }
 
-func TestAWriteThatFailsKeepsTheOldSave(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "world.sav")
-	if err := Write(path, played()); err != nil {
-		t.Fatal(err)
-	}
-	before, _ := os.ReadFile(path)
-
-	if err := Write(path, Save{}); err == nil { // no world to write
-		t.Fatal("writing a save with no world should fail")
-	}
-
-	after, _ := os.ReadFile(path)
-	if !bytes.Equal(before, after) {
-		t.Error("the old save was changed by a write that failed")
-	}
-}
-
-func TestReadingASaveThatIsNotThereSaysSo(t *testing.T) {
-	_, err := Read(filepath.Join(t.TempDir(), "none.sav"))
+func TestOpeningAFolderWithNoWorldSaysSo(t *testing.T) {
+	_, _, err := Open(filepath.Join(t.TempDir(), "none"))
 
 	if !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("got %v, wanted fs.ErrNotExist", err)
 	}
 }
 
-func TestABrokenSaveIsAnErrorAndNeverAPanic(t *testing.T) {
+func TestASaveThatCannotHoldThePlayerIsRefused(t *testing.T) {
 	dir := t.TempDir()
-	good := filepath.Join(dir, "good.sav")
-	if err := Write(good, played()); err != nil {
+	w, meta := played(t)
+	meta.Pos.X = nan()
+
+	if err := w.Save(dir, meta); err == nil {
+		t.Fatal("saving a player who is nowhere should fail")
+	}
+	if _, err := os.Stat(filepath.Join(dir, metaName)); !errors.Is(err, fs.ErrNotExist) {
+		t.Error("a world.json was written for a save that failed")
+	}
+}
+
+func nan() float64 {
+	var zero float64
+	return zero / zero
+}
+
+func TestABrokenWorldFileIsAnErrorAndNeverAPanic(t *testing.T) {
+	good := t.TempDir()
+	w, meta := played(t)
+	if err := w.Save(good, meta); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(good)
+	data, err := os.ReadFile(filepath.Join(good, metaName))
 	if err != nil {
 		t.Fatal(err)
 	}
+	text := string(data)
 
-	// A save whose world holds a block this game does not know.
-	strange := played()
-	strange.World.Set(5, 5, 5, blockCount+3)
-	// A save whose player is nowhere.
-	lost := played()
-	lost.Pos.X = math.NaN()
-
-	for name, write := range map[string]func(path string){
-		"empty":           func(p string) { os.WriteFile(p, nil, 0o644) },
-		"not a save":      func(p string) { os.WriteFile(p, []byte("hello, this is not a world"), 0o644) },
-		"wrong version":   func(p string) { os.WriteFile(p, append([]byte("GOCRAFT9"), data[8:]...), 0o644) },
-		"cut short":       func(p string) { os.WriteFile(p, data[:len(data)/2], 0o644) },
-		"header only":     func(p string) { os.WriteFile(p, data[:40], 0o644) },
-		"junk at the end": func(p string) { os.WriteFile(p, append(bytes.Clone(data), data[len(data)-64:]...), 0o644) },
-		"a damaged block": func(p string) {
-			damaged := bytes.Clone(data)
-			damaged[len(damaged)/2] ^= 0xFF
-			os.WriteFile(p, damaged, 0o644)
-		},
-		"too many blocks": func(p string) {
-			var buf bytes.Buffer
-			buf.Write(data[:len(magic)+binary.Size(header{})])
-			zw := gzip.NewWriter(&buf)
-			zw.Write(append(played().World.Bytes(), make([]byte, 64)...))
-			zw.Close()
-			os.WriteFile(p, buf.Bytes(), 0o644)
-		},
-		"unknown block":  func(p string) { writeUnchecked(t, p, strange) },
-		"player nowhere": func(p string) { writeUnchecked(t, p, lost) },
+	for name, content := range map[string]string{
+		"empty":          "",
+		"not json":       "hello, this is not a world",
+		"cut short":      text[:len(text)/2],
+		"another kind":   `[1, 2, 3]`,
+		"old version":    strings.Replace(text, `"version": 2`, `"version": 1`, 1),
+		"no version":     strings.Replace(text, `"version": 2,`, ``, 1),
+		"player nowhere": strings.Replace(text, `"X": 702.25`, `"X": 1e999`, 1),
+		"player too far": strings.Replace(text, `"X": 702.25`, `"X": 1e15`, 1),
+		"a word for yaw": strings.Replace(text, `"yaw": 1.5`, `"yaw": "left"`, 1),
 	} {
-		path := filepath.Join(dir, name+".sav")
-		write(path)
+		if content == text {
+			t.Fatalf("%s: the test did not change the file", name)
+		}
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, metaName), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
 
-		if _, err := Read(path); err == nil {
-			t.Errorf("%s: read without an error", name)
+		if _, _, err := Open(dir); err == nil {
+			t.Errorf("%s: opened without an error", name)
 		}
 	}
 }
 
-// writeUnchecked writes a save that Write would refuse, to test that Read refuses it too.
-func writeUnchecked(t *testing.T, path string, s Save) {
-	t.Helper()
-	f, err := os.Create(path)
+// A chunk file that cannot be read does not stop the game: the chunk is made again
+// from the seed, the game is told, and the file is never written over, so that
+// whatever can still be got out of it is not lost.
+func TestADamagedChunkIsMadeAfreshAndItsFileLeftAlone(t *testing.T) {
+	dir := t.TempDir()
+	w, meta := played(t)
+	if err := w.Save(dir, meta); err != nil {
+		t.Fatal(err)
+	}
+	path := chunkPath(dir, key{0, 0})
+	fresh := made(Terrain(3), 0, 0)
+
+	for name, damage := range map[string]func([]byte) []byte{
+		"empty":           func([]byte) []byte { return nil },
+		"not a chunk":     func([]byte) []byte { return []byte("hello, this is not a chunk") },
+		"another version": func(d []byte) []byte { return append([]byte("GCCHUNK9"), d[8:]...) },
+		"cut short":       func(d []byte) []byte { return d[:len(d)/2] },
+		"a flipped byte":  func(d []byte) []byte { d = bytes.Clone(d); d[len(d)/2] ^= 0xFF; return d },
+		"junk at the end": func(d []byte) []byte { return append(bytes.Clone(d), d[len(d)-40:]...) },
+		"too many blocks": func([]byte) []byte { return pack(make([]Block, chunkBlocks+64)) },
+		"an unknown block": func([]byte) []byte {
+			blocks := make([]Block, chunkBlocks)
+			blocks[100] = blockCount + 3
+			return pack(blocks)
+		},
+		"far too large": func([]byte) []byte { return make([]byte, maxChunkFile+10) },
+	} {
+		good, _ := os.ReadFile(path)
+		bad := damage(good)
+		if err := os.WriteFile(path, bad, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		got, at, err := Open(dir)
+		if err != nil {
+			t.Fatalf("%s: the world did not open: %v", name, err)
+		}
+		got.Follow(10, 10)
+		got.LoadAll()
+		if got.Fault() == nil {
+			t.Errorf("%s: the game was not told the chunk could not be read", name)
+		}
+		if h := held(got, 0, 0); !bytes.Equal(asBytes(h), asBytes(fresh)) {
+			t.Errorf("%s: the chunk is not the one the seed makes", name)
+		}
+
+		got.Set(3, 110, 3, Brick) // build in it, and save
+		if err := got.Save(dir, at); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if after, _ := os.ReadFile(path); !bytes.Equal(after, bad) {
+			t.Errorf("%s: the damaged file was written over", name)
+		}
+
+		if err := os.WriteFile(path, good, 0o644); err != nil { // put it right for the next case
+			t.Fatal(err)
+		}
+	}
+}
+
+func asBytes(blocks []Block) []byte {
+	out := make([]byte, len(blocks))
+	for i, b := range blocks {
+		out[i] = byte(b)
+	}
+	return out
+}
+
+func TestAWriteLeavesNoOtherFilesBehind(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "thing")
+
+	for range 2 { // the second time over a file that is there
+		if err := writeFile(path, []byte("hello")); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 || entries[0].Name() != "thing" {
+		t.Errorf("the folder holds %v, wanted only the file", entries)
+	}
+}
+
+// A new world saved where another was takes its place whole. Chunks of the old world
+// left in the folder would be read as the new one's own.
+func TestAWorldSavedOverAnotherTakesItsPlace(t *testing.T) {
+	dir := t.TempDir()
+	old, meta := played(t)
+	if err := old.Save(dir, meta); err != nil {
+		t.Fatal(err)
+	}
+	stray := filepath.Join(dir, chunkFolder, "notes.txt")
+	if err := os.WriteFile(stray, []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fresh := Generate(9)
+	fresh.Set(40, 105, 40, Brick)
+	if err := fresh.Save(dir, Meta{}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, back, err := Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
-	if err := encode(f, s); err != nil {
-		t.Fatal(err)
+	if back.Seed != 9 {
+		t.Fatalf("the folder holds seed %d, wanted the new world's 9", back.Seed)
+	}
+	if got.At(10, 100, 10) != Air || got.At(-20, 101, 7) != Air {
+		t.Error("what was built in the old world is in the new one")
+	}
+	if got.At(40, 105, 40) != Brick {
+		t.Error("what was built in the new world is not there")
+	}
+	if names := chunkFiles(t, dir); len(names) != 2 {
+		t.Errorf("the chunks folder holds %v, wanted the new world's one chunk and the stray file", names)
+	}
+	if data, _ := os.ReadFile(stray); string(data) != "mine" {
+		t.Error("a file that is not a chunk was removed")
 	}
 }

@@ -31,7 +31,7 @@ const (
 	swimUp    = 4.0  // enough to hop out onto a shore level with the water
 
 	// ceiling is how high the player can fly: far enough to look down on the world.
-	ceiling = world.SizeY + 16
+	ceiling = world.Height + 16
 )
 
 // Player is the player's body: a box that stands on blocks and is stopped by them.

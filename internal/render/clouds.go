@@ -9,14 +9,14 @@ import (
 	"glonk.dev/mesh"
 )
 
-// The sky is a square field of cells, each a block of cloud or nothing. The field is
-// wider than the world and repeats, so clouds that drift off one side come in at the
-// other, and there are clouds beyond the edge of the world too.
+// The sky is a square field of cells, each a block of cloud or nothing. The field
+// repeats in every direction, as the world below it has no end, so wherever the camera
+// is there are clouds round it, and those that drift off one side come in at the other.
 const (
 	cloudCells  = 48                       // cells along each side of the field
 	cloudCell   = 8.0                      // blocks along each side of a cell
 	cloudField  = cloudCells * cloudCell   // blocks along each side of the field
-	cloudBottom = 72.0                     // above the highest ground and the tallest tree
+	cloudBottom = 136.0                    // above the top of the world, so no block is ever in a cloud
 	cloudTop    = cloudBottom + 4          // a cloud is a slab this thick
 	cloudSpeed  = 1.5                      // blocks a second, along x
 	cloudGroups = 6                        // groups along each side: glonk skips a group that is off screen
@@ -160,6 +160,12 @@ func (cl *Clouds) group(gi, gj int) (m mesh.Mesh, ok bool) {
 	return m, true
 }
 
+// nearest returns the one of the places v, v plus the width of the field, v less the
+// width of the field and so on that is nearest to a point.
+func nearest(v, to float64) float64 {
+	return v - cloudField*math.Round((v-to)/cloudField)
+}
+
 // Advance moves the clouds on by dt seconds.
 func (cl *Clouds) Advance(dt float64) {
 	cl.drift = math.Mod(cl.drift+cloudSpeed*dt, cloudField)
@@ -174,12 +180,13 @@ func (cl *Clouds) Draw(c *engine.Canvas, cam mesh.Camera) {
 	cam.Far, cam.Fog = cloudFog.End, cloudFog
 
 	for i, home := range cl.homes {
-		// A group that has drifted off the far side of the field comes in at the near one.
-		x := home.X + cl.drift
-		if x >= cloudOrigin+cloudField {
-			x -= cloudField
+		// The field of clouds repeats in every direction over a world with no end, so
+		// each group is drawn at whichever of its places is nearest the camera.
+		cl.groups[i].Transform.Position = geometry.Vector3{
+			X: nearest(home.X+cl.drift, cam.Position.X),
+			Y: home.Y,
+			Z: nearest(home.Z, cam.Position.Z),
 		}
-		cl.groups[i].Transform.Position = geometry.Vector3{X: x, Y: home.Y, Z: home.Z}
 	}
 
 	// glonk does not sort what is seen through, and what is mixed in last shows most,

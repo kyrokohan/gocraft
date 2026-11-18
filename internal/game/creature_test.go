@@ -169,13 +169,13 @@ func TestACreatureWalksAndStandsByTurns(t *testing.T) {
 	}
 }
 
-func TestCreaturesStartOnGrassNearTheSpawn(t *testing.T) {
+func TestAHerdStartsOnGrassRoundThePlayer(t *testing.T) {
 	for seed := int64(1); seed <= 3; seed++ {
 		w := world.Generate(seed)
 		spawn := w.Spawn()
 
-		all := spawnCreatures(w, creatureCount)
-		again := spawnCreatures(w, creatureCount)
+		all := newHerd(w, spawn).all
+		again := newHerd(w, spawn).all
 
 		if len(all) != creatureCount {
 			t.Fatalf("seed %d: %d creatures, wanted %d", seed, len(all), creatureCount)
@@ -186,7 +186,7 @@ func TestCreaturesStartOnGrassNearTheSpawn(t *testing.T) {
 				t.Errorf("seed %d: creature %d at %v is not on grass with room above", seed, i, c.Pos)
 			}
 			if d := c.Pos.Distance(spawn); d < 3 || d > 80 {
-				t.Errorf("seed %d: creature %d is %v from the spawn", seed, i, d)
+				t.Errorf("seed %d: creature %d is %v from the player", seed, i, d)
 			}
 			if again[i].Pos != c.Pos || again[i].Yaw != c.Yaw {
 				t.Errorf("seed %d: creature %d is not where it was the first time", seed, i)
@@ -195,29 +195,69 @@ func TestCreaturesStartOnGrassNearTheSpawn(t *testing.T) {
 	}
 }
 
+// The world has no end, so the herd goes with the player: creatures left far behind
+// are let go, and new ones are found a place near where the player now is.
+func TestTheHerdGoesWithThePlayer(t *testing.T) {
+	w := world.Generate(2)
+	at := w.Spawn()
+	h := newHerd(w, at)
+
+	// The player goes a long way, in one step, and stays there a while.
+	at.X += 600
+	w.Follow(at.X, at.Z)
+	w.LoadAll()
+	for range 40 * 30 {
+		h.step(w, at, frame)
+	}
+
+	if len(h.all) < creatureCount/2 {
+		t.Fatalf("%d creatures round the player after 40 seconds in a new place, wanted most of %d", len(h.all), creatureCount)
+	}
+	for i, c := range h.all {
+		if d := c.Pos.Distance(at); d > creatureGone {
+			t.Errorf("creature %d is %v from the player, wanted those left behind let go", i, d)
+		}
+		if c.Pos.Y < 1 {
+			t.Errorf("creature %d fell out of the world, to %v", i, c.Pos)
+		}
+	}
+}
+
+func TestCreaturesFarFromThePlayerAreNotMoved(t *testing.T) {
+	w := floor()
+	far := walker(20.5, 20.5, 0)
+	h := &herd{all: []Creature{*far}, rng: far.rng, timer: math.Inf(1)}
+
+	h.step(w, geometry.Vector3{X: 20.5 + creatureAwake + 5, Y: 6, Z: 20.5}, 1)
+
+	if h.all[0].Pos != far.Pos {
+		t.Error("a creature beyond where the ground is loaded was moved")
+	}
+}
+
 func TestCreaturesMoveInPlayAndStandStillInAPause(t *testing.T) {
 	g := onFloor(t)
-	g.creatures = []Creature{*walker(22.5, 22.5, 0)}
+	g.herd.all = []Creature{*walker(22.5, 22.5, 0)}
 
 	hold(t, g, 10)
-	moved := g.creatures[0].Pos
+	moved := g.herd.all[0].Pos
 	if moved.Z <= 22.5 {
 		t.Fatal("the creature did not move in play")
 	}
 
 	press(g, engine.KeyEscape)
 	hold(t, g, 10)
-	if g.creatures[0].Pos != moved {
+	if g.herd.all[0].Pos != moved {
 		t.Error("the creature moved while the game was paused")
 	}
 }
 
 func TestACreatureInViewIsDrawn(t *testing.T) {
 	g := onFloor(t) // the player faces +z from 20.5, 20.5
-	g.creatures = nil
+	g.herd.all = nil
 	_, without := drawn(t, g)
 
-	g.creatures = []Creature{*walker(20.5, 23.5, math.Pi)}
+	g.herd.all = []Creature{*walker(20.5, 23.5, math.Pi)}
 	_, with := drawn(t, g)
 
 	n := 0

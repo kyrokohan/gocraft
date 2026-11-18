@@ -12,7 +12,8 @@ import (
 const frame = 1.0 / 30
 
 // floor is a world with ground of stone up to layer 5, so its top is at height 6, over
-// a square of 40 by 40 blocks from the corner of the world.
+// a square of 40 by 40 blocks from the origin of the world. Beyond the square there is
+// nothing, down to the bottom of the world.
 func floor() *world.World {
 	w := world.New()
 	for z := range 40 {
@@ -196,14 +197,34 @@ func TestALongFrameDoesNotPassThroughTheFloor(t *testing.T) {
 	}
 }
 
-func TestTheEdgeOfTheWorldIsAWall(t *testing.T) {
-	w, p := floor(), standing()
+// The world has no edge: the ground goes on below 0 on x and z, and so does the player.
+func TestThePlayerWalksOnBelowZero(t *testing.T) {
+	w := floor()
+	for z := -12; z < 0; z++ {
+		for x := -12; x < 40; x++ {
+			w.Set(x, 5, z, world.Stone)
+			w.Set(z, 5, x, world.Stone)
+		}
+	}
+	p := standing()
 	p.Pos = geometry.Vector3{X: 2.5, Y: 6, Z: 2.5}
 
 	run(p, w, controls{forward: -1, strafe: -1}, 3)
 
-	if !near(p.Pos.X, playerWidth/2) || !near(p.Pos.Z, playerWidth/2) {
-		t.Errorf("the player is at %v, %v; wanted it in the corner at %v", p.Pos.X, p.Pos.Z, playerWidth/2)
+	want := 2.5 - 3*walkSpeed/math.Sqrt2
+	if !near(p.Pos.X, want) || !near(p.Pos.Z, want) || !near(p.Pos.Y, 6) {
+		t.Errorf("the player is at %v, wanted it at %v, 6, %v: past 0 and still on the ground", p.Pos, want, want)
+	}
+}
+
+// Under the world there is a floor that nothing falls through.
+func TestTheBottomOfTheWorldIsAFloor(t *testing.T) {
+	w, p := world.New(), standing()
+
+	run(p, w, controls{}, 4)
+
+	if !near(p.Pos.Y, 0) || !p.OnGround {
+		t.Errorf("with no ground the player is at height %v, on ground %v; wanted 0, true", p.Pos.Y, p.OnGround)
 	}
 }
 

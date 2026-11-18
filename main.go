@@ -24,7 +24,7 @@ func main() {
 
 func run() error {
 	seed := flag.Int64("seed", 0, "the number a new world is made from; 0 takes one from the clock")
-	worldPath := flag.String("world", "", "the file the world is saved in (default: gocraft/world.sav in your config folder)")
+	worldPath := flag.String("world", "", "the folder the world is saved in (default: gocraft/worlds/world in your config folder)")
 	mouse := flag.Bool("mouse", true, "aim, break and place with the mouse; false leaves the pointer to the terminal, to select text")
 	shot := flag.String("shot", "", "draw one frame of play into this PNG file and quit; nothing is loaded or saved")
 	flag.Parse()
@@ -37,15 +37,21 @@ func run() error {
 		return writeShot(g, *shot)
 	}
 
-	path := *worldPath
-	if path == "" {
+	opts := game.Options{Seed: *seed, SavePath: *worldPath}
+	if opts.SavePath == "" {
 		dir, err := os.UserConfigDir()
 		if err != nil {
-			return fmt.Errorf("no folder to save the world in (%w): name a file with -world", err)
+			return fmt.Errorf("no folder to save the world in (%w): name one with -world", err)
 		}
-		path = filepath.Join(dir, "gocraft", "world.sav")
+		opts.SavePath = filepath.Join(dir, "gocraft", "worlds", "world")
+
+		// The first version of the game kept its one world in a file beside this
+		// folder. It is not read and not touched; the title says that it is there.
+		if old := filepath.Join(dir, "gocraft", "world.sav"); isFile(old) {
+			opts.OldSave = old
+		}
 	}
-	g, err := game.New(game.Options{Seed: *seed, SavePath: path})
+	g, err := game.New(opts)
 	if err != nil {
 		return err
 	}
@@ -57,6 +63,11 @@ func run() error {
 		err = errors.Join(err, fmt.Errorf("the world was not saved: %w", saveErr))
 	}
 	return err
+}
+
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsRegular()
 }
 
 // writeShot draws one frame of play as a terminal of 240 by 67 cells would show it and

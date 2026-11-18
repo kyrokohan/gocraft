@@ -1,29 +1,53 @@
 package world
 
 import (
-	"bytes"
+	"slices"
 	"testing"
 )
+
+// made returns the chunk a generator makes at a place.
+func made(gen Generator, cx, cz int) []Block {
+	blocks := make([]Block, chunkBlocks)
+	gen(cx, cz, blocks)
+	return blocks
+}
+
+// held returns the blocks a world holds for a chunk, read a block at a time.
+func held(w *World, cx, cz int) []Block {
+	blocks := make([]Block, 0, chunkBlocks)
+	for y := range Height {
+		for z := range ChunkSize {
+			for x := range ChunkSize {
+				blocks = append(blocks, w.At(cx*ChunkSize+x, y, cz*ChunkSize+z))
+			}
+		}
+	}
+	return blocks
+}
 
 func TestSetAndAt(t *testing.T) {
 	w := New()
 
 	w.Set(1, 2, 3, Brick)
+	w.Set(-40, 100, -7, Glass) // the world goes on below 0 on x and z
 
 	if got := w.At(1, 2, 3); got != Brick {
 		t.Errorf("got %v, wanted Brick", got)
+	}
+	if got := w.At(-40, 100, -7); got != Glass {
+		t.Errorf("got %v at a place below 0, wanted Glass", got)
 	}
 	if got := w.At(3, 2, 1); got != Air {
 		t.Errorf("got %v, wanted Air", got)
 	}
 }
 
-func TestOutsideTheWorldIsAirAndCannotBeSet(t *testing.T) {
+func TestAboveBelowAndFarAwayIsAirAndCannotBeSet(t *testing.T) {
 	w := New()
 
 	for _, p := range [][3]int{
-		{-1, 0, 0}, {0, -1, 0}, {0, 0, -1},
-		{SizeX, 0, 0}, {0, SizeY, 0}, {0, 0, SizeZ},
+		{0, -1, 0}, {0, Height, 0}, // below and above the world
+		{4000, 10, 0}, {0, 10, -4000}, // where the world is not loaded
 	} {
 		w.Set(p[0], p[1], p[2], Stone)
 		if got := w.At(p[0], p[1], p[2]); got != Air {
@@ -59,14 +83,65 @@ func TestSurfaceIsTheHighestBlockOfAColumn(t *testing.T) {
 	}
 }
 
-func TestSameSeedSameWorld(t *testing.T) {
-	a, b, c := Generate(7), Generate(7), Generate(8)
+func TestTheSameSeedMakesTheSameChunk(t *testing.T) {
+	for _, at := range [][2]int{{0, 0}, {3, -2}, {-17, 40}, {1000, -1000}} {
+		a, b, c := made(Terrain(7), at[0], at[1]), made(Terrain(7), at[0], at[1]), made(Terrain(8), at[0], at[1])
 
-	if !bytes.Equal(a.Bytes(), b.Bytes()) {
-		t.Error("the same seed made two different worlds")
+		if !slices.Equal(a, b) {
+			t.Errorf("chunk %v: the same seed made two different chunks", at)
+		}
+		if slices.Equal(a, c) {
+			t.Errorf("chunk %v: two seeds made the same chunk", at)
+		}
 	}
-	if bytes.Equal(a.Bytes(), c.Bytes()) {
-		t.Error("two seeds made the same world")
+}
+
+// A chunk is made from the seed and its place alone, so it is the same whether it is
+// made by itself or as part of a world, whatever was made before it. That is what lets
+// a tree stand on the line between two chunks.
+func TestAChunkDoesNotDependOnItsNeighbors(t *testing.T) {
+	w := Generate(5)
+	gen := Terrain(5)
+
+	for cz := -LoadRadius; cz <= LoadRadius; cz++ {
+		for cx := -LoadRadius; cx <= LoadRadius; cx++ {
+			if !slices.Equal(held(w, cx, cz), made(gen, cx, cz)) {
+				t.Fatalf("chunk %d,%d in a world is not the chunk the seed makes by itself", cx, cz)
+			}
+		}
+	}
+}
+
+func TestTreesAreWholeAcrossChunkEdges(t *testing.T) {
+	w := Generate(5)
+
+	// Every leaf is within reach of a log: a tree cut off at the edge of a chunk would
+	// leave leaves with no trunk, or a trunk with half its leaves.
+	leaves, orphans := 0, 0
+	span := (LoadRadius - 1) * ChunkSize
+	for z := -span; z < span; z++ {
+		for x := -span; x < span; x++ {
+			for y := SeaLevel; y < Height; y++ {
+				if w.At(x, y, z) != Leaves {
+					continue
+				}
+				leaves++
+				near := false
+				for dz := -2; dz <= 2 && !near; dz++ {
+					for dx := -2; dx <= 2 && !near; dx++ {
+						for dy := -3; dy <= 2 && !near; dy++ {
+							near = w.At(x+dx, y+dy, z+dz) == Log
+						}
+					}
+				}
+				if !near {
+					orphans++
+				}
+			}
+		}
+	}
+	if leaves == 0 || orphans != 0 {
+		t.Errorf("%d leaves, %d of them with no trunk in reach", leaves, orphans)
 	}
 }
 
@@ -74,15 +149,19 @@ func TestGeneratedWorldHasGroundWaterAndTrees(t *testing.T) {
 	w := Generate(1)
 
 	count := map[Block]int{}
-	for z := range SizeZ {
-		for x := range SizeX {
+	span := LoadRadius * ChunkSize
+	for z := -span; z < span; z++ {
+		for x := -span; x < span; x++ {
+			if !w.Loaded(x, z) {
+				t.Fatalf("the column at %d,%d is not loaded", x, z)
+			}
 			if got := w.At(x, 0, z); got != Deepstone {
 				t.Fatalf("the bottom at %d,%d is %v, wanted Deepstone", x, z, got)
 			}
-			if w.At(x, SizeY-1, z) != Air {
+			if w.At(x, Height-1, z) != Air {
 				t.Fatalf("the top layer at %d,%d is not air", x, z)
 			}
-			for y := 1; y < SizeY; y++ {
+			for y := 1; y < Height; y++ {
 				count[w.At(x, y, z)]++
 			}
 		}
@@ -103,12 +182,129 @@ func TestSpawnStandsOnDryGroundWithRoomAbove(t *testing.T) {
 
 		p := w.Spawn()
 
-		x, y, z := int(p.X), int(p.Y), int(p.Z)
+		x, y, z := int(p.X-0.5), int(p.Y), int(p.Z-0.5)
 		if !w.At(x, y-1, z).Info().Solid {
 			t.Errorf("seed %d: spawn at %v does not stand on solid ground", seed, p)
 		}
 		if w.At(x, y, z) != Air || w.At(x, y+1, z) != Air {
 			t.Errorf("seed %d: spawn at %v has no room for the player", seed, p)
 		}
+	}
+}
+
+// The window wraps round, so a far place shares its part of the list with a near one.
+// After a move, what the world holds must be the far place's own ground.
+func TestAFarPlaceHoldsItsOwnGround(t *testing.T) {
+	w := Generate(3)
+	s := uint32(3)
+
+	for _, to := range [][2]float64{{10_000, -7_000}, {-123_456.5, 99.5}, {8, 8}, {263, 8}} {
+		w.Follow(to[0], to[1])
+		w.LoadAll()
+
+		for _, d := range [][2]int{{0, 0}, {-90, 40}, {95, -95}, {-1, -1}} {
+			x, z := int(to[0])+d[0], int(to[1])+d[1]
+			top := groundTop(x, z, s)
+			want := top
+			if top < SeaLevel {
+				want = SeaLevel // water lies over low ground
+			}
+			// A tree may stand on the column, so the ground is checked, not the top block.
+			if got := w.At(x, top, z); got == Air || got == Water || w.Surface(x, z) < want {
+				t.Fatalf("round %v the column at %d,%d has %v at its ground level %d and its surface at %d",
+					to, x, z, got, top, w.Surface(x, z))
+			}
+			if w.At(x, top+1, z) == Stone {
+				t.Fatalf("round %v the column at %d,%d has stone above its ground", to, x, z)
+			}
+		}
+	}
+}
+
+func TestAChangedChunkComesBackAfterItLeftTheWindow(t *testing.T) {
+	w := Generate(2)
+	y := w.Surface(5, 5) + 3
+	w.Set(5, y, 5, Brick)
+	unchanged := held(w, 3, 3)
+
+	w.Follow(5_000, 0) // far enough that the chunk leaves the window
+	w.LoadAll()
+	if w.Loaded(5, 5) || w.At(5, y, 5) != Air {
+		t.Fatal("the chunk is still in the window after the move")
+	}
+
+	w.Follow(5, 5)
+	w.LoadAll()
+	if got := w.At(5, y, 5); got != Brick {
+		t.Errorf("the block that was placed is %v after coming back, wanted Brick", got)
+	}
+	if !slices.Equal(held(w, 3, 3), unchanged) {
+		t.Error("a chunk that was not changed came back different")
+	}
+}
+
+// A player who runs or flies in a straight line never sees a place that is not loaded,
+// with one chunk brought in a frame.
+func TestWalkingFarNeverOutrunsTheWorld(t *testing.T) {
+	w := Generate(4)
+	const step = 10.0 / 30 // flying, at 30 frames a second
+
+	for x := 0.0; x < 2000; x += step {
+		w.Follow(x, 0.5)
+		w.Load(1)
+
+		// As far as anything is drawn, every way.
+		for _, d := range [][2]int{{64, 0}, {-64, 0}, {0, 64}, {0, -64}, {64, 64}, {-64, -64}} {
+			if !w.Loaded(int(x)+d[0], d[1]) {
+				t.Fatalf("at x=%.1f the column %d, %d away is not loaded", x, d[0], d[1])
+			}
+		}
+	}
+}
+
+func TestLoadBringsInTheNearestChunksFirst(t *testing.T) {
+	w := Generate(4)
+	w.Follow(3_000, 3_000) // a place with nothing loaded
+
+	left := w.Load(1)
+	if !w.Loaded(3_000, 3_000) {
+		t.Error("the first chunk loaded is not the one the player is in")
+	}
+	if want := (2*LoadRadius+1)*(2*LoadRadius+1) - 1; left != want {
+		t.Errorf("%d chunks left to load, wanted %d", left, want)
+	}
+
+	w.Load(8)
+	for _, d := range [][2]int{{-16, 0}, {16, 0}, {0, -16}, {0, 16}, {16, 16}} {
+		if !w.Loaded(3_000+d[0], 3_000+d[1]) {
+			t.Errorf("the chunk %v from the player is not among the first nine loaded", d)
+		}
+	}
+	if w.Load(1_000) != 0 {
+		t.Error("chunks are still missing after loading them all")
+	}
+}
+
+// One chunk, made from the seed.
+func BenchmarkChunk(b *testing.B) {
+	gen := Terrain(1)
+	blocks := make([]Block, chunkBlocks)
+	i := 0
+	for b.Loop() {
+		clear(blocks)
+		gen(i%64, i/64, blocks)
+		i++
+	}
+}
+
+// What the world does in a frame while the player flies in a straight line: follow,
+// and bring one chunk in.
+func BenchmarkFollowAndLoad(b *testing.B) {
+	w := Generate(1)
+	x := 0.0
+	for b.Loop() {
+		x += 10.0 / 30
+		w.Follow(x, 0)
+		w.Load(1)
 	}
 }

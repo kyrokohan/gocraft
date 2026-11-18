@@ -30,7 +30,7 @@ func playAndSave(t *testing.T, path string) (x, y, z int) {
 	if err := press(g, engine.KeyEnter); err != nil { // New world
 		t.Fatal(err)
 	}
-	x, z = 100, 90
+	x, z = 30, -20
 	y = g.world.Surface(x, z)
 	g.world.Set(x, y, z, world.Air)
 	g.player.Pos.X += 0.25
@@ -42,7 +42,7 @@ func playAndSave(t *testing.T, path string) (x, y, z int) {
 }
 
 func TestWithNoSaveTheTitleOffersOnlyANewWorld(t *testing.T) {
-	g := savedGame(t, filepath.Join(t.TempDir(), "world.sav"))
+	g := savedGame(t, filepath.Join(t.TempDir(), "world"))
 
 	text, _ := drawn(t, g)
 
@@ -52,7 +52,7 @@ func TestWithNoSaveTheTitleOffersOnlyANewWorld(t *testing.T) {
 }
 
 func TestContinueBringsTheWorldAndThePlayerBack(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "world.sav")
+	path := filepath.Join(t.TempDir(), "world")
 	x, y, z := playAndSave(t, path)
 	first := savedGame(t, path) // only to know where the player was left
 
@@ -78,7 +78,7 @@ func TestContinueBringsTheWorldAndThePlayerBack(t *testing.T) {
 }
 
 func TestAWorldNobodyPlayedIsNotSaved(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "world.sav")
+	path := filepath.Join(t.TempDir(), "world")
 	g := savedGame(t, path)
 
 	if err := g.Save(); err != nil {
@@ -86,7 +86,7 @@ func TestAWorldNobodyPlayedIsNotSaved(t *testing.T) {
 	}
 
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("a save was written from the title screen (stat: %v)", err)
+		t.Errorf("a world was saved from the title screen (stat: %v)", err)
 	}
 }
 
@@ -99,7 +99,7 @@ func TestAGameWithNoSaveFileSavesNothing(t *testing.T) {
 }
 
 func TestANewWorldAsksBeforeItReplacesTheSave(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "world.sav")
+	path := filepath.Join(t.TempDir(), "world")
 	x, y, z := playAndSave(t, path)
 
 	// No: back to the title, and nothing is written.
@@ -139,16 +139,69 @@ func TestANewWorldAsksBeforeItReplacesTheSave(t *testing.T) {
 }
 
 func TestASaveThatCannotBeReadStopsTheGameAndIsLeftAlone(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "world.sav")
-	if err := os.WriteFile(path, []byte("not a world"), 0o644); err != nil {
+	path := t.TempDir()
+	file := filepath.Join(path, "world.json")
+	if err := os.WriteFile(file, []byte("not a world"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	if _, err := New(Options{Seed: 1, SavePath: path}); err == nil {
-		t.Fatal("wanted an error for a save that cannot be read")
+		t.Fatal("wanted an error for a world that cannot be read")
 	}
 
-	if data, _ := os.ReadFile(path); string(data) != "not a world" {
+	if data, _ := os.ReadFile(file); string(data) != "not a world" {
 		t.Error("the file was changed")
+	}
+}
+
+func TestTheTitleSaysThatAnOlderSaveIsKept(t *testing.T) {
+	const note = "older gocraft"
+
+	g, err := New(Options{Seed: 1, SavePath: filepath.Join(t.TempDir(), "world"), OldSave: "/somewhere/world.sav"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text, _ := drawn(t, g); !strings.Contains(text, note) {
+		t.Errorf("the title does not say an older save is kept:\n%s", text)
+	}
+
+	if text, _ := drawn(t, newGame(t)); strings.Contains(text, note) {
+		t.Errorf("the title speaks of an older save when there is none:\n%s", text)
+	}
+}
+
+// The world is held round the player. Wherever the player goes, the ground comes in
+// under it within a few seconds, and what was built where it came from is kept.
+func TestTheWorldFollowsThePlayerAndKeepsWhatWasBuilt(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "world")
+	g := savedGame(t, path)
+	press(g, engine.KeyEnter) // New world
+	home := g.player.Pos
+	x, z := int(home.X)+3, int(home.Z)+3
+	y := g.world.Surface(x, z) + 4
+	g.world.Set(x, y, z, world.Brick)
+
+	g.player.Flying = true
+	g.player.Pos.X += 900
+	hold(t, g, 150) // five seconds
+	if !g.world.Loaded(int(g.player.Pos.X)+64, int(g.player.Pos.Z)-64) {
+		t.Fatal("five seconds after a long jump the ground round the player is not all there")
+	}
+	if g.world.Loaded(x, z) {
+		t.Fatal("the place the player left is still held")
+	}
+	if err := g.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	again := savedGame(t, path)
+	press(again, engine.KeyEnter) // Continue
+	if again.player.Pos != g.player.Pos {
+		t.Errorf("the player came back at %v, wanted %v", again.player.Pos, g.player.Pos)
+	}
+	again.player.Pos = home
+	hold(t, again, 150)
+	if got := again.world.At(x, y, z); got != world.Brick {
+		t.Errorf("the block built at the start is %v after going away, saving and coming back", got.Info().Name)
 	}
 }

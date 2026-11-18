@@ -84,6 +84,7 @@ func onFloor(t *testing.T) *Game {
 	g := newGame(t)
 	g.Play()
 	g.world, g.player = floor(), *standing()
+	g.herd.all = nil // the creatures of the world the floor took the place of
 	return g
 }
 

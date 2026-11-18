@@ -20,6 +20,10 @@ import (
 const (
 	fieldOfView = math.Pi / 3 // from the top of the view to the bottom
 	eyeHeight   = 1.6         // above the player's feet
+
+	// chunksAFrame is how many chunks of the world are brought in each frame as the
+	// player moves. Flying flat out crosses a chunk in 48 frames and needs 13 new ones.
+	chunksAFrame = 2
 )
 
 // Options are what a new game is told.
@@ -28,9 +32,13 @@ type Options struct {
 	// every new world is a different one.
 	Seed int64
 
-	// SavePath is the file the world is kept in between runs. It is read when the game
-	// is made, and written by Save. Empty means the world is not kept.
+	// SavePath is the folder the world is kept in between runs. It is read when the
+	// game is made, and written by Save. Empty means the world is not kept.
 	SavePath string
+
+	// OldSave is the file an earlier version of the game kept its one world in, if it
+	// is still there. This version cannot play it and leaves it alone, and says so.
+	OldSave string
 }
 
 // screen is what the game is showing.
@@ -68,14 +76,14 @@ type Game struct {
 	debug  bool         // whether the frame numbers are shown: F3
 	exact  bool         // whether the terminal reports key releases, so that two keys can be held
 
-	world     *world.World
-	clouds    *render.Clouds
-	creatures []Creature
-	moss      *render.Mossbacks
-	poses     []render.Mossback // the creatures as they are drawn, kept between frames
-	player    Player
-	saved     bool // the world is the one in the save file
-	started   bool // play has begun, so there is something worth saving
+	world   *world.World
+	clouds  *render.Clouds
+	herd    *herd
+	moss    *render.Mossbacks
+	poses   []render.Mossback // the creatures as they are drawn, kept between frames
+	player  Player
+	saved   bool // the world is the one in the save file
+	started bool // play has begun, so there is something worth saving
 
 	selected int       // the slot of the hotbar in use
 	target   world.Hit // the block the player aims at, if aimed is set
@@ -108,18 +116,18 @@ func New(opts Options) (*Game, error) {
 	return g, nil
 }
 
-// load takes the world from the save file if there is one, and makes a new world if
-// there is not. A save file that is there and cannot be used is an error: carrying on
-// would write a new world over it when the game ends.
+// load takes the world from its folder if one is saved there, and makes a new world if
+// not. A saved world that is there and cannot be used is an error: carrying on would
+// write a new world over it when the game ends.
 func (g *Game) load() error {
 	if g.opts.SavePath != "" {
-		s, err := world.Read(g.opts.SavePath)
+		w, s, err := world.Open(g.opts.SavePath)
 		switch {
 		case err == nil:
-			g.world = s.World
+			g.world = w
 			g.clouds = render.NewClouds(g.world.Seed)
-			g.creatures = spawnCreatures(g.world, creatureCount) // they are not in the save file yet
 			g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
+			g.herd = newHerd(g.world, g.player.Pos) // they are not in the save yet
 			g.selected = min(max(s.Slot, 0), len(hotbar)-1)
 			g.saved = true
 			return nil
@@ -131,15 +139,14 @@ func (g *Game) load() error {
 	return nil
 }
 
-// Save writes the world and the player to the save file. It does nothing if the game
-// has no save file, or if play never began: a world nobody has stood in is not worth
-// keeping, and must not take the place of one that is.
+// Save writes the world and the player to the world's folder. It does nothing if the
+// game has no folder for it, or if play never began: a world nobody has stood in is not
+// worth keeping, and must not take the place of one that is.
 func (g *Game) Save() error {
 	if g.opts.SavePath == "" || !g.started {
 		return nil
 	}
-	return world.Write(g.opts.SavePath, world.Save{
-		World:  g.world,
+	return g.world.Save(g.opts.SavePath, world.Meta{
 		Pos:    g.player.Pos,
 		Yaw:    g.player.Yaw,
 		Pitch:  g.player.Pitch,
@@ -156,8 +163,8 @@ func (g *Game) newWorld() {
 	}
 	g.world = world.Generate(seed)
 	g.clouds = render.NewClouds(seed)
-	g.creatures = spawnCreatures(g.world, creatureCount)
 	g.player = Player{Pos: g.world.Spawn()}
+	g.herd = newHerd(g.world, g.player.Pos)
 	g.selected, g.aimed, g.saved = 0, false, false
 }
 
@@ -204,6 +211,11 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 
 	if g.screen != paused {
 		g.clouds.Advance(dt) // the sky moves behind the title too, and stands still in a pause
+
+		// The world is held round the player, and comes in a few chunks a frame as the
+		// player moves: making a chunk takes time that a frame has little of.
+		g.world.Follow(g.player.Pos.X, g.player.Pos.Z)
+		g.world.Load(chunksAFrame)
 	}
 
 	if g.screen == playing {
@@ -212,9 +224,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			return nil
 		}
 		g.player.Step(g.world, readControls(in), dt)
-		for i := range g.creatures {
-			g.creatures[i].Step(g.world, dt)
-		}
+		g.herd.step(g.world, g.player.Pos, dt)
 		g.build(in, dt)
 		return nil
 	}
@@ -264,8 +274,8 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 // which are solid, and then the clouds, which are seen through and so come last.
 func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera) {
 	g.poses = g.poses[:0]
-	for i := range g.creatures {
-		g.poses = append(g.poses, g.creatures[i].Pose())
+	for i := range g.herd.all {
+		g.poses = append(g.poses, g.herd.all[i].Pose())
 	}
 	g.moss.Draw(c, cam, g.poses)
 	g.clouds.Draw(c, cam)

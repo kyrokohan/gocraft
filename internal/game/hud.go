@@ -77,6 +77,12 @@ func (g *Game) drawHUD(fb *engine.FrameBuffer, c *engine.Canvas) {
 		widget.Label{Text: " no key releases here: one key at a time ", Style: hudPick}.Draw(fb, 0, row, fb.Width())
 		row++
 	}
+	if g.world.Fault() != nil {
+		// A chunk's file could not be read. The chunk was made again from the seed and
+		// the file is left as it is, so what is built in that chunk will not be kept.
+		widget.Label{Text: " a saved chunk could not be read: what is built there is not kept ", Style: hudPick}.Draw(fb, 0, row, fb.Width())
+		row++
+	}
 	if g.debug {
 		g.drawNumbers(fb, row)
 	}
@@ -163,6 +169,11 @@ func (g *Game) drawTitle(fb *engine.FrameBuffer, c *engine.Canvas) {
 	y := min((top+h)/2+2, fb.Height()-len(g.menu.Items)-3)
 	under := g.drawMenu(fb, question, (fb.Width()-width)/2, y, width, 0)
 	widget.Label{Text: hint, Align: widget.Center, Style: hudText}.Draw(fb, 0, under+1, fb.Width())
+	if g.opts.OldSave != "" && !g.saved {
+		// The one world of the game's first version. It is kept, and cannot be played.
+		note := " the world saved by an older gocraft is kept, but this version cannot play it "
+		widget.Label{Text: note, Align: widget.Center, Style: hudFrame}.Draw(fb, 0, under+3, fb.Width())
+	}
 }
 
 // drawPause draws the pause menu over the world, with the keys under it.

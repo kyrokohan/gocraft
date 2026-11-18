@@ -21,10 +21,10 @@ const maxStep = 0.4
 // could leave the body a hair inside the block.
 const gap = 1e-7
 
-// solid reports whether a cell stops a body. The sides and the bottom of the world are
-// walls; above it there is open air.
+// solid reports whether a cell stops a body. The bottom of the world is a floor; above
+// it there is open air, and along the ground it has no end.
 func solid(w *world.World, x, y, z int) bool {
-	if x < 0 || x >= world.SizeX || z < 0 || z >= world.SizeZ || y < 0 {
+	if y < 0 {
 		return true
 	}
 	return w.At(x, y, z).Info().Solid

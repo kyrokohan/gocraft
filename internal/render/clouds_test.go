@@ -18,12 +18,12 @@ func underACloud(t *testing.T, cl *Clouds) mesh.Camera {
 	for j := range cloudCells {
 		for i := range cloudCells {
 			x, z := cloudMiddle(i, j)
-			if x < 16 || z < 16 || x > world.SizeX-16 || z > world.SizeZ-16 {
-				continue // the sky is wider than the world, and the tests build under it
+			if math.Abs(x) > 60 || math.Abs(z) > 60 {
+				continue // the tests build under the cloud, where their world is loaded
 			}
 			if cl.at(i, j) && cl.at(i+1, j) && cl.at(i, j+1) && cl.at(i-1, j) && cl.at(i, j-1) {
 				return mesh.Camera{
-					Position: geometry.Vector3{X: x, Y: 30, Z: z},
+					Position: geometry.Vector3{X: x, Y: cloudBottom - 42, Z: z},
 					Pitch:    1.5,
 					FOV:      math.Pi / 3,
 					Far:      ViewDistance,
@@ -131,7 +131,7 @@ func TestBlocksHideTheClouds(t *testing.T) {
 	w := world.New()
 	for z := -12; z <= 12; z++ {
 		for x := -12; x <= 12; x++ {
-			w.Set(int(cam.Position.X)+x, 40, int(cam.Position.Z)+z, world.Planks) // a roof
+			w.Set(int(math.Floor(cam.Position.X))+x, int(cam.Position.Y)+10, int(math.Floor(cam.Position.Z))+z, world.Planks) // a roof
 		}
 	}
 
@@ -181,7 +181,7 @@ func BenchmarkClouds(b *testing.B) {
 	cl := NewClouds(1)
 	c := newCanvas(b, 240, 67)
 	cam := mesh.Camera{
-		Position: geometry.Vector3{X: 128, Y: 32, Z: 128},
+		Position: geometry.Vector3{X: 0, Y: cloudBottom - 60, Z: 0},
 		Pitch:    0.5,
 		FOV:      math.Pi / 3,
 		Far:      ViewDistance,
