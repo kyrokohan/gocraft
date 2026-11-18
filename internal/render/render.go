@@ -216,11 +216,12 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 	}
 	eye := v.eye
 	underwater := w.At(int(math.Floor(eye.X)), int(math.Floor(eye.Y)), int(math.Floor(eye.Z))) == world.Water
-	top := float64(w.Height())
 	far := cam.Far
 	if far == 0 {
 		far = ViewDistance
 	}
+	// Above the highest block that is near enough to be seen there is only sky.
+	top := float64(w.HeightNear(eye.X, eye.Z, min(far, 4*ViewDistance)))
 	fog := cam.Fog
 
 	// How far away a tile has to be before a smaller copy of it is used: where its

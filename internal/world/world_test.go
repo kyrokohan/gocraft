@@ -575,3 +575,27 @@ func TestEveryOreIsInTheStoneAtItsOwnDepth(t *testing.T) {
 		t.Errorf("%d coal and %d crystal: coal should be the common one", count[CoalOre], count[CrystalOre])
 	}
 }
+
+func TestHeightNearIsTheHighestGroundInReach(t *testing.T) {
+	w := New()
+	w.Set(3, 20, 3, Stone)
+	w.Set(80, 90, 3, Stone) // a tower five chunks along x
+
+	if got := w.HeightNear(3, 3, 30); got != 21 {
+		t.Errorf("within 30 blocks the world is %d high, wanted 21", got)
+	}
+	if got := w.HeightNear(3, 3, 64); got != 21 {
+		t.Errorf("within 64 blocks the world is %d high, wanted 21: the tower is 77 away", got)
+	}
+	if got := w.HeightNear(3, 3, 80); got != 91 {
+		t.Errorf("within 80 blocks the world is %d high, wanted 91", got)
+	}
+	if got := w.Height(); got != 91 {
+		t.Errorf("the world is %d high, wanted 91", got)
+	}
+
+	w.Set(3, 40, 3, Brick)
+	if got := w.HeightNear(3, 3, 10); got != 41 {
+		t.Errorf("after building up, the world near is %d high, wanted 41", got)
+	}
+}

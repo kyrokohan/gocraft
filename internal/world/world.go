@@ -58,6 +58,7 @@ type World struct {
 
 	cx, cz int                              // the chunk in the middle of the window
 	owner  [windowChunks * windowChunks]key // the chunk each place in the window holds, if it is loaded
+	tops   [windowChunks * windowChunks]int // for each loaded chunk, one above the highest layer that has held a block
 	loaded [windowChunks * windowChunks]bool
 	dirty  [windowChunks * windowChunks]bool // changed since it was loaded or saved
 	held   [windowChunks * windowChunks]bool // not to be saved: its file could not be read, and is left as it is
@@ -133,8 +134,9 @@ func (w *World) Set(x, y, z int, b Block) {
 	}
 	w.blocks[index(x, y, z)] = b
 	w.dirty[place(k)] = true
-	if b != Air && y >= w.height {
-		w.height = y + 1
+	if b != Air {
+		w.tops[place(k)] = max(w.tops[place(k)], y+1)
+		w.height = max(w.height, y+1)
 	}
 }
 
@@ -148,6 +150,24 @@ func (w *World) Loaded(x, z int) bool {
 // that has ever held a block in a loaded chunk. It never comes down.
 func (w *World) Height() int {
 	return w.height
+}
+
+// HeightNear returns a layer above which there is only air within reach blocks of the
+// column at x, z, along the ground: one above the highest block of the chunks that
+// come that near. A ray that looks up from there can stop at it, where Height would
+// make it climb as high as a mountain that is too far off to be seen.
+func (w *World) HeightNear(x, z float64, reach float64) int {
+	lo := key{chunkOf(int(math.Floor(x - reach))), chunkOf(int(math.Floor(z - reach)))}
+	hi := key{chunkOf(int(math.Floor(x + reach))), chunkOf(int(math.Floor(z + reach)))}
+	top := 0
+	for cz := lo.z; cz <= hi.z; cz++ {
+		for cx := lo.x; cx <= hi.x; cx++ {
+			if k := (key{cx, cz}); w.inSquare(k) && w.loaded[place(k)] {
+				top = max(top, w.tops[place(k)])
+			}
+		}
+	}
+	return top
 }
 
 // Surface returns the layer of the highest block in a column, or -1 if it is all air.
@@ -266,12 +286,14 @@ func (w *World) load(k key) {
 	}
 	w.owner[at], w.loaded[at], w.dirty[at], w.held[at] = k, true, false, held
 
+	w.tops[at] = 0
 	for i := len(chunk) - 1; i >= 0; i-- {
 		if chunk[i] != Air {
-			w.height = max(w.height, i/(ChunkSize*ChunkSize)+1)
+			w.tops[at] = i/(ChunkSize*ChunkSize) + 1
 			break
 		}
 	}
+	w.height = max(w.height, w.tops[at])
 }
 
 // source returns the blocks of a chunk, in the scratch chunk: from the chunks set aside
