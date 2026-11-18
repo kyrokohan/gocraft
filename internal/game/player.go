@@ -97,7 +97,7 @@ func (p *Player) Camera() mesh.Camera {
 		Position: geometry.Vector3{X: p.Pos.X, Y: p.Pos.Y + eyeHeight, Z: p.Pos.Z},
 		Yaw:      p.Yaw,
 		Pitch:    p.Pitch,
-		FOV:      fieldOfView,
+		FOV:      defaultSettings.fov(),
 		Far:      render.ViewDistance,
 	}
 }

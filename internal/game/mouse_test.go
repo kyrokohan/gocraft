@@ -218,7 +218,7 @@ func TestThePointerAimsFromTheMiddleUntilTheSizeIsKnown(t *testing.T) {
 // cellAngle is how far one cell of a drag turns the view up or down; across, a cell
 // turns it half as far, since a cell is half as wide as it is tall.
 func cellAngle() float64 {
-	return dragSpeed * 2 * math.Tan(fieldOfView/2) / rows
+	return defaultSettings.MouseSpeed * 2 * math.Tan(defaultSettings.fov()/2) / rows
 }
 
 func TestDraggingTurnsTheViewAndBreaksNothing(t *testing.T) {

@@ -22,11 +22,6 @@ const (
 	clickRepeat = 0.2
 )
 
-// dragSpeed is how far a drag turns the view, as a multiple of the angle the pointer
-// moved through: at 1 the world would stay under the pointer, and a little more saves
-// the hand some travel.
-const dragSpeed = 1.5
-
 // Resize is called by glonk with the size of the frame in cells, which says where on
 // the screen the pointer is. It makes the game an engine.Resizer.
 func (g *Game) Resize(width, height int) {
@@ -64,7 +59,7 @@ func (g *Game) point(in *engine.Input) (slot int) {
 // aim finds the block or the creature the player aims at, if one is in reach: under the
 // pointer while the mouse is in use, and in the middle of the view otherwise.
 func (g *Game) aim() {
-	cam := g.player.Camera()
+	cam := g.eyes()
 	direction := cam.Look()
 	if g.pointing {
 		// glonk's ray through the pointer's cell reaches one deep, and the reach is a
@@ -131,13 +126,13 @@ func (g *Game) drag(in *engine.Input, dt float64, fromX, fromY int) (breaks bool
 
 // turn turns the view by a move of the pointer, in cells: right looks right and down
 // looks down. A cell turns the view by the angle it covers at the middle of the view,
-// times dragSpeed; it is half as wide as it is tall, so a cell across turns half as far
+// times the mouse speed of the settings; it is half as wide as it is tall, so a cell across turns half as far
 // as a cell up. Until the size of the frame is known, that angle is not, and nothing turns.
 func (g *Game) turn(dx, dy int) {
 	if g.rows <= 0 {
 		return
 	}
-	cell := dragSpeed * 2 * math.Tan(fieldOfView/2) / float64(g.rows)
+	cell := g.settings.MouseSpeed * 2 * math.Tan(g.settings.fov()/2) / float64(g.rows)
 	g.player.Turn(float64(dx)*cell/2, -float64(dy)*cell)
 }
 

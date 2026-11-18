@@ -27,14 +27,21 @@ var (
 // each way, so the picture is square.
 const (
 	slotSize     = 6
-	slotPitch    = slotSize + 1                       // from one slot to the next, with the line between
-	barWidth     = hotbarSlots*slotPitch + 1          // with the frame
-	barHeight    = slotSize/2 + 2                     // with the frame
-	titleUnit    = 4                                  // pixels of the title picture to each little block of its letters
-	menuWidth    = 22                                 // cells, with the frame
-	helpWidth    = 54                                 // cells, with the frame
-	numbersWidth = 32                                 // cells, with the frame
-	hint         = " Up, Down: choose   Enter: pick " // under the title's menu
+	slotPitch    = slotSize + 1              // from one slot to the next, with the line between
+	barWidth     = hotbarSlots*slotPitch + 1 // with the frame
+	barHeight    = slotSize/2 + 2            // with the frame
+	titleUnit    = 4                         // pixels of the title picture to each little block of its letters
+	menuWidth    = 22                        // cells, with the frame
+	listWide     = 46                        // the menu of the list of worlds, with the frame
+	settingsWide = 36                        // the settings, with the frame
+	fieldWide    = 30                        // a field a new world's name or seed is typed in, with the frame
+	helpWidth    = 54                        // cells, with the frame
+	numbersWidth = 32                        // cells, with the frame
+	menuMost     = 10                        // the most lines a menu shows: a longer one scrolls
+
+	hint         = " Up, Down or the mouse: choose   Enter or a click: pick " // under the title's menu
+	settingsHint = " Left, Right or a click: change   Esc: back "
+	typeHint     = " type it   Enter: next   Esc: back "
 )
 
 // help is the keys, shown on the pause menu.
@@ -220,12 +227,42 @@ func (g *Game) drawNumbers(fb *engine.FrameBuffer, y int) {
 }
 
 // drawMenu draws the menu in a panel w cells wide with its top left corner at (x, y),
-// and returns the row under it.
+// and returns the row under it. It keeps where the lines went, for the mouse.
 func (g *Game) drawMenu(fb *engine.FrameBuffer, title string, x, y, w, extra int) int {
-	h := len(g.menu.Items) + extra + 2
+	rows := min(len(g.menu.Items), menuMost)
+	h := rows + extra + 2
 	widget.Panel{Title: title, Style: hudFrame, Fill: hudFill}.Draw(fb, x, y, w, h)
-	g.menu.Draw(fb, x+2, y+1, w-4, len(g.menu.Items))
+	g.menu.Draw(fb, x+2, y+1, w-4, rows)
+	g.menuX, g.menuY, g.menuW, g.menuRows = x+2, y+1, w-4, rows
 	return y + h
+}
+
+// question is what the title's screen asks, over its menu, and how wide that menu is.
+func (g *Game) question() (string, int) {
+	name := func() string { return g.list[g.chosen].name }
+	switch g.screen {
+	case confirming:
+		return "replace your saved world?", 0
+	case choosing:
+		return "how will this world be played?", 0
+	case worldChosen:
+		return name(), 0
+	case deleting:
+		return "delete " + name() + "?", 0
+	case deletingSure:
+		return name() + " cannot be brought back", 0
+	case naming:
+		return "name the new world", fieldWide
+	case seeding:
+		return "its seed (none: any)", fieldWide
+	case settingsScreen:
+		return "settings", settingsWide
+	case onTitle:
+		if g.listing() {
+			return "worlds", listWide
+		}
+	}
+	return "", menuWidth
 }
 
 // drawTitle draws the title screen over the world: the name of the game as pixels,
@@ -240,19 +277,24 @@ func (g *Game) drawTitle(fb *engine.FrameBuffer, c *engine.Canvas) {
 	g.set.Title.DrawScaled(c, (c.Width()-w)/2, top, w, h)
 	c.Compose()
 
-	question, width := "", menuWidth
+	question, width := g.question()
+	if width == 0 {
+		width = max(engine.TextWidth(question)+8, menuWidth)
+	}
+	x, y := (fb.Width()-width)/2, min((top+h)/2+2, fb.Height()-min(len(g.menu.Items), menuMost)-3)
+	var under int
+	keys := hint
 	switch g.screen {
-	case confirming:
-		question = "replace your saved world?"
-	case choosing:
-		question = "how will this world be played?"
+	case naming, seeding:
+		g.field.draw(fb, question, x, y, width)
+		under, keys = y+3, typeHint
+	case settingsScreen:
+		under, keys = g.drawMenu(fb, question, x, y, width, 0), settingsHint
+	default:
+		under = g.drawMenu(fb, question, x, y, width, 0)
 	}
-	if question != "" {
-		width = engine.TextWidth(question) + 8
-	}
-	y := min((top+h)/2+2, fb.Height()-len(g.menu.Items)-3)
-	under := g.drawMenu(fb, question, (fb.Width()-width)/2, y, width, 0)
-	widget.Label{Text: hint, Align: widget.Center, Style: hudText}.Draw(fb, 0, under+1, fb.Width())
+	widget.Label{Text: keys, Align: widget.Center, Style: hudText}.Draw(fb, 0, under+1, fb.Width())
+	g.drawNote(fb, under+2)
 	if g.screen == choosing {
 		for i, line := range []string{
 			" Survival: find what you need, dig it, and stay alive ",
@@ -261,19 +303,35 @@ func (g *Game) drawTitle(fb *engine.FrameBuffer, c *engine.Canvas) {
 			widget.Label{Text: line, Align: widget.Center, Style: hudFrame}.Draw(fb, 0, under+3+i, fb.Width())
 		}
 	}
-	if g.opts.OldSave != "" && !g.saved {
+	if g.opts.OldSave != "" && !g.saved && g.screen == onTitle {
 		// The one world of the game's first version. It is kept, and cannot be played.
 		note := " the world saved by an older gocraft is kept, but this version cannot play it "
 		widget.Label{Text: note, Align: widget.Center, Style: hudFrame}.Draw(fb, 0, under+3, fb.Width())
 	}
 }
 
+// drawNote draws on row y what last went wrong, or what was done, if anything was.
+func (g *Game) drawNote(fb *engine.FrameBuffer, y int) {
+	if g.note != "" {
+		widget.Label{Text: " " + g.note + " ", Align: widget.Center, Style: hudPick}.Draw(fb, 0, y, fb.Width())
+	}
+}
+
+// drawSettings draws the settings over the paused world.
+func (g *Game) drawSettings(fb *engine.FrameBuffer) {
+	x, y := (fb.Width()-settingsWide)/2, max((fb.Height()-len(g.menu.Items)-2)/2, 0)
+	under := g.drawMenu(fb, "settings", x, y, settingsWide, 0)
+	widget.Label{Text: settingsHint, Align: widget.Center, Style: hudText}.Draw(fb, 0, under+1, fb.Width())
+	g.drawNote(fb, under+2)
+}
+
 // drawPause draws the pause menu over the world, with the keys under it.
 func (g *Game) drawPause(fb *engine.FrameBuffer) {
 	h := len(g.menu.Items) + len(help) + 3
 	x, y := (fb.Width()-helpWidth)/2, max((fb.Height()-h)/2, 0)
-	g.drawMenu(fb, "paused", x, y, helpWidth, len(help)+1)
+	under := g.drawMenu(fb, "paused", x, y, helpWidth, len(help)+1)
 	for i, line := range help {
 		widget.Label{Text: line, Style: hudFrame}.Draw(fb, x+2, y+len(g.menu.Items)+2+i, helpWidth-4)
 	}
+	g.drawNote(fb, under+1)
 }

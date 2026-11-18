@@ -277,7 +277,7 @@ func TestTheCameraIsAtThePlayersEyes(t *testing.T) {
 
 	cam := p.Camera()
 
-	if cam.Position != (geometry.Vector3{X: 20.5, Y: 6 + eyeHeight, Z: 20.5}) || cam.Yaw != 0.5 || cam.Pitch != -0.25 || cam.FOV != fieldOfView {
+	if cam.Position != (geometry.Vector3{X: 20.5, Y: 6 + eyeHeight, Z: 20.5}) || cam.Yaw != 0.5 || cam.Pitch != -0.25 || cam.FOV != defaultSettings.fov() {
 		t.Errorf("got camera %+v", cam)
 	}
 }

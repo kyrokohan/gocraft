@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"math"
 	"math/rand/v2"
+	"path/filepath"
 	"time"
 
 	"glonk.dev/engine"
@@ -19,8 +20,7 @@ import (
 )
 
 const (
-	fieldOfView = math.Pi / 3 // from the top of the view to the bottom
-	eyeHeight   = 1.6         // above the player's feet
+	eyeHeight = 1.6 // above the player's feet
 
 	// chunksAFrame is how many chunks of the world are brought in each frame as the
 	// player moves. Flying flat out crosses a chunk in 48 frames and needs 13 new ones.
@@ -36,6 +36,13 @@ type Options struct {
 	// SavePath is the folder the world is kept in between runs. It is read when the
 	// game is made, and written by Save. Empty means the world is not kept.
 	SavePath string
+
+	// Worlds is a folder of worlds, each a folder of its own, for the title to list. When
+	// it is set, SavePath is not read: it becomes the folder of the world chosen.
+	Worlds string
+
+	// Settings is the file the player's settings are kept in. Empty means they are not.
+	Settings string
 
 	// OldSave is the file an earlier version of the game kept its one world in, if it
 	// is still there. This version cannot play it and leaves it alone, and says so.
@@ -57,6 +64,15 @@ const (
 	choosing   // the title, asking how the new world is to be played
 	fainted    // the player has no health left, and wakes from a menu
 	inBag      // what the player carries, over the world standing still
+
+	// The title's screens for a list of worlds.
+	worldChosen  // what to do with the world chosen in the list
+	deleting     // whether to delete it
+	deletingSure // whether to, for good
+	naming       // the name of a new world being typed
+	seeding      // and its seed
+
+	settingsScreen // the settings, over the title or the paused world
 )
 
 // The lines of the menus. What a line does is decided by its text, so the order of a
@@ -72,6 +88,13 @@ const (
 	itemSurvival = "Survival"
 	itemCreative = "Creative"
 	itemWake     = "Wake up"
+	itemSettings = "Settings"
+	itemBack     = "Back"
+	itemPlay     = "Play"
+	itemDelete   = "Delete"
+	itemDeleteIt = "Yes, delete it"
+	itemForGood  = "Yes, delete it for good"
+	itemLeave    = "Save and leave"
 )
 
 // Game is the whole game. It implements engine.Game.
@@ -132,6 +155,19 @@ type Game struct {
 	recipe  int         // the line of that list the keys are on
 	listTop int         // the first line of it shown, when it is longer than its panel
 
+	settings Settings
+	back     screen // the screen the settings go back to
+
+	// The list of worlds on the title, the one chosen, and the new one being made.
+	list    []savedWorld
+	chosen  int
+	field   field
+	newName string
+	newSeed int64
+	note    string // a line on the title of what went wrong, or what was done
+
+	menuX, menuY, menuW, menuRows int // where the menu was last drawn: its first line, and how many show
+
 	cols, rows     int        // the size of the frame in cells, once glonk has said
 	pointing       bool       // the pointer aims, and not the middle of the view
 	mouseX, mouseY int        // the cell the pointer was last in
@@ -140,6 +176,7 @@ type Game struct {
 	dragging       bool       // the left button is dragging the view round
 	dug            bool       // the left button, held still, has broken a block since it went down
 	box            mesh.Mesh  // the outline drawn round that block: the edges of a cube its size
+	fog            mesh.Fog   // the fog of the view, as the camera of this frame has it
 }
 
 // New returns a game showing its title, ready for engine.Run.
@@ -151,7 +188,7 @@ func New(opts Options) (*Game, error) {
 	g := &Game{
 		opts: opts, set: set, rend: render.New(set), moss: render.NewMossbacks(set), look: render.NewDrops(set),
 		shades: render.NewGloams(set),
-		exact:  true, box: mesh.Cube(1),
+		exact:  true, box: mesh.Cube(1), settings: loadSettings(opts.Settings),
 	}
 	if err := g.load(); err != nil {
 		return nil, err
@@ -165,25 +202,34 @@ func New(opts Options) (*Game, error) {
 // not. A saved world that is there and cannot be used is an error: carrying on would
 // write a new world over it when the game ends.
 func (g *Game) load() error {
+	if g.opts.Worlds != "" {
+		g.opts.SavePath = "" // the world behind the title is a new one, till one is chosen
+	}
 	if g.opts.SavePath != "" {
 		w, s, err := world.Open(g.opts.SavePath)
 		switch {
 		case err == nil:
-			g.world = w
-			g.clouds = render.NewClouds(g.world.Seed)
-			g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
-			g.herd = herdFrom(g.world, s.Mossbacks, g.player.Pos)
-			g.selected = min(max(s.Slot, 0), hotbarSlots-1)
-			g.days = s.Days
-			g.saved = true
-			g.loadPlayer(s)
+			g.use(w, s)
 			return nil
 		case !errors.Is(err, fs.ErrNotExist):
 			return err
 		}
 	}
-	g.newWorld()
+	g.newWorld(g.opts.Seed)
 	return nil
+}
+
+// use plays a saved world, with the player as it was saved.
+func (g *Game) use(w *world.World, s world.Meta) {
+	g.world = w
+	g.clouds = render.NewClouds(g.world.Seed)
+	g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
+	g.herd = herdFrom(g.world, s.Mossbacks, g.player.Pos)
+	g.gloams = nil
+	g.selected = min(max(s.Slot, 0), hotbarSlots-1)
+	g.days = s.Days
+	g.saved = true
+	g.loadPlayer(s)
 }
 
 // Save writes the world and the player to the world's folder. It does nothing if the
@@ -255,9 +301,9 @@ func (g *Game) begin(survival bool) {
 	g.renew()
 }
 
-// newWorld makes a world and stands the player in it.
-func (g *Game) newWorld() {
-	seed := g.opts.Seed
+// newWorld makes a world from a seed and stands the player in it. Seed 0 takes one from
+// the clock.
+func (g *Game) newWorld(seed int64) {
 	if seed == 0 {
 		seed = time.Now().UnixNano()
 	}
@@ -276,18 +322,29 @@ func (g *Game) newWorld() {
 func (g *Game) show(s screen) {
 	g.screen = s
 	g.menu = widget.Menu{Style: hudText}
+	g.menuRows = 0 // till the menu of this screen is drawn, a click is on no line of it
 	switch s {
 	case onTitle:
-		g.menu.Items = []string{itemNew, itemQuit}
-		if g.saved {
-			g.menu.Items = []string{itemContinue, itemNew, itemQuit}
-		}
+		g.menu.Items = g.titleItems()
+	case worldChosen:
+		g.menu.Items = []string{itemPlay, itemDelete, itemBack}
+	case deleting:
+		g.menu.Items = []string{itemKeep, itemDeleteIt}
+	case deletingSure:
+		g.menu.Items = []string{itemKeep, itemForGood}
+	case naming:
+		g.field = nameField(g.freeName())
+	case settingsScreen:
+		g.menu.Items = g.settings.lines()
 	case confirming:
 		g.menu.Items = []string{itemKeep, itemReplace}
 	case choosing:
 		g.menu.Items = []string{itemSurvival, itemCreative}
 	case paused:
-		g.menu.Items = []string{itemResume, itemSave}
+		g.menu.Items = []string{itemResume, itemSettings, itemSave}
+		if g.listing() {
+			g.menu.Items[2] = itemLeave
+		}
 	case fainted:
 		g.menu.Items = []string{itemWake}
 	case playing:
@@ -361,53 +418,135 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		return nil
 	}
 
-	// A menu: the title's, its questions, the pause menu's, or the one to wake from.
-	if g.screen != paused && g.screen != fainted {
+	// A menu: the title's, its questions, the pause menu's, the settings, or the one to
+	// wake from. A new world's name and seed are typed.
+	if g.titleShown() {
 		g.spin += 0.12 * dt
 	}
 	if escape {
 		switch g.screen {
 		case onTitle:
 			return engine.ErrQuit
-		case confirming, choosing:
-			g.show(onTitle)
 		case paused:
 			g.show(playing)
+		case settingsScreen:
+			g.show(g.back)
+		case fainted:
+		default:
+			g.note = ""
+			g.show(onTitle)
 		}
 		return nil
 	}
+	if g.screen == naming || g.screen == seeding {
+		g.typeIn(in)
+		return nil
+	}
+	if g.screen == settingsScreen {
+		// Left and Right change the setting the menu is on.
+		for key, by := range map[engine.Key]int{engine.KeyLeft: -1, engine.KeyRight: 1} {
+			if in.Pressed(key) && g.menu.Selected < settingLines {
+				g.changeSetting(g.menu.Selected, by)
+			}
+		}
+	}
 	choice, chosen := g.menu.Update(in)
+	if c, ok := g.pointMenu(in); ok {
+		choice, chosen = c, true
+	}
 	if !chosen {
+		return nil
+	}
+	g.note = ""
+	switch {
+	case g.screen == onTitle && g.listing() && choice < len(g.list):
+		g.chosen = choice
+		g.show(worldChosen)
+		return nil
+	case g.screen == settingsScreen && choice < settingLines:
+		g.changeSetting(choice, 1)
 		return nil
 	}
 	switch g.menu.Items[choice] {
 	case itemContinue, itemResume:
 		g.show(playing)
 	case itemNew:
-		if g.saved {
+		switch {
+		case g.listing():
+			g.show(naming)
+		case g.saved:
 			g.show(confirming) // a new world would take the place of the saved one
-		} else {
+		default:
 			g.show(choosing)
+		}
+	case itemBack:
+		if g.screen == settingsScreen {
+			g.show(g.back)
+		} else {
+			g.show(onTitle)
 		}
 	case itemKeep:
 		g.show(onTitle)
 	case itemReplace:
 		g.show(choosing)
 	case itemSurvival, itemCreative:
-		if g.saved {
-			g.newWorld() // the world behind the title is the saved one
+		switch {
+		case g.listing():
+			g.newWorld(g.newSeed)
+			g.opts.SavePath = filepath.Join(g.opts.Worlds, g.newName)
+		case g.saved:
+			g.newWorld(g.opts.Seed) // the world behind the title is the saved one
 		}
 		g.begin(g.menu.Items[choice] == itemSurvival)
 		g.show(playing)
+	case itemPlay:
+		g.playWorld(g.list[g.chosen])
+	case itemDelete:
+		g.show(deleting)
+	case itemDeleteIt:
+		g.show(deletingSure)
+	case itemForGood:
+		g.deleteWorld(g.list[g.chosen])
+		g.show(onTitle)
+	case itemSettings:
+		g.back = g.screen
+		g.show(settingsScreen)
 	case itemWake:
 		g.wake()
 		g.show(playing)
+	case itemLeave:
+		if err := g.Save(); err != nil {
+			g.note = "the world was not saved: " + reason(err) // so it stays open
+			return nil
+		}
+		g.show(onTitle)
 	case itemQuit, itemSave:
 		// The world is saved by whoever runs the game, once Run has returned: that
 		// covers Ctrl-C and a closing window as well as this menu.
 		return engine.ErrQuit
 	}
 	return nil
+}
+
+// titleShown reports whether the screen is the title's or one of its questions, over the
+// world turning slowly behind it.
+func (g *Game) titleShown() bool {
+	switch g.screen {
+	case onTitle, confirming, choosing, worldChosen, deleting, deletingSure, naming, seeding:
+		return true
+	case settingsScreen:
+		return g.back != paused
+	}
+	return false
+}
+
+// changeSetting moves line i of the settings by one value either way, and keeps it.
+func (g *Game) changeSetting(i, by int) {
+	g.settings.step(i, by)
+	g.menu.Items = g.settings.lines()
+	if err := g.settings.save(g.opts.Settings); err != nil {
+		g.note = "the settings were not saved: " + reason(err)
+	}
 }
 
 // drawThings draws what glonk draws into the world, over the blocks: the creatures,
@@ -453,9 +592,24 @@ func (g *Game) lightAt(p geometry.Vector3) world.Light {
 // where the light of the sky does not reach the eye, so that a cave fades into the dark
 // and not into the color of the sky outside it.
 func (g *Game) camera() mesh.Camera {
-	cam := g.player.Camera()
-	cam.Fog = g.sky.FogIn(g.lightAt(cam.Position))
+	cam := g.eyes()
+	cam.Fog = g.fogAt(cam)
 	return cam
+}
+
+// eyes returns the view from the player's eyes as the settings have it: as wide, and as
+// deep, as they say.
+func (g *Game) eyes() mesh.Camera {
+	cam := g.player.Camera()
+	cam.FOV, cam.Far = g.settings.fov(), float64(g.settings.ViewDistance)
+	return cam
+}
+
+// fogAt returns the sky's fog for a camera, which ends where the camera's view does.
+func (g *Game) fogAt(cam mesh.Camera) *mesh.Fog {
+	g.fog = *g.sky.FogIn(g.lightAt(cam.Position))
+	g.fog.Start, g.fog.End = 0.6*cam.Far, cam.Far
+	return &g.fog
 }
 
 // Draw renders the game into fb.
@@ -463,11 +617,11 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	c := fb.Canvas()
 	g.sky.Set(timeOfDay(g.days))
 	g.rend.Crack = render.Crack{}
-	if g.screen == onTitle || g.screen == confirming || g.screen == choosing {
+	if g.titleShown() {
 		// The world from a little above where the player will stand, turning slowly.
-		cam := g.player.Camera()
+		cam := g.eyes()
 		cam.Position.Y += 4
-		cam.Fog = g.sky.FogIn(g.lightAt(cam.Position))
+		cam.Fog = g.fogAt(cam)
 		cam.Yaw, cam.Pitch = g.spin, 0.15
 		g.rend.Draw(c, g.world, cam, g.sky)
 		g.drawThings(c, cam)
@@ -496,7 +650,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(200, 20, 20), 0.4*g.flash/hurtFlash)
 	}
 	switch g.screen {
-	case paused, inBag:
+	case paused, inBag, settingsScreen:
 		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(0, 0, 0), 0.5) // the world dims behind the menu
 	case fainted:
 		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(60, 0, 0), 0.6)
@@ -512,7 +666,10 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		return
 	}
 	g.drawHUD(fb, c)
-	if g.screen == paused {
+	switch g.screen {
+	case paused:
 		g.drawPause(fb)
+	case settingsScreen:
+		g.drawSettings(fb)
 	}
 }

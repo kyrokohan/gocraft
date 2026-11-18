@@ -108,7 +108,7 @@ func TestANewWorldAsksHowItIsPlayedAndThenStartsPlay(t *testing.T) {
 
 func TestQuitAndEscapeLeaveFromTheTitle(t *testing.T) {
 	g := newGame(t)
-	if err := press(g, engine.KeyDown, engine.KeyEnter); !errors.Is(err, engine.ErrQuit) {
+	if err := press(g, engine.KeyUp, engine.KeyEnter); !errors.Is(err, engine.ErrQuit) {
 		t.Errorf("Quit returned %v, wanted ErrQuit", err)
 	}
 
@@ -146,7 +146,7 @@ func TestThePauseMenuResumesAndQuits(t *testing.T) {
 	}{
 		{"Escape resumes", []engine.Key{engine.KeyEscape}, false},
 		{"Resume resumes", []engine.Key{engine.KeyEnter}, false},
-		{"Save and quit quits", []engine.Key{engine.KeyDown, engine.KeyEnter}, true},
+		{"Save and quit quits", []engine.Key{engine.KeyUp, engine.KeyEnter}, true},
 	} {
 		g := onFloor(t)
 		press(g, engine.KeyEscape)
