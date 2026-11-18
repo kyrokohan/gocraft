@@ -110,6 +110,7 @@ type Renderer struct {
 	plant    [256]bool        // the kinds of block that are plants: two crossed pictures, and not a cube
 	mat      [256]bool        // the kinds of block that are mats: one picture lying flat
 	glow     [256]world.Light // the light each kind of block gives off
+	shuts    [256]bool        // the kinds of block that cast the soft shadows where blocks meet
 }
 
 // Crack is a block that is being broken, and how far the breaking has gone, from 0, not
@@ -148,6 +149,7 @@ func New(set *assets.Set) *Renderer {
 		r.plant[b] = info.Plant
 		r.mat[b] = info.Mat
 		r.glow[b] = world.Light(min(info.Glow, world.MaxLight))
+		r.shuts[b] = info.Solid && !info.Stands() && info.Shade == world.MaxLight
 	}
 	return r
 }
@@ -243,6 +245,54 @@ func (r *Renderer) lightOn(w *world.World, sky *Sky, hit world.Hit) color {
 	return sky.shade[l].lit(faceLight[hit.Face])
 }
 
+// The soft shadows where blocks meet. A face is darker where the cells beside the one in
+// front of it are shut, and darkest in a corner shut on both sides, as less of the open
+// air round it reaches it there. It is worked out at the four corners of a face and
+// blended across it, and only on faces near enough for it to be seen: it fades out from
+// shadeFrom to shadeTo blocks away.
+var cornerShade = [4]uint32{150, 185, 220, 256} // out of 256, by how many of the three cells round a corner are open
+
+const shadeFrom, shadeTo = 24.0, 32.0
+
+// faceAxes are, for the faces across x, y and z, the ways onFace measures u and v along:
+// a step of one along each, as a step from cell to cell.
+var faceAxes = [3][2][3]int{
+	{{0, 0, 1}, {0, -1, 0}}, // u along z, and v down
+	{{1, 0, 0}, {0, 0, 1}},
+	{{1, 0, 0}, {0, -1, 0}},
+}
+
+// corners returns how lit each corner of the face a ray met is by the soft shadows, out
+// of 256: the corner where u and v are 0, then where u is 1, then v, then both.
+func (r *Renderer) corners(w *world.World, hit world.Hit) (c [4]uint32) {
+	nx, ny, nz := hit.Face.Normal()
+	fx, fy, fz := hit.X+nx, hit.Y+ny, hit.Z+nz // the cell in front of the face
+	u, v := faceAxes[hit.Face>>1][0], faceAxes[hit.Face>>1][1]
+	shut := func(du, dv int) int {
+		if r.shuts[w.At(fx+du*u[0]+dv*v[0], fy+du*u[1]+dv*v[1], fz+du*u[2]+dv*v[2])] {
+			return 1
+		}
+		return 0
+	}
+	for i, d := range [4][2]int{{-1, -1}, {1, -1}, {-1, 1}, {1, 1}} {
+		side, other := shut(d[0], 0), shut(0, d[1])
+		open := 3 - side - other - shut(d[0], d[1])
+		if side+other == 2 {
+			open = 0 // shut on both sides, the corner is as dark whatever is in it
+		}
+		c[i] = cornerShade[open]
+	}
+	return c
+}
+
+// blend returns the shade at a place on a face from the shades of its corners.
+func blend(c [4]uint32, u, v float64) uint32 {
+	u, v = min(max(u, 0), 1), min(max(v, 0), 1)
+	near := float64(c[0])*(1-u) + float64(c[1])*u
+	far := float64(c[2])*(1-u) + float64(c[3])*u
+	return uint32(near*(1-v) + far*v)
+}
+
 // Draw draws the world as the camera sees it into every pixel of the canvas. Blocks are
 // written with their depth and the sky without one, so that it is behind everything.
 // The world is drawn as deep as the camera's Far (ViewDistance if it has none), and fades
@@ -272,6 +322,11 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 	for level := range farther {
 		farther[level] = pixelsPerBlock / tile.Size * 1.5 * float64(int(1)<<level)
 	}
+	// The face whose corners were last worked out, as the next pixel is likely on it too.
+	var shadedAt world.Hit
+	var shades [4]uint32
+	shaded := false
+
 	levelAt := func(dist float64) int {
 		level := 0
 		for level < len(farther) && dist > farther[level] {
@@ -336,6 +391,16 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 						pixel = r.cracked(pixel, fu, fv, level)
 					}
 					light, depth, found = r.lightOn(w, sky, hit), hit.T, true
+					if dist := hit.T / unit; dist < shadeTo {
+						if !shaded || hit.X != shadedAt.X || hit.Y != shadedAt.Y || hit.Z != shadedAt.Z || hit.Face != shadedAt.Face {
+							shades, shadedAt, shaded = r.corners(w, hit), hit, true
+						}
+						a := blend(shades, fu, fv)
+						if dist > shadeFrom {
+							a += uint32(float64(256-a) * (dist - shadeFrom) / (shadeTo - shadeFrom))
+						}
+						light = light.lit(a)
+					}
 					break
 				}
 			}
