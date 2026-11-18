@@ -12,8 +12,8 @@ import (
 )
 
 // Things are made from what the player carries, by a list of what can be made: a few
-// things by hand, more standing near a workbench, and some only at a kiln, which also
-// burns a fuel for each. There are no patterns to lay out.
+// things by hand, and more standing near a workbench. There are no patterns to lay out.
+// What is cooked, a kiln makes in its own slots (stores.go).
 
 // station is where a recipe is made.
 type station uint8
@@ -21,11 +21,10 @@ type station uint8
 const (
 	byHand station = iota
 	atBench
-	atKiln
 )
 
-// stationReach is how near a workbench or a kiln the player stands to use it, in blocks
-// from the middle of the player to the block.
+// stationReach is how near a workbench the player stands to use it, in blocks from the
+// middle of the player to the block.
 const stationReach = 4
 
 // need is a number of things a recipe uses: of one item, or of any of a few.
@@ -43,9 +42,6 @@ func of(item world.Item, n int) need {
 var (
 	logs   = []world.Item{world.Log.Item(), world.PineLog.Item(), world.PaleLog.Item()}
 	anyLog = need{name: "log", items: logs, n: 1}
-
-	// fuel is what a kiln burns, the most common first, as it is the first used.
-	fuel = need{name: "fuel", items: append([]world.Item{world.Planks.Item()}, append(logs, world.Coal)...), n: 1}
 )
 
 // recipe is a thing that can be made, how many of it, from what, and where.
@@ -81,12 +77,8 @@ var recipes = func() []recipe {
 	all = append(all, tools(world.IronBar, world.IronPick, world.IronAxe, world.IronShovel, world.IronBlade)...)
 	return append(all,
 		recipe{world.Kiln.Item(), 1, []need{of(cobble, 8)}, atBench},
-		recipe{world.CopperBar, 1, []need{of(world.CopperOre.Item(), 1), fuel}, atKiln},
-		recipe{world.IronBar, 1, []need{of(world.IronOre.Item(), 1), fuel}, atKiln},
-		recipe{world.Glass.Item(), 1, []need{of(world.Sand.Item(), 1), fuel}, atKiln},
-		recipe{world.Brick.Item(), 1, []need{of(world.Clay.Item(), 1), fuel}, atKiln},
-		recipe{world.BerryLoaf, 1, []need{of(world.Berries, 3), fuel}, atKiln},
-		recipe{world.MossCake, 1, []need{of(world.Moss, 3), fuel}, atKiln},
+		recipe{world.Crate.Item(), 1, []need{of(planks, 8)}, atBench},
+		recipe{world.Bedroll.Item(), 1, []need{of(world.Moss, 6), of(planks, 3)}, atBench},
 	)
 }()
 
@@ -111,9 +103,9 @@ func (g *Game) near(b world.Block) bool {
 }
 
 // makeable returns the recipes that can be made where the player stands, by hand and at
-// any workbench or kiln near, whether there is enough to make them or not.
+// any workbench near, whether there is enough to make them or not.
 func (g *Game) makeable() []recipe {
-	at := [3]bool{byHand: true, atBench: g.near(world.Workbench), atKiln: g.near(world.Kiln)}
+	at := [2]bool{byHand: true, atBench: g.near(world.Workbench)}
 	var here []recipe
 	for _, r := range recipes {
 		if at[r.at] {

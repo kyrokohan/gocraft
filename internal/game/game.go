@@ -149,6 +149,17 @@ type Game struct {
 	digAt    [3]int  // the block being dug, in survival
 	digging  float64 // for how long it has been dug
 
+	// The crates and the kilns of the world, by their cells, the one open in the bag, if
+	// any, and the bedroll the player wakes at.
+	crates map[world.Cell]*world.CrateStore
+	kilns  map[world.Cell]*world.KilnStore
+	opened world.Block // a crate or a kiln, or Air while the bag is the player's alone
+	at     world.Cell  // where that is
+	bed    *world.Cell
+
+	notice     string  // a line over play, of what was just done
+	noticeLeft float64 // seconds it stays
+
 	hand    world.Stack // what is held while things are moved in the bag
 	cursor  int         // the slot of the bag the keys are on
 	inList  bool        // the keys are on the list of what can be made, and not on a slot
@@ -229,6 +240,7 @@ func (g *Game) use(w *world.World, s world.Meta) {
 	g.selected = min(max(s.Slot, 0), hotbarSlots-1)
 	g.days = s.Days
 	g.saved = true
+	g.loadStores(s) // before the player, which may wake at its bed
 	g.loadPlayer(s)
 }
 
@@ -260,6 +272,8 @@ func (g *Game) Save() error {
 		m.Drops = append(m.Drops, d.Drop)
 	}
 	m.Mossbacks = g.herd.saved()
+	m.Crates, m.Kilns = g.savedStores()
+	m.Bed = g.bed
 	return g.world.Save(g.opts.SavePath, m)
 }
 
@@ -315,6 +329,7 @@ func (g *Game) newWorld(seed int64) {
 	g.herd = newHerd(g.world, g.player.Pos)
 	g.selected, g.aimed, g.saved, g.days = 0, false, false, 0
 	g.drops, g.gloams = nil, nil
+	g.loadStores(world.Meta{})
 	g.begin(false)
 }
 
@@ -410,10 +425,13 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			return nil // a gloam made the player faint
 		}
 		g.stepDrops(dt)
+		g.stepKilns(dt)
+		g.noticeLeft = max(g.noticeLeft-dt, 0)
 		g.build(in, dt)
 		return nil
 	}
 	if g.screen == inBag {
+		g.stepKilns(dt) // a kiln that is open is seen to cook
 		g.useBag(in, escape)
 		return nil
 	}

@@ -86,9 +86,13 @@ func (g *Game) renew() {
 // wake stands the player where a new player stands, whole again and with everything it
 // carried: the world is brought in round that place first.
 func (g *Game) wake() {
-	g.world.Follow(0, 0)
-	g.world.LoadAll()
-	g.player = Player{Pos: g.world.Spawn(), Yaw: g.player.Yaw}
+	pos, ok := g.bedPlace()
+	if !ok {
+		g.world.Follow(0, 0)
+		g.world.LoadAll()
+		pos = g.world.Spawn()
+	}
+	g.player = Player{Pos: pos, Yaw: g.player.Yaw}
 	g.renew()
 	g.aimed, g.preyed, g.digging = false, false, 0
 	g.gloams = nil // they lose the player

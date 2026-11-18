@@ -56,32 +56,6 @@ func TestAToolIsMadeOnlyNearAWorkbench(t *testing.T) {
 	}
 }
 
-func TestAKilnBurnsFuelForWhatItMakes(t *testing.T) {
-	g := inSurvival(t)
-	g.world.Set(22, 6, 22, world.Kiln)
-	g.items[0] = world.Stack{Item: world.CopperOre.Item(), Count: 2}
-	g.items[1] = world.Stack{Item: world.Planks.Item(), Count: 1}
-	bar := []world.Item{world.CopperBar}
-
-	r, ok := recipeFor(g, world.CopperBar)
-	if !ok || !g.craft(r) {
-		t.Fatal("a bar could not be made at a kiln")
-	}
-	if g.items.count(bar) != 1 || g.items[0].Count != 1 || g.items[1].Item == world.Planks.Item() {
-		t.Fatalf("after making a bar, the first slots hold %+v", g.items[:2])
-	}
-	if g.craft(r) {
-		t.Fatal("a bar was made with nothing to burn")
-	}
-	if g.items[0].Count != 1 {
-		t.Error("the ore was used though nothing was made")
-	}
-	g.items[5] = world.Stack{Item: world.Coal, Count: 1}
-	if !g.craft(r) || g.items[5] != (world.Stack{}) || g.items.count(bar) != 2 {
-		t.Errorf("coal did not burn for a second bar: %+v", g.items[:6])
-	}
-}
-
 func TestTheKeysMakeAThingFromTheList(t *testing.T) {
 	g := inSurvival(t)
 	g.items[3] = world.Stack{Item: world.Log.Item(), Count: 2}

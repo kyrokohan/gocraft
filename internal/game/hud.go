@@ -94,6 +94,10 @@ func (g *Game) drawHUD(fb *engine.FrameBuffer, c *engine.Canvas) {
 		widget.Label{Text: " a saved chunk could not be read: what is built there is not kept ", Style: hudPick}.Draw(fb, 0, row, fb.Width())
 		row++
 	}
+	if g.noticeLeft > 0 {
+		widget.Label{Text: " " + g.notice + " ", Style: hudPick}.Draw(fb, 0, row, fb.Width())
+		row++
+	}
 	if g.debug {
 		g.drawNumbers(fb, row)
 	}

@@ -212,21 +212,22 @@ func TestAHeldKeyHitsNoFasterThanHitWait(t *testing.T) {
 	}
 }
 
-func TestABladeAndAMossCakeAreMade(t *testing.T) {
+func TestABladeIsMadeAndMossCooksToACake(t *testing.T) {
 	g := inSurvival(t)
 	g.world.Set(22, 6, 22, world.Workbench)
-	g.world.Set(18, 6, 22, world.Kiln)
 	g.items[0] = world.Stack{Item: world.Cobble.Item(), Count: 2}
 	g.items[1] = world.Stack{Item: world.Stick, Count: 1}
-	g.items[2] = world.Stack{Item: world.Moss, Count: 3}
-	g.items[3] = world.Stack{Item: world.Coal, Count: 1}
 
-	for _, item := range []world.Item{world.StoneBlade, world.MossCake} {
-		if r, ok := recipeFor(g, item); !ok || !g.craft(r) {
-			t.Fatalf("%s could not be made", item.Name())
-		}
+	if r, ok := recipeFor(g, world.StoneBlade); !ok || !g.craft(r) {
+		t.Fatal("a stone blade could not be made")
 	}
-	if g.items[0] != (world.Stack{Item: world.StoneBlade, Count: 1}) || g.items[1] != (world.Stack{Item: world.MossCake, Count: 1}) {
-		t.Errorf("made %+v", g.items[:4])
+	if g.items[0] != (world.Stack{Item: world.StoneBlade, Count: 1}) {
+		t.Errorf("made %+v", g.items[:2])
+	}
+
+	k := &world.KilnStore{In: world.Stack{Item: world.Moss, Count: 3}, Fuel: world.Stack{Item: world.Coal, Count: 1}}
+	stepKiln(k, cookTime+0.5)
+	if k.Out != (world.Stack{Item: world.MossCake, Count: 1}) || k.In.Count != 0 {
+		t.Errorf("the kiln holds %+v and made %+v, wanted the moss cooked to a cake", k.In, k.Out)
 	}
 }

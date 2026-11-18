@@ -16,7 +16,8 @@ import (
 // hotbar are every block there is, and taking one takes as many as are wanted.
 //
 // In survival the list of what can be made is at the right of the slots: Right from the
-// last column goes into it, and Enter or a click makes one of what is picked there.
+// last column goes into it, and Enter or a click makes one of what is picked there. A
+// crate or a kiln that is opened shows its slots in rows over the player's.
 
 // rowPitch is how far down one row of slots is from the one above: they share a line.
 const rowPitch = barHeight - 1
@@ -47,28 +48,32 @@ var palette = func() (items []world.Item) {
 	return items
 }()
 
-// bagRows returns how many rows of slots the bag shows: the pack's, or in creative as
-// many as every block takes, and then the hotbar's.
+// bagRows returns how many rows of slots the bag shows: those of a store that is open,
+// the pack's, or in creative as many as every block takes, and then the hotbar's.
 func (g *Game) bagRows() int {
 	if g.survival {
-		return packSlots/hotbarSlots + 1
+		return g.storeRows() + packSlots/hotbarSlots + 1
 	}
 	return (len(palette)+hotbarSlots-1)/hotbarSlots + 1
 }
 
-// bagCell returns what is at a row and a column of the bag: a slot of the inventory, or
-// -1 and an item of the palette, which may be none.
-func (g *Game) bagCell(row, col int) (slot int, item world.Item) {
+// bagCell returns what is at a row and a column of the bag: a slot, of the player's or
+// of a store that is open, or nil and an item of the palette, which may be none. Where a
+// kiln's row has no slot there is nil and nothing.
+func (g *Game) bagCell(row, col int) (s *world.Stack, item world.Item) {
+	if row < g.storeRows() {
+		return g.storeSlot(row, col), world.NoItem
+	}
 	switch {
 	case row == g.bagRows()-1:
-		return col, world.NoItem
+		return &g.items[col], world.NoItem
 	case g.survival:
-		return hotbarSlots + row*hotbarSlots + col, world.NoItem
+		return &g.items[hotbarSlots+(row-g.storeRows())*hotbarSlots+col], world.NoItem
 	}
 	if i := row*hotbarSlots + col; i < len(palette) {
-		return -1, palette[i]
+		return nil, palette[i]
 	}
-	return -1, world.NoItem
+	return nil, world.NoItem
 }
 
 // bagWidth is how wide the bag is: the slots, and in survival the list beside them.
@@ -106,6 +111,7 @@ func (g *Game) listBox(width, height int) (x, y, h int) {
 
 // openBag shows the bag, with the keys on the slot of the hotbar in use.
 func (g *Game) openBag() {
+	g.opened = world.Air
 	g.cursor = (g.bagRows()-1)*hotbarSlots + g.selected
 	g.inList, g.recipe, g.listTop = false, 0, 0
 	g.hand, g.digging = world.Stack{}, 0
@@ -120,7 +126,7 @@ func (g *Game) closeBag() {
 			g.putDown(world.Stack{Item: g.hand.Item, Count: left, Wear: g.hand.Wear})
 		}
 	}
-	g.hand = world.Stack{}
+	g.hand, g.opened = world.Stack{}, world.Air
 	g.show(playing)
 }
 
@@ -140,7 +146,7 @@ func (g *Game) useBag(in *engine.Input, escape bool) {
 			g.inList, g.recipe = true, i
 		}
 		if in.MouseStarted(engine.MouseLeft) {
-			if r, c, on := g.bagAt(x, y); on {
+			if r, c, on := g.bagAt(x, y); on && g.isCell(r, c) {
 				g.inList, g.cursor = false, r*hotbarSlots+c
 				g.pickCell(r, c)
 				return
@@ -171,6 +177,22 @@ func (g *Game) useBag(in *engine.Input, escape bool) {
 		row = (row + rows - 1) % rows
 	case in.Pressed(engine.KeyDown):
 		row = (row + 1) % rows
+	}
+	if !g.isCell(row, col) {
+		// A kiln's row has slots in a few of its columns: the keys go on to the next one
+		// along, or from another row, to the slot of the kiln over them or the last.
+		switch {
+		case in.Pressed(engine.KeyLeft) && col == kilnOut-1:
+			col = kilnFuel
+		case in.Pressed(engine.KeyLeft):
+			col = kilnOut
+		case in.Pressed(engine.KeyRight) && col == kilnOut-1:
+			col = kilnOut
+		case in.Pressed(engine.KeyRight):
+			col = kilnIn
+		default:
+			col = kilnOut
+		}
 	}
 	g.cursor = row*hotbarSlots + col
 	if in.Started(engine.KeyEnter) || in.Started(' ') {
@@ -230,12 +252,23 @@ func (g *Game) listAt(x, y int) (int, bool) {
 	return i, true
 }
 
+// isCell reports whether a row and a column of the bag are a place the keys can be on: in
+// a kiln's row, only its slots.
+func (g *Game) isCell(row, col int) bool {
+	s, _ := g.bagCell(row, col)
+	return s != nil || !g.survival
+}
+
 // pickCell takes what is in a cell of the bag in hand, or puts down what is in hand there:
 // on the same kind, as many as fit, and in the place of another kind, which is taken up.
-// Tools are one to a slot, so a tool put on another changes places with it.
+// Tools are one to a slot, so a tool put on another changes places with it. What a kiln
+// has made can only be taken, and only what it cooks, or burns, goes where it does.
 func (g *Game) pickCell(row, col int) {
-	slot, item := g.bagCell(row, col)
-	if slot < 0 {
+	s, item := g.bagCell(row, col)
+	if s == nil {
+		if g.survival {
+			return // no slot
+		}
 		// A block of the palette, which takes the place of what is in hand.
 		g.hand = world.Stack{}
 		if item != world.NoItem {
@@ -243,7 +276,16 @@ func (g *Game) pickCell(row, col int) {
 		}
 		return
 	}
-	s := &g.items[slot]
+	if g.opened == world.Kiln && s == &g.kiln(g.at).Out {
+		g.takeMade(s)
+		return
+	}
+	if !g.takes(s) {
+		return
+	}
+	if g.opened == world.Kiln && s == &g.kiln(g.at).In {
+		g.kiln(g.at).Cooked = 0 // what was cooking is taken out, or more is put in
+	}
 	if size := s.Item.StackSize(); g.survival && g.hand.Count > 0 && s.Item == g.hand.Item && size > 1 {
 		put := min(g.hand.Count, size-s.Count)
 		s.Count += put
@@ -255,29 +297,55 @@ func (g *Game) pickCell(row, col int) {
 	*s, g.hand = g.hand, *s
 }
 
+// takeMade takes what a kiln has made into the hand: all of it into an empty hand, or as
+// many as the hand has room for of the same kind.
+func (g *Game) takeMade(s *world.Stack) {
+	switch {
+	case g.hand.Count == 0:
+		g.hand, *s = *s, world.Stack{}
+	case g.hand.Item == s.Item:
+		put := min(s.Count, s.Item.StackSize()-g.hand.Count)
+		g.hand.Count += put
+		takeFrom(s, put)
+	}
+}
+
 // drawBag draws the bag over the world, after Canvas.Compose.
 func (g *Game) drawBag(fb *engine.FrameBuffer, c *engine.Canvas) {
 	x0, top := g.bagOrigin(fb.Width(), fb.Height())
 	title := " your things "
-	if !g.survival {
+	switch {
+	case !g.survival:
 		title = " every block "
+	case g.opened != world.Air:
+		title = " " + g.opened.Info().Name + " "
 	}
 	widget.Label{Text: title, Align: widget.Center, Style: hudText}.Draw(fb, x0, top, barWidth)
 
 	rows := g.bagRows()
 	var under int
 	for r := range rows {
+		y := g.bagRowY(top, r)
+		under = y + barHeight
+		if g.opened == world.Kiln && r == 0 {
+			g.drawKiln(fb, c, x0, y, g.kiln(g.at))
+			continue
+		}
 		row := make([]world.Stack, hotbarSlots)
 		for col := range row {
-			if slot, item := g.bagCell(r, col); slot >= 0 {
-				row[col] = g.items[slot]
+			if s, item := g.bagCell(r, col); s != nil {
+				row[col] = *s
 			} else if item != world.NoItem {
 				row[col] = world.Stack{Item: item, Count: 1}
 			}
 		}
-		y := g.bagRowY(top, r)
 		g.drawRow(fb, c, x0, y, row)
-		under = y + barHeight
+		if r == g.storeRows() && r > 0 {
+			// The player's things are under the store's, and the line between says so, at
+			// its right, out of the way of the keys on the store's first slots.
+			const mine = " your things "
+			widget.Label{Text: mine, Style: hudFrame}.Draw(fb, x0+barWidth-2-len(mine), y, len(mine))
+		}
 	}
 	row, col := g.cursor/hotbarSlots, g.cursor%hotbarSlots
 	if !g.inList {
@@ -299,10 +367,12 @@ func (g *Game) drawBag(fb *engine.FrameBuffer, c *engine.Canvas) {
 			text = " " + makes + " from " + from + " "
 		}
 	default:
-		if slot, item := g.bagCell(row, col); slot >= 0 && g.items[slot].Count > 0 {
-			text = " " + g.items[slot].Item.Name() + " "
+		if s, item := g.bagCell(row, col); s != nil && s.Count > 0 {
+			text = " " + s.Item.Name() + " "
 		} else if item != world.NoItem {
 			text = " " + item.Name() + " "
+		} else if g.opened == world.Kiln && row == 0 {
+			text = [...]string{kilnIn: " what to cook ", kilnFuel: " fuel ", kilnOut: " what it made "}[col]
 		}
 	}
 	if text != "" {
@@ -320,15 +390,9 @@ func (g *Game) drawBag(fb *engine.FrameBuffer, c *engine.Canvas) {
 // is not enough for it. What a line needs is shown under the bag while it is picked.
 func (g *Game) drawList(fb *engine.FrameBuffer) {
 	x, y, h := g.listBox(fb.Width(), fb.Height())
-	bench, kiln := g.near(world.Workbench), g.near(world.Kiln)
 	title := "make by hand"
-	switch {
-	case bench && kiln:
-		title = "make: bench, kiln"
-	case bench:
+	if g.near(world.Workbench) {
 		title = "make: workbench"
-	case kiln:
-		title = "make: kiln"
 	}
 	widget.Panel{Title: title, Style: hudFrame, Fill: hudFill}.Draw(fb, x, y, listWidth, h)
 

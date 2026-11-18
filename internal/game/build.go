@@ -246,6 +246,9 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		}
 		return
 	}
+	if places && g.aimed && g.useBlock(g.target) {
+		return
+	}
 	if places && g.eat() {
 		return
 	}
@@ -266,11 +269,12 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		if _, yields := g.digTime(t.Block); yields {
 			g.leave(t.X, t.Y, t.Z, t.Block)
 		}
+		g.spill(world.Cell{X: t.X, Y: t.Y, Z: t.Z})
 		if g.survival {
 			g.wear(t.Block)
 		}
-		if above := g.world.At(t.X, t.Y+1, t.Z); above.Info().Plant {
-			g.world.Set(t.X, t.Y+1, t.Z, world.Air) // a plant goes with the ground it stood on
+		if above := g.world.At(t.X, t.Y+1, t.Z); above.Info().Stands() {
+			g.world.Set(t.X, t.Y+1, t.Z, world.Air) // a plant or a mat goes with the ground it stood on
 			g.leave(t.X, t.Y+1, t.Z, above)
 		}
 	case places:
@@ -287,8 +291,8 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		if in := g.world.At(x, y, z); (in != world.Air && in != world.Water && !in.Info().Plant) || g.player.overlaps(x, y, z) {
 			return
 		}
-		// A plant, or a torch, stands on solid ground, and not in water.
-		if b.Info().Plant && (g.world.At(x, y, z) == world.Water || !g.world.At(x, y-1, z).Info().Solid) {
+		// A plant, a torch or a mat stands on solid ground, and not in water.
+		if b.Info().Stands() && (g.world.At(x, y, z) == world.Water || !g.world.At(x, y-1, z).Info().Solid) {
 			return
 		}
 		g.world.Set(x, y, z, b)
