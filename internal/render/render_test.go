@@ -92,7 +92,7 @@ func TestABrokenCameraDrawsNothing(t *testing.T) {
 		cam.Position = facing.Position
 		c := newCanvas(t, 40, 20)
 
-		rend.Draw(c, w, cam, nil)
+		rend.Draw(c, w, cam)
 
 		if !c.At(20, 20).IsDefault() {
 			t.Errorf("camera %+v drew %v, wanted nothing", cam, c.At(20, 20))
@@ -103,7 +103,7 @@ func TestABrokenCameraDrawsNothing(t *testing.T) {
 func TestEmptyWorldIsAllSkyWithNoDepth(t *testing.T) {
 	c := newCanvas(t, 40, 20)
 
-	newRenderer(t).Draw(c, world.New(), facing, nil)
+	newRenderer(t).Draw(c, world.New(), facing)
 
 	for y := range c.Height() {
 		for x := range c.Width() {
@@ -124,7 +124,7 @@ func TestAWallFillsTheViewWithItsTile(t *testing.T) {
 	wall(w, 5, world.Stone)
 	c := newCanvas(t, 40, 20)
 
-	newRenderer(t).Draw(c, w, facing, nil)
+	newRenderer(t).Draw(c, w, facing)
 
 	for y := range c.Height() {
 		for x := range c.Width() {
@@ -149,7 +149,7 @@ func TestTheTopOfABlockIsBrighterThanItsSide(t *testing.T) {
 	cam := facing
 	cam.Position = geometry.Vector3{X: 12.5, Y: 12.5, Z: 9.5}
 
-	newRenderer(t).Draw(c, w, cam, nil)
+	newRenderer(t).Draw(c, w, cam)
 
 	_, side, _ := c.At(20, 4).RGB()   // the wall ahead, above the middle
 	_, floor, _ := c.At(20, 38).RGB() // the floor, near the bottom
@@ -164,7 +164,7 @@ func TestHolesShowWhatIsBehind(t *testing.T) {
 	wall(w, 6, world.Brick)
 	c := newCanvas(t, 40, 20)
 
-	newRenderer(t).Draw(c, w, facing, nil)
+	newRenderer(t).Draw(c, w, facing)
 
 	red := 0
 	for y := range c.Height() {
@@ -188,8 +188,8 @@ func TestWaterTintsWhatIsUnderIt(t *testing.T) {
 	a, b := newCanvas(t, 40, 20), newCanvas(t, 40, 20)
 	rend := newRenderer(t)
 
-	rend.Draw(a, dry, facing, nil)
-	rend.Draw(b, wet, facing, nil)
+	rend.Draw(a, dry, facing)
+	rend.Draw(b, wet, facing)
 
 	dr, _, db := a.At(20, 20).RGB()
 	wr, _, wb := b.At(20, 20).RGB()
@@ -211,8 +211,8 @@ func TestDistantBlocksFadeIntoTheSky(t *testing.T) {
 	a, b := newCanvas(t, 40, 20), newCanvas(t, 40, 20)
 	rend := newRenderer(t)
 
-	rend.Draw(a, near, facing, nil)
-	rend.Draw(b, far, facing, nil)
+	rend.Draw(a, near, facing)
+	rend.Draw(b, far, facing)
 
 	_, _, nb := a.At(20, 20).RGB()
 	_, _, fb := b.At(20, 20).RGB()
@@ -226,7 +226,7 @@ func TestNothingIsDrawnBeyondTheFarPlane(t *testing.T) {
 	wall(w, int(facing.Position.Z+ViewDistance)+2, world.Deepstone)
 	c := newCanvas(t, 40, 20)
 
-	newRenderer(t).Draw(c, w, facing, nil)
+	newRenderer(t).Draw(c, w, facing)
 
 	// The sky: bright, and more blue than red. The wall would be dark.
 	if r, _, b := c.At(20, 20).RGB(); b <= r || b < 200 {
@@ -245,7 +245,7 @@ func TestACameraWithNoFogDrawsFarBlocksInTheirOwnColor(t *testing.T) {
 	cam := facing
 	cam.Fog = nil
 
-	newRenderer(t).Draw(c, w, cam, nil)
+	newRenderer(t).Draw(c, w, cam)
 
 	if _, _, b := c.At(20, 20).RGB(); b > 90 {
 		t.Errorf("a dark block far away is %v with no fog, wanted it dark", c.At(20, 20))
@@ -262,7 +262,7 @@ func TestGlonkMeshesAreHiddenByNearerBlocks(t *testing.T) {
 
 	count := func(z float64) int {
 		c := newCanvas(t, 40, 20)
-		rend.Draw(c, w, facing, nil)
+		rend.Draw(c, w, facing)
 		cube := mesh.Cube(1)
 		cube.Transform.Position = geometry.Vector3{X: 12.5, Y: 12.5, Z: z}
 		cube.DrawDepthPixels(c, facing, marker)
@@ -297,7 +297,7 @@ func TestAViewFromUnderWaterIsBlue(t *testing.T) {
 	wall(w, 6, world.Sand)
 	c := newCanvas(t, 40, 20)
 
-	newRenderer(t).Draw(c, w, facing, nil)
+	newRenderer(t).Draw(c, w, facing)
 
 	if r, _, b := c.At(20, 20).RGB(); b <= r {
 		t.Errorf("sand seen from under water is %v, wanted more blue than red", c.At(20, 20))
@@ -326,47 +326,8 @@ func BenchmarkDraw(b *testing.B) {
 		b.Run(view.name, func(b *testing.B) {
 			for b.Loop() {
 				c.Clear()
-				rend.Draw(c, w, cam, nil)
+				rend.Draw(c, w, cam)
 			}
 		})
-	}
-}
-
-func TestTheBlockAimedAtIsOutlined(t *testing.T) {
-	w := world.New()
-	wall(w, 5, world.Stone)
-	c := newCanvas(t, 80, 40)
-	mark := outline.engine()
-
-	newRenderer(t).Draw(c, w, facing, &world.Hit{X: 12, Y: 12, Z: 5})
-
-	// The block is the one in the middle of the view. Where its corners are drawn:
-	left, top, _ := facing.Project(geometry.Vector3{X: 12, Y: 13, Z: 5}, c.Width(), c.Height()/2)
-	right, bottom, _ := facing.Project(geometry.Vector3{X: 13, Y: 12, Z: 5}, c.Width(), c.Height()/2)
-	x0, y0, x1, y1 := int(left), int(2*top), int(right), int(2*bottom)
-
-	marked := 0
-	for y := range c.Height() {
-		for x := range c.Width() {
-			if c.At(x, y) != mark {
-				continue
-			}
-			marked++
-			if x < x0 || x > x1 || y < y0 || y > y1 {
-				t.Fatalf("pixel %d,%d is outline, outside the block at %d,%d to %d,%d", x, y, x0, y0, x1, y1)
-			}
-		}
-	}
-	if marked == 0 {
-		t.Fatal("nothing is outlined")
-	}
-	midX, midY := (x0+x1)/2, (y0+y1)/2
-	for _, p := range [][2]int{{x0 + 1, midY}, {x1 - 1, midY}, {midX, y0 + 1}, {midX, y1 - 1}} {
-		if c.At(p[0], p[1]) != mark {
-			t.Errorf("pixel %d,%d on the edge of the block is %v, wanted the outline", p[0], p[1], c.At(p[0], p[1]))
-		}
-	}
-	if c.At(midX, midY) == mark {
-		t.Error("the middle of the block is outline, wanted its tile")
 	}
 }

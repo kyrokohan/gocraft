@@ -53,7 +53,7 @@ func TestTheTitleIsDrawnInPixelsOverTheWorld(t *testing.T) {
 	cam := g.player.Camera()
 	cam.Position.Y += 4
 	cam.Yaw, cam.Pitch = g.spin, 0.15
-	g.rend.Draw(without.Canvas(), g.world, cam, nil)
+	g.rend.Draw(without.Canvas(), g.world, cam)
 
 	changed := 0
 	for y := range with.Canvas().Height() {

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"glonk.dev/engine"
+	"glonk.dev/geometry"
+	"glonk.dev/mesh"
 	"glonk.dev/widget"
 
 	"github.com/kyrokohan/gocraft/internal/assets"
@@ -72,6 +74,7 @@ type Game struct {
 	selected int       // the slot of the hotbar in use
 	target   world.Hit // the block the player aims at, if aimed is set
 	aimed    bool
+	box      mesh.Mesh // the outline drawn round that block: the edges of a cube its size
 }
 
 // New returns a game showing its title, ready for engine.Run.
@@ -80,7 +83,7 @@ func New(opts Options) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := &Game{opts: opts, set: set, rend: render.New(set), fps: 30}
+	g := &Game{opts: opts, set: set, rend: render.New(set), fps: 30, box: mesh.Cube(1)}
 	if err := g.load(); err != nil {
 		return nil, err
 	}
@@ -230,16 +233,21 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		cam := g.player.Camera()
 		cam.Position.Y += 4
 		cam.Yaw, cam.Pitch = g.spin, 0.15
-		g.rend.Draw(c, g.world, cam, nil)
+		g.rend.Draw(c, g.world, cam)
 		g.drawTitle(fb, c)
 		return
 	}
 
-	var aim *world.Hit
+	cam := g.player.Camera()
+	g.rend.Draw(c, g.world, cam)
 	if g.aimed {
-		aim = &g.target
+		// The outline lies on the faces of the block, which the rays have drawn with
+		// their depth, so glonk draws it whole there and hides it behind what is nearer.
+		g.box.Transform.Position = geometry.Vector3{
+			X: float64(g.target.X) + 0.5, Y: float64(g.target.Y) + 0.5, Z: float64(g.target.Z) + 0.5,
+		}
+		g.box.DrawOnSurfacePixels(c, cam, hudPick.Foreground)
 	}
-	g.rend.Draw(c, g.world, g.player.Camera(), aim)
 	g.drawHotbarIcons(fb, c)
 	c.Compose()
 	g.drawHUD(fb)

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"glonk.dev/engine"
+	"glonk.dev/geometry"
 
 	"github.com/kyrokohan/gocraft/internal/world"
 )
@@ -159,5 +160,68 @@ func TestEveryHotbarBlockCanBeStoodOnAndBroken(t *testing.T) {
 		if info := b.Info(); !info.Solid || info.Fixed || info.Name == "" {
 			t.Errorf("%v is in the hotbar: %+v", b, info)
 		}
+	}
+}
+
+// outlined counts the pixels of a frame that are the color of the aim outline, and
+// says whether all of them are inside a rectangle of pixels.
+func outlined(c *engine.Canvas, x0, y0, x1, y1 int) (n int, inside bool) {
+	inside = true
+	for y := range c.Height() {
+		for x := range c.Width() {
+			if c.At(x, y) != hudPick.Foreground {
+				continue
+			}
+			n++
+			if x < x0 || x > x1 || y < y0 || y > y1 {
+				inside = false
+			}
+		}
+	}
+	return n, inside
+}
+
+func TestTheBlockAimedAtIsOutlined(t *testing.T) {
+	g := lookingDown(t)
+	fb, _ := engine.NewFrameBuffer(120, 40)
+	c := fb.Canvas()
+	cam := g.player.Camera()
+
+	g.rend.Draw(c, g.world, cam)
+	if n, _ := outlined(c, 0, 0, c.Width(), c.Height()); n != 0 {
+		t.Fatalf("%d pixels of the world are the color of the outline; the test needs another color", n)
+	}
+	g.Draw(fb)
+
+	// The top of the block aimed at, 20,5,21, is a square on the floor. Where its four
+	// corners are drawn bounds the outline.
+	x0, y0, x1, y1 := c.Width(), c.Height(), 0, 0
+	for _, corner := range [][2]float64{{20, 21}, {21, 21}, {20, 22}, {21, 22}} {
+		x, y, _, ok := cam.ProjectPixels(geometry.Vector3{X: corner[0], Y: 6, Z: corner[1]}, c)
+		if !ok {
+			t.Fatal("a corner of the block is not in view")
+		}
+		x0, y0 = min(x0, int(x)-1), min(y0, int(y)-1)
+		x1, y1 = max(x1, int(x)+1), max(y1, int(y)+1)
+	}
+	n, inside := outlined(c, x0, y0, x1, y1)
+	if n < 2*(x1-x0) {
+		t.Errorf("%d pixels are outline, wanted the four edges of a square %d across", n, x1-x0)
+	}
+	if !inside {
+		t.Errorf("the outline goes outside the block, which is at %d,%d to %d,%d", x0, y0, x1, y1)
+	}
+}
+
+func TestNothingIsOutlinedWhenNothingIsAimedAt(t *testing.T) {
+	g := onFloor(t)
+	g.player.Pitch = 1.2 // at the sky
+	hold(t, g, 1)
+	fb, _ := engine.NewFrameBuffer(120, 40)
+
+	g.Draw(fb)
+
+	if n, _ := outlined(fb.Canvas(), 0, 0, 120, 80); n != 0 {
+		t.Errorf("%d pixels are outline with nothing aimed at", n)
 	}
 }

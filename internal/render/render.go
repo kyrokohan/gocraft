@@ -46,7 +46,6 @@ var (
 	skyZenith  = color{70, 130, 220}
 	sunColor   = color{255, 244, 200}
 	deepWater  = color{24, 60, 130}
-	outline    = color{255, 214, 64} // round the block the player aims at
 )
 
 // sunDirection is where the sun stands, one long.
@@ -105,31 +104,6 @@ func newRays(cam mesh.Camera, c *engine.Canvas) (r rays, ok bool) {
 // point t along it is at the depth t.
 func (r rays) through(px, py int) geometry.Vector3 {
 	return r.first.Add(r.across.Scale(float64(px))).Add(r.down.Scale(float64(py)))
-}
-
-// onOutline reports whether the ray along d, which met a block at (fu, fv) on one of
-// its faces, is on the outline of that face: a band along each edge, one pixel wide and
-// never thinner than a twentieth of the block.
-//
-// A pixel covers more of a face the shallower the angle the face is seen at, a long
-// strip of it in the end, so the width of the band is worked out on the face itself: it
-// is how far across the face the rays through the next pixel over and the next pixel
-// down land. A band that wide always has a pixel in it, so no edge goes missing.
-func (r rays) onOutline(hit world.Hit, d geometry.Vector3, fu, fv float64) bool {
-	axis := hit.Face >> 1
-	plane := float64([3]int{hit.X, hit.Y, hit.Z}[axis] + int(hit.Face&1))
-	eye := [3]float64{r.eye.X, r.eye.Y, r.eye.Z}[axis]
-
-	bandU, bandV := 0.05, 0.05
-	for _, next := range [2]geometry.Vector3{d.Add(r.across), d.Add(r.down)} {
-		t := (plane - eye) / [3]float64{next.X, next.Y, next.Z}[axis]
-		u, w := onFace(hit, r.eye.Add(next.Scale(t)))
-		// A quarter over, as the rays spread and the next pixel is not quite as far
-		// along the face everywhere.
-		bandU, bandV = max(bandU, 1.25*math.Abs(u-fu)), max(bandV, 1.25*math.Abs(w-fv))
-	}
-	bandU, bandV = min(bandU, 0.5), min(bandV, 0.5)
-	return fu < bandU || fu > 1-bandU || fv < bandV || fv > 1-bandV
 }
 
 // Renderer draws worlds. Make one with New and keep it.
@@ -193,10 +167,7 @@ func sky(climb, toSun float64) color {
 // written with their depth and the sky without one, so that it is behind everything.
 // The world is drawn as deep as the camera's Far (ViewDistance if it has none) and
 // fades by the camera's Fog, if it has one.
-//
-// aim, if it is not nil, is a block to mark: the edges of its faces are drawn as an
-// outline.
-func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *world.Hit) {
+func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 	v, ok := newRays(cam, c)
 	if !ok {
 		return
@@ -242,7 +213,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *
 			ray := world.NewRay(eye, d)
 			var solid, surface world.Hit
 			var pixel uint32
-			found, wet, outlined := false, false, false
+			found, wet := false, false
 			for {
 				hit, ok := w.Next(&ray, reach)
 				if !ok {
@@ -257,10 +228,6 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *
 					continue
 				}
 				fu, fv := onFace(hit, eye.Add(d.Scale(hit.T)))
-				if aim != nil && hit.X == aim.X && hit.Y == aim.Y && hit.Z == aim.Z && v.onOutline(hit, d, fu, fv) {
-					solid, found, outlined = hit, true, true
-					break
-				}
 				if pixel = r.texel(hit, fu, fv, levelAt(hit.T/unit)); pixel>>24 != 0 {
 					solid, found = hit, true
 					break
@@ -275,11 +242,12 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *
 				continue
 			}
 
-			col, depth := above, solid.T
-			switch {
-			case outlined:
-				col = outline
-			case found:
+			// depth is what is stored for the pixel, and seen is how deep the first
+			// thing the ray shows is, which is what fades. They differ under water:
+			// water is seen through, so what is stored is the ground under it, and a
+			// line drawn on a block down there is not hidden by the surface.
+			col, depth, seen := above, solid.T, solid.T
+			if found {
 				col = unpack(pixel).lit(faceLight[solid.Face])
 			}
 			if wet {
@@ -292,17 +260,20 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, aim *
 				su, sv := onFace(surface, eye.Add(d.Scale(surface.T)))
 				ripple := unpack(r.texel(surface, su, sv, levelAt(surface.T/unit))).lit(faceLight[surface.Face])
 				col = col.mix(ripple, part(0.45+0.12*through)*230>>8)
-				depth = surface.T
+				seen = surface.T
+				if !found {
+					depth = surface.T // nothing under it in reach: the water is all there is
+				}
 			}
 
 			out := col.engine()
-			if fog != nil && depth > fog.Start {
-				out = fog.Apply(out, depth)
+			if fog != nil && seen > fog.Start {
+				out = fog.Apply(out, seen)
 			}
 			if underwater {
 				red, green, blue := out.RGB()
 				tinted := color{uint32(red), uint32(green), uint32(blue)}
-				out = tinted.mix(deepWater, part(0.3+0.05*depth/unit)*235>>8).engine()
+				out = tinted.mix(deepWater, part(0.3+0.05*seen/unit)*235>>8).engine()
 			}
 			c.SetDepth(px, py, depth, out)
 		}
