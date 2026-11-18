@@ -35,6 +35,11 @@ type Meta struct {
 
 	// Slot is the hotbar slot in use, from 0.
 	Slot int `json:"slot"`
+
+	// Days is how long the world has been played, in days of the game: the clock, from
+	// the morning the world began. A save from before there was a clock has none, and
+	// so begins that morning again.
+	Days float64 `json:"days"`
 }
 
 const (
@@ -256,6 +261,9 @@ func Open(dir string) (*World, Meta, error) {
 	}
 	if !finite(m.Pos.X, m.Pos.Y, m.Pos.Z, m.Yaw, m.Pitch) {
 		return bad("its player is nowhere")
+	}
+	if !finite(m.Days) {
+		return bad("its clock does not tell a time")
 	}
 	// A place so far out that it cannot be counted in blocks is no place either.
 	if math.Abs(m.Pos.X) > 1e9 || math.Abs(m.Pos.Z) > 1e9 {

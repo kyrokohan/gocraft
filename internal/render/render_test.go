@@ -40,13 +40,16 @@ func wall(w *world.World, z int, b world.Block) {
 	}
 }
 
+// noon is the sky the tests draw under, unless they say otherwise: the full light of day.
+var noon = NewSky(Noon)
+
 // facing is a camera in front of the middle of such a wall, looking at it along +z, with
 // the far plane and the fog of the camera the game uses.
 var facing = mesh.Camera{
 	Position: geometry.Vector3{X: 12.5, Y: 12.5, Z: 2.5},
 	FOV:      math.Pi / 3,
 	Far:      ViewDistance,
-	Fog:      Fog,
+	Fog:      &noon.Fog,
 }
 
 // A frame is worked out from three of glonk's rays. What that gives for a pixel must be
@@ -92,7 +95,7 @@ func TestABrokenCameraDrawsNothing(t *testing.T) {
 		cam.Position = facing.Position
 		c := newCanvas(t, 40, 20)
 
-		rend.Draw(c, w, cam)
+		rend.Draw(c, w, cam, noon)
 
 		if !c.At(20, 20).IsDefault() {
 			t.Errorf("camera %+v drew %v, wanted nothing", cam, c.At(20, 20))
@@ -103,7 +106,7 @@ func TestABrokenCameraDrawsNothing(t *testing.T) {
 func TestEmptyWorldIsAllSkyWithNoDepth(t *testing.T) {
 	c := newCanvas(t, 40, 20)
 
-	newRenderer(t).Draw(c, world.New(), facing)
+	newRenderer(t).Draw(c, world.New(), facing, noon)
 
 	for y := range c.Height() {
 		for x := range c.Width() {
@@ -124,7 +127,7 @@ func TestAWallFillsTheViewWithItsTile(t *testing.T) {
 	wall(w, 5, world.Stone)
 	c := newCanvas(t, 40, 20)
 
-	newRenderer(t).Draw(c, w, facing)
+	newRenderer(t).Draw(c, w, facing, noon)
 
 	for y := range c.Height() {
 		for x := range c.Width() {
@@ -149,7 +152,7 @@ func TestTheTopOfABlockIsBrighterThanItsSide(t *testing.T) {
 	cam := facing
 	cam.Position = geometry.Vector3{X: 12.5, Y: 12.5, Z: 9.5}
 
-	newRenderer(t).Draw(c, w, cam)
+	newRenderer(t).Draw(c, w, cam, noon)
 
 	_, side, _ := c.At(20, 4).RGB()   // the wall ahead, above the middle
 	_, floor, _ := c.At(20, 38).RGB() // the floor, near the bottom
@@ -164,7 +167,7 @@ func TestHolesShowWhatIsBehind(t *testing.T) {
 	wall(w, 6, world.Brick)
 	c := newCanvas(t, 40, 20)
 
-	newRenderer(t).Draw(c, w, facing)
+	newRenderer(t).Draw(c, w, facing, noon)
 
 	red := 0
 	for y := range c.Height() {
@@ -188,8 +191,8 @@ func TestWaterTintsWhatIsUnderIt(t *testing.T) {
 	a, b := newCanvas(t, 40, 20), newCanvas(t, 40, 20)
 	rend := newRenderer(t)
 
-	rend.Draw(a, dry, facing)
-	rend.Draw(b, wet, facing)
+	rend.Draw(a, dry, facing, noon)
+	rend.Draw(b, wet, facing, noon)
 
 	dr, _, db := a.At(20, 20).RGB()
 	wr, _, wb := b.At(20, 20).RGB()
@@ -211,8 +214,8 @@ func TestDistantBlocksFadeIntoTheSky(t *testing.T) {
 	a, b := newCanvas(t, 40, 20), newCanvas(t, 40, 20)
 	rend := newRenderer(t)
 
-	rend.Draw(a, near, facing)
-	rend.Draw(b, far, facing)
+	rend.Draw(a, near, facing, noon)
+	rend.Draw(b, far, facing, noon)
 
 	_, _, nb := a.At(20, 20).RGB()
 	_, _, fb := b.At(20, 20).RGB()
@@ -226,7 +229,7 @@ func TestNothingIsDrawnBeyondTheFarPlane(t *testing.T) {
 	wall(w, int(facing.Position.Z+ViewDistance)+2, world.Deepstone)
 	c := newCanvas(t, 40, 20)
 
-	newRenderer(t).Draw(c, w, facing)
+	newRenderer(t).Draw(c, w, facing, noon)
 
 	// The sky: bright, and more blue than red. The wall would be dark.
 	if r, _, b := c.At(20, 20).RGB(); b <= r || b < 200 {
@@ -245,7 +248,7 @@ func TestACameraWithNoFogDrawsFarBlocksInTheirOwnColor(t *testing.T) {
 	cam := facing
 	cam.Fog = nil
 
-	newRenderer(t).Draw(c, w, cam)
+	newRenderer(t).Draw(c, w, cam, noon)
 
 	if _, _, b := c.At(20, 20).RGB(); b > 90 {
 		t.Errorf("a dark block far away is %v with no fog, wanted it dark", c.At(20, 20))
@@ -262,7 +265,7 @@ func TestGlonkMeshesAreHiddenByNearerBlocks(t *testing.T) {
 
 	count := func(z float64) int {
 		c := newCanvas(t, 40, 20)
-		rend.Draw(c, w, facing)
+		rend.Draw(c, w, facing, noon)
 		cube := mesh.Cube(1)
 		cube.Transform.Position = geometry.Vector3{X: 12.5, Y: 12.5, Z: z}
 		cube.DrawDepthPixels(c, facing, marker)
@@ -297,7 +300,7 @@ func TestAViewFromUnderWaterIsBlue(t *testing.T) {
 	wall(w, 6, world.Sand)
 	c := newCanvas(t, 40, 20)
 
-	newRenderer(t).Draw(c, w, facing)
+	newRenderer(t).Draw(c, w, facing, noon)
 
 	if r, _, b := c.At(20, 20).RGB(); b <= r {
 		t.Errorf("sand seen from under water is %v, wanted more blue than red", c.At(20, 20))
@@ -315,7 +318,7 @@ func BenchmarkDraw(b *testing.B) {
 		Pitch:    -0.2,
 		FOV:      math.Pi / 3,
 		Far:      ViewDistance,
-		Fog:      Fog,
+		Fog:      &noon.Fog,
 	}
 
 	for _, view := range []struct {
@@ -326,7 +329,7 @@ func BenchmarkDraw(b *testing.B) {
 		b.Run(view.name, func(b *testing.B) {
 			for b.Loop() {
 				c.Clear()
-				rend.Draw(c, w, cam)
+				rend.Draw(c, w, cam, noon)
 			}
 		})
 	}
@@ -355,7 +358,7 @@ func TestAPlantShowsItsPictureAndWhatIsBehindIt(t *testing.T) {
 	w.Set(12, 12, 4, world.RedFlower) // straight ahead of the camera, in front of the wall
 	c := newCanvas(t, 80, 40)
 
-	newRenderer(t).Draw(c, w, facing)
+	newRenderer(t).Draw(c, w, facing, noon)
 
 	petals, gray := reds(c), 0
 	for y := range c.Height() {
@@ -391,7 +394,7 @@ func TestAPlantIsSeenFromEverySide(t *testing.T) {
 		cam := facing
 		cam.Position, cam.Yaw = geometry.Vector3{X: from.x, Y: 12.5, Z: from.z}, from.yaw
 
-		rend.Draw(c, w, cam)
+		rend.Draw(c, w, cam, noon)
 
 		if n := reds(c); n < 10 {
 			t.Errorf("from the %s, %d pixels are the red of the flower", from.name, n)
@@ -406,7 +409,7 @@ func TestAPlantHidesWhatIsBehindItsPictureOnly(t *testing.T) {
 	w.Set(12, 12, 4, world.RedFlower)
 	rend := newRenderer(t)
 	c := newCanvas(t, 80, 40)
-	rend.Draw(c, w, facing)
+	rend.Draw(c, w, facing, noon)
 	before := reds(c)
 
 	// A sheet of pixels at a depth just behind the plant, over the whole canvas.

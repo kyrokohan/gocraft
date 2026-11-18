@@ -39,7 +39,7 @@ var help = []string{
 	"W A S D   walk         Arrows, drag    look",
 	"Space     jump, up     X       down",
 	"F         fly on, off  Esc     this menu",
-	"F3        frame numbers",
+	"F3        frame info   T       6 hours on",
 	"Q, click  break        E, right click  place",
 	"1 to 9    pick block   Tab, wheel      next block",
 }
@@ -133,6 +133,7 @@ func (g *Game) drawNumbers(fb *engine.FrameBuffer, y int) {
 		"write   " + ms(g.stats.Write),
 		fmt.Sprintf("sent    %.1f KB a frame", float64(g.stats.Bytes)/1000),
 		fmt.Sprintf("seed    %d", g.world.Seed),
+		"time    " + clockText(g.days),
 	}
 	widget.Panel{Title: "frame", Style: hudFrame, Fill: hudFill}.Draw(fb, 0, y, numbersWidth, len(lines)+2)
 	for i, line := range lines {

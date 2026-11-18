@@ -51,10 +51,10 @@ func TestTheTitleIsDrawnInPixelsOverTheWorld(t *testing.T) {
 
 	// The same view with no title: the world alone.
 	without, _ := engine.NewFrameBuffer(100, 30)
-	cam := g.player.Camera()
+	cam := g.camera()
 	cam.Position.Y += 4
 	cam.Yaw, cam.Pitch = g.spin, 0.15
-	g.rend.Draw(without.Canvas(), g.world, cam)
+	g.rend.Draw(without.Canvas(), g.world, cam, g.sky)
 
 	changed := 0
 	for y := range with.Canvas().Height() {

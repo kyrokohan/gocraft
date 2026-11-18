@@ -155,9 +155,11 @@ func TestNumberKeysAndTabPickTheBlock(t *testing.T) {
 	}
 }
 
-func TestEveryHotbarBlockCanBeStoodOnAndBroken(t *testing.T) {
+// Every block in the hotbar can be broken again, and is a block to stand on or a torch,
+// which stands on one.
+func TestEveryHotbarBlockCanBeStoodOnOrStandsAndCanBeBroken(t *testing.T) {
 	for _, b := range hotbar {
-		if info := b.Info(); !info.Solid || info.Fixed || info.Name == "" {
+		if info := b.Info(); !(info.Solid || b == world.Torch) || info.Fixed || info.Name == "" {
 			t.Errorf("%v is in the hotbar: %+v", b, info)
 		}
 	}
@@ -185,9 +187,9 @@ func TestTheBlockAimedAtIsOutlined(t *testing.T) {
 	g := lookingDown(t)
 	fb, _ := engine.NewFrameBuffer(120, 40)
 	c := fb.Canvas()
-	cam := g.player.Camera()
+	cam := g.camera()
 
-	g.rend.Draw(c, g.world, cam)
+	g.rend.Draw(c, g.world, cam, g.sky)
 	if n, _ := outlined(c, 0, 0, c.Width(), c.Height()); n != 0 {
 		t.Fatalf("%d pixels of the world are the color of the outline; the test needs another color", n)
 	}

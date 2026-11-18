@@ -25,18 +25,6 @@ const (
 	cloudOrigin = -64.0                    // where the field starts on x and z: it is centered on the world
 )
 
-// The clouds are drawn three times as deep as the blocks, with a fog of their own that
-// starts where the world's ends, so that the sky has clouds toward the horizon and they
-// thin out into it.
-var cloudFog = &mesh.Fog{Color: skyHorizon.engine(), Start: ViewDistance, End: 3 * ViewDistance}
-
-// cloudLights light the clouds: bright all over, and brighter still on the side the sun
-// is on, so that the top of a cloud is white and its underside a little gray.
-var cloudLights = []mesh.Light{
-	mesh.Ambient{Level: 0.72},
-	mesh.Directional{Direction: sunDirection.Neg()},
-}
-
 // Clouds are slabs of cloud that drift over the world. They are glonk meshes, drawn
 // into the canvas after the blocks: glonk lights them, fades them in fog, lets the sky
 // show through them, and hides them behind any block that is nearer.
@@ -46,6 +34,7 @@ type Clouds struct {
 	homes  []geometry.Vector3 // where the middle of each group is before any drift
 	order  []int              // the groups from far to near, worked out for each frame
 	drift  float64            // how far the clouds have moved along x, less than the field
+	lights [2]mesh.Light
 }
 
 // puff returns a number from 0 up to 1 fixed by a point of a grid and a seed.
@@ -171,13 +160,20 @@ func (cl *Clouds) Advance(dt float64) {
 	cl.drift = math.Mod(cl.drift+cloudSpeed*dt, cloudField)
 }
 
-// Draw draws the clouds as the camera sees them, over what is in the canvas. Call it
-// after the blocks and anything else that is solid: a cloud is tested against the depth
-// that is there and stores none, so what is nearer hides it and nothing drawn later is
-// hidden by it. The camera's own Far and Fog are put aside for the deeper ones the
-// clouds have.
-func (cl *Clouds) Draw(c *engine.Canvas, cam mesh.Camera) {
-	cam.Far, cam.Fog = cloudFog.End, cloudFog
+// Draw draws the clouds as the camera sees them, over what is in the canvas, in the colors
+// of the sky's time of day. Call it after the blocks and anything else that is solid: a
+// cloud is tested against the depth that is there and stores none, so what is nearer
+// hides it and nothing drawn later is hidden by it.
+//
+// The clouds are drawn three times as deep as the blocks, with a fog of their own that
+// starts where the world's ends, so that the sky has clouds toward the horizon and they
+// thin out into it: the camera's own Far and Fog are put aside for those.
+func (cl *Clouds) Draw(c *engine.Canvas, cam mesh.Camera, sky *Sky) {
+	cam.Far, cam.Fog = sky.cloudFog.End, &sky.cloudFog
+	// Bright all over, and brighter still on the side the sun or the moon is on, so that
+	// the top of a cloud is lightest and its underside a little gray.
+	cl.lights = [2]mesh.Light{mesh.Ambient{Level: 0.72}, mesh.Directional{Direction: sky.giver().Neg()}}
+	look := sky.cloud.engine()
 
 	for i, home := range cl.homes {
 		// The field of clouds repeats in every direction over a world with no end, so
@@ -203,6 +199,7 @@ func (cl *Clouds) Draw(c *engine.Canvas, cam mesh.Camera) {
 		return a - b
 	})
 	for _, i := range cl.order {
-		cl.groups[i].DrawShadedPixels(c, cam, cloudLights...)
+		cl.groups[i].Material.Color = look
+		cl.groups[i].DrawShadedPixels(c, cam, cl.lights[:]...)
 	}
 }

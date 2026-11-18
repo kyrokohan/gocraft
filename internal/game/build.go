@@ -11,7 +11,7 @@ import (
 // hotbar is the kinds of block the player can place, on the keys 1 to 9.
 var hotbar = [9]world.Block{
 	world.Grass, world.Dirt, world.Stone, world.Sand, world.Log,
-	world.Leaves, world.Planks, world.Brick, world.Glass,
+	world.Torch, world.Planks, world.Brick, world.Glass,
 }
 
 // reach is how far away the player can break and place blocks.
@@ -205,6 +205,10 @@ func (g *Game) build(in *engine.Input, dt float64) {
 			x, y, z = x+nx, y+ny, z+nz
 		}
 		if b := g.world.At(x, y, z); (b != world.Air && b != world.Water && !b.Info().Plant) || g.player.overlaps(x, y, z) {
+			return
+		}
+		// A plant, or a torch, stands on solid ground, and not in water.
+		if hotbar[g.selected].Info().Plant && (g.world.At(x, y, z) == world.Water || !g.world.At(x, y-1, z).Info().Solid) {
 			return
 		}
 		g.world.Set(x, y, z, hotbar[g.selected])

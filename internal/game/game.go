@@ -82,6 +82,8 @@ type Game struct {
 
 	world   *world.World
 	clouds  *render.Clouds
+	sky     *render.Sky // at the time of day, which days says
+	days    float64     // how long the world has been played, in days of the game
 	herd    *herd
 	moss    *render.Mossbacks
 	poses   []render.Mossback // the creatures as they are drawn, kept between frames
@@ -116,6 +118,7 @@ func New(opts Options) (*Game, error) {
 	if err := g.load(); err != nil {
 		return nil, err
 	}
+	g.sky = render.NewSky(timeOfDay(g.days))
 	g.show(onTitle)
 	return g, nil
 }
@@ -133,6 +136,7 @@ func (g *Game) load() error {
 			g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
 			g.herd = newHerd(g.world, g.player.Pos) // they are not in the save yet
 			g.selected = min(max(s.Slot, 0), len(hotbar)-1)
+			g.days = s.Days
 			g.saved = true
 			return nil
 		case !errors.Is(err, fs.ErrNotExist):
@@ -156,6 +160,7 @@ func (g *Game) Save() error {
 		Pitch:  g.player.Pitch,
 		Flying: g.player.Flying,
 		Slot:   g.selected,
+		Days:   g.days,
 	})
 }
 
@@ -171,7 +176,7 @@ func (g *Game) newWorld() {
 	g.clouds = render.NewClouds(seed)
 	g.player = Player{Pos: g.world.Spawn()}
 	g.herd = newHerd(g.world, g.player.Pos)
-	g.selected, g.aimed, g.saved = 0, false, false
+	g.selected, g.aimed, g.saved, g.days = 0, false, false, 0
 }
 
 // show changes what the game is showing, and gives the menu the lines of that screen.
@@ -229,6 +234,10 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			g.show(paused)
 			return nil
 		}
+		g.days += dt / dayLength
+		if keyDown(in.Started, 't') {
+			g.days += quarterDay
+		}
 		g.player.Step(g.world, readControls(in), dt)
 		g.herd.step(g.world, g.player.Pos, dt)
 		g.build(in, dt)
@@ -281,21 +290,39 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera) {
 	g.poses = g.poses[:0]
 	for i := range g.herd.all {
-		g.poses = append(g.poses, g.herd.all[i].Pose())
+		pose := g.herd.all[i].Pose()
+		pose.Light = g.sky.Brightness(g.lightAt(pose.Pos.Add(geometry.Vector3{Y: 0.5})))
+		g.poses = append(g.poses, pose)
 	}
-	g.moss.Draw(c, cam, g.poses)
-	g.clouds.Draw(c, cam)
+	g.moss.Draw(c, cam, g.poses, g.sky)
+	g.clouds.Draw(c, cam, g.sky)
+}
+
+// lightAt returns the light in the cell a point is in.
+func (g *Game) lightAt(p geometry.Vector3) world.Light {
+	return g.world.LightAt(int(math.Floor(p.X)), int(math.Floor(p.Y)), int(math.Floor(p.Z)))
+}
+
+// camera returns the view from the player's eyes, with the fog of the hour: darkened
+// where the light of the sky does not reach the eye, so that a cave fades into the dark
+// and not into the color of the sky outside it.
+func (g *Game) camera() mesh.Camera {
+	cam := g.player.Camera()
+	cam.Fog = g.sky.FogIn(g.lightAt(cam.Position))
+	return cam
 }
 
 // Draw renders the game into fb.
 func (g *Game) Draw(fb *engine.FrameBuffer) {
 	c := fb.Canvas()
+	g.sky.Set(timeOfDay(g.days))
 	if g.screen == onTitle || g.screen == confirming {
 		// The world from a little above where the player will stand, turning slowly.
 		cam := g.player.Camera()
 		cam.Position.Y += 4
+		cam.Fog = g.sky.FogIn(g.lightAt(cam.Position))
 		cam.Yaw, cam.Pitch = g.spin, 0.15
-		g.rend.Draw(c, g.world, cam)
+		g.rend.Draw(c, g.world, cam, g.sky)
 		g.drawThings(c, cam)
 		g.drawTitle(fb, c)
 		return
@@ -303,8 +330,8 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 
 	// The blocks first, by rays, and then what glonk draws into the same canvas: the
 	// depth the rays stored hides it where a block is nearer.
-	cam := g.player.Camera()
-	g.rend.Draw(c, g.world, cam)
+	cam := g.camera()
+	g.rend.Draw(c, g.world, cam, g.sky)
 	g.drawThings(c, cam)
 	if g.aimed {
 		// The outline lies on the faces of the block, which the rays have drawn with

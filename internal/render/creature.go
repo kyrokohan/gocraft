@@ -43,13 +43,6 @@ const (
 	mossbackTiles
 )
 
-// mossbackLights light the animal about as the blocks are lit: the top brightest and
-// the side away from the sun darkest.
-var mossbackLights = []mesh.Light{
-	mesh.Ambient{Level: 0.7},
-	mesh.Directional{Direction: sunDirection.Neg()},
-}
-
 // Mossback is where one creature is and how it stands: all that drawing it needs.
 type Mossback struct {
 	// Pos is the middle of the bottom of its body: the point between its feet.
@@ -60,6 +53,10 @@ type Mossback struct {
 
 	// Stride is how far through a step its legs are, in radians: they swing as its sine.
 	Stride float64
+
+	// Light is how bright the light it stands in is, from 0 to 1: the Sky's Brightness of
+	// the light in its cell.
+	Light float64
 }
 
 // Mossbacks draws the creatures. They are glonk meshes: boxes with the creature's
@@ -67,6 +64,7 @@ type Mossback struct {
 // the canvas after the blocks, whose depth hides them where a block is nearer.
 type Mossbacks struct {
 	body, head, leg mesh.Mesh
+	lights          [2]mesh.Light
 }
 
 // NewMossbacks builds the boxes a creature is made of, with the picture from set.
@@ -137,8 +135,19 @@ func box(x, y, z, w, h, d float64, tiles [6]int, look mesh.Material) mesh.Mesh {
 
 // Draw draws the creatures as the camera sees them, over what is in the canvas. Call
 // it after the blocks, and before anything that is seen through.
-func (m *Mossbacks) Draw(c *engine.Canvas, cam mesh.Camera, all []Mossback) {
+//
+// A creature is lit about as the blocks round it are: its top as bright as the light it
+// stands in, and its side away from the sun or the moon less.
+func (m *Mossbacks) Draw(c *engine.Canvas, cam mesh.Camera, all []Mossback, sky *Sky) {
 	for _, one := range all {
+		// The ambient light lights every face, and the other fills in part of what that
+		// leaves dark: so a face toward the sun is as bright as the light, and one turned
+		// away from it seven tenths of that.
+		lit := min(max(one.Light, 0.01), 1)
+		m.lights = [2]mesh.Light{
+			mesh.Ambient{Level: 0.7 * lit},
+			mesh.Directional{Direction: sky.giver().Neg(), Intensity: 0.3 * lit / (1 - 0.7*lit)},
+		}
 		turned := mesh.Camera{Yaw: one.Yaw}
 		ahead, aside := turned.Forward(), turned.Right()
 
@@ -148,7 +157,7 @@ func (m *Mossbacks) Draw(c *engine.Canvas, cam mesh.Camera, all []Mossback) {
 			at := one.Pos.Add(aside.Scale(right)).Add(ahead.Scale(front))
 			at.Y += up
 			part.Transform = mesh.Transform{Position: at, Yaw: one.Yaw, Pitch: pitch}
-			part.DrawShadedPixels(c, cam, mossbackLights...)
+			part.DrawShadedPixels(c, cam, m.lights[:]...)
 		}
 		put(m.body, 0, 0, 0, 0)
 		put(m.head, 0, 0, 0, 0)

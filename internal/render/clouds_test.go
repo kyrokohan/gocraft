@@ -27,7 +27,7 @@ func underACloud(t *testing.T, cl *Clouds) mesh.Camera {
 					Pitch:    1.5,
 					FOV:      math.Pi / 3,
 					Far:      ViewDistance,
-					Fog:      Fog,
+					Fog:      &noon.Fog,
 				}
 			}
 		}
@@ -54,9 +54,9 @@ func frames(t *testing.T, w *world.World, cl *Clouds, cam mesh.Camera) (bare, cl
 	t.Helper()
 	rend := newRenderer(t)
 	bare, clouded = newCanvas(t, 60, 30), newCanvas(t, 60, 30)
-	rend.Draw(bare, w, cam)
-	rend.Draw(clouded, w, cam)
-	cl.Draw(clouded, cam)
+	rend.Draw(bare, w, cam, noon)
+	rend.Draw(clouded, w, cam, noon)
+	cl.Draw(clouded, cam, noon)
 	return bare, clouded
 }
 
@@ -185,11 +185,11 @@ func BenchmarkClouds(b *testing.B) {
 		Pitch:    0.5,
 		FOV:      math.Pi / 3,
 		Far:      ViewDistance,
-		Fog:      Fog,
+		Fog:      &noon.Fog,
 	}
 
 	for b.Loop() {
 		c.Clear()
-		cl.Draw(c, cam)
+		cl.Draw(c, cam, noon)
 	}
 }

@@ -26,11 +26,6 @@ import (
 // a ray has to end somewhere.
 const ViewDistance = 64.0
 
-// Fog is the fog of the camera the game uses: the last two fifths of ViewDistance fade
-// into the color the sky has at the horizon, so that the world ends in haze and not in
-// a line. Blocks and glonk's meshes both fade by it.
-var Fog = &mesh.Fog{Color: skyHorizon.engine(), Start: 0.6 * ViewDistance, End: ViewDistance}
-
 // faceLight is how bright each face of a block is drawn, out of 256, indexed by
 // world.Face: the top is fully lit, the sides less, and the bottom least. It is what
 // gives the blocks their shape, as there are no shadows.
@@ -41,16 +36,6 @@ var faceLight = [6]uint32{205, 205, 128, 256, 166, 166}
 // colors.
 type color struct{ r, g, b uint32 }
 
-var (
-	skyHorizon = color{190, 220, 245}
-	skyZenith  = color{70, 130, 220}
-	sunColor   = color{255, 244, 200}
-	deepWater  = color{24, 60, 130}
-)
-
-// sunDirection is where the sun stands, one long.
-var sunDirection = geometry.Vector3{X: 0.35, Y: 0.8, Z: 0.45}.Normalize()
-
 // mix returns the color part of the way from c to o, where part runs from 0 (c) to 256 (o).
 func (c color) mix(o color, part uint32) color {
 	keep := 256 - part
@@ -60,6 +45,11 @@ func (c color) mix(o color, part uint32) color {
 // lit returns the color at a brightness out of 256.
 func (c color) lit(light uint32) color {
 	return color{c.r * light >> 8, c.g * light >> 8, c.b * light >> 8}
+}
+
+// times returns the color lit by a light with a brightness out of 256 in each channel.
+func (c color) times(light color) color {
+	return color{c.r * light.r >> 8, c.g * light.g >> 8, c.b * light.b >> 8}
 }
 
 func (c color) engine() engine.Color {
@@ -106,15 +96,16 @@ func (r rays) through(px, py int) geometry.Vector3 {
 	return r.first.Add(r.across.Scale(float64(px))).Add(r.down.Scale(float64(py)))
 }
 
-// plantLight is how bright a plant is drawn, out of 256: nearly as bright as the top
-// of a block, as it stands in the open.
+// plantLight is how bright a plant is drawn, out of 256, in the light of its cell:
+// nearly as bright as the top of a block.
 const plantLight = 238
 
 // Renderer draws worlds. Make one with New and keep it.
 type Renderer struct {
 	tiles    *[tile.Count]assets.Texture
-	faceTile [256][6]tile.ID // the tile on each face of each kind of block
-	plant    [256]bool       // the kinds of block that are plants: two crossed pictures, and not a cube
+	faceTile [256][6]tile.ID  // the tile on each face of each kind of block
+	plant    [256]bool        // the kinds of block that are plants: two crossed pictures, and not a cube
+	glow     [256]world.Light // the light each kind of block gives off
 }
 
 // New returns a renderer that draws blocks with the tiles of set.
@@ -128,6 +119,7 @@ func New(set *assets.Set) *Renderer {
 			world.FaceZNeg: info.Side, world.FaceZPos: info.Side,
 		}
 		r.plant[b] = info.Plant
+		r.glow[b] = world.Light(min(info.Glow, world.MaxLight))
 	}
 	return r
 }
@@ -191,31 +183,32 @@ func (r *Renderer) texel(hit world.Hit, u, v float64, level int) uint32 {
 	return r.tiles[r.faceTile[hit.Block][hit.Face]][level][vi*side+ui]
 }
 
-// sky returns the color of the sky along a ray, given how steeply it climbs (the sine of
-// its angle above level ground) and how nearly it points at the sun (the cosine of the
-// angle between them).
-func sky(climb, toSun float64) color {
-	c := skyHorizon.mix(skyZenith, part(climb*1.8))
-	switch {
-	case toSun > 0.9985:
-		return sunColor
-	case toSun > 0.985:
-		return c.mix(sunColor, part((toSun-0.985)/0.0135*0.5)) // a glow round it
+// lightOn returns the light that falls on the face of a block a ray met, in each
+// channel out of 256: that of the cell the face looks into, or the block's own glow if
+// that is more, shaded for the way the face points.
+func (r *Renderer) lightOn(w *world.World, sky *Sky, hit world.Hit) color {
+	nx, ny, nz := hit.Face.Normal()
+	l := w.LightAt(hit.X+nx, hit.Y+ny, hit.Z+nz)
+	if g := r.glow[hit.Block]; g > l&world.MaxLight {
+		l = l&^world.MaxLight | g
 	}
-	return c
+	return sky.shade[l].lit(faceLight[hit.Face])
 }
 
 // Draw draws the world as the camera sees it into every pixel of the canvas. Blocks are
 // written with their depth and the sky without one, so that it is behind everything.
-// The world is drawn as deep as the camera's Far (ViewDistance if it has none) and
-// fades by the camera's Fog, if it has one.
-func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
+// The world is drawn as deep as the camera's Far (ViewDistance if it has none), and fades
+// by the camera's Fog, if it has one: the game's camera has the sky's. The sky is the
+// one at the time of day, which also says how bright the light of each cell looks.
+func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *Sky) {
 	v, ok := newRays(cam, c)
 	if !ok {
 		return
 	}
 	eye := v.eye
-	underwater := w.At(int(math.Floor(eye.X)), int(math.Floor(eye.Y)), int(math.Floor(eye.Z))) == world.Water
+	ex, ey, ez := int(math.Floor(eye.X)), int(math.Floor(eye.Y)), int(math.Floor(eye.Z))
+	underwater := w.At(ex, ey, ez) == world.Water
+	deep := deepWater.times(sky.shade[w.LightAt(ex, ey, ez)]) // the water round the eye, as lit there
 	far := cam.Far
 	if far == 0 {
 		far = ViewDistance
@@ -244,7 +237,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 		for px := range c.Width() {
 			d := row.Add(v.across.Scale(float64(px)))
 			unit := 1 / d.Length()
-			above := sky(d.Y*unit, d.Dot(sunDirection)*unit)
+			above := sky.color(d.Scale(unit))
 
 			// A ray is one deep for each 1 along it, so the far plane is where it ends.
 			// Above the highest block there is only sky, so it ends there too.
@@ -255,7 +248,8 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 
 			ray := world.NewRay(eye, d)
 			var surface world.Hit
-			var pixel, light uint32
+			var pixel uint32
+			var light color
 			var depth float64 // of the block or plant the ray stops at, if found
 			found, wet := false, false
 			for {
@@ -273,21 +267,22 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 				}
 				if r.plant[hit.Block] {
 					if at, p, ok := r.cross(hit, eye, d, levelAt(hit.T/unit)); ok {
-						pixel, light, depth, found = p, plantLight, at, true
+						pixel, depth, found = p, at, true
+						light = sky.shade[w.LightAt(hit.X, hit.Y, hit.Z)].lit(plantLight)
 						break
 					}
 					continue // through the holes of the plant
 				}
 				fu, fv := onFace(hit, eye.Add(d.Scale(hit.T)))
 				if pixel = r.texel(hit, fu, fv, levelAt(hit.T/unit)); pixel>>24 != 0 {
-					light, depth, found = faceLight[hit.Face], hit.T, true
+					light, depth, found = r.lightOn(w, sky, hit), hit.T, true
 					break
 				}
 			}
 
 			if !found && !wet {
 				if underwater {
-					above = above.mix(deepWater, 230)
+					above = above.mix(deep, 230)
 				}
 				c.Set(px, py, above.engine())
 				continue
@@ -299,7 +294,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 			// line drawn on a block down there is not hidden by the surface.
 			col, seen := above, depth
 			if found {
-				col = unpack(pixel).lit(light)
+				col = unpack(pixel).times(light)
 			}
 			if wet {
 				// Water is drawn over what lies under it, more strongly the more of it
@@ -309,7 +304,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 					through = (depth - surface.T) / unit
 				}
 				su, sv := onFace(surface, eye.Add(d.Scale(surface.T)))
-				ripple := unpack(r.texel(surface, su, sv, levelAt(surface.T/unit))).lit(faceLight[surface.Face])
+				ripple := unpack(r.texel(surface, su, sv, levelAt(surface.T/unit))).times(r.lightOn(w, sky, surface))
 				col = col.mix(ripple, part(0.45+0.12*through)*230>>8)
 				seen = surface.T
 				if !found {
@@ -324,7 +319,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 			if underwater {
 				red, green, blue := out.RGB()
 				tinted := color{uint32(red), uint32(green), uint32(blue)}
-				out = tinted.mix(deepWater, part(0.3+0.05*seen/unit)*235>>8).engine()
+				out = tinted.mix(deep, part(0.3+0.05*seen/unit)*235>>8).engine()
 			}
 			c.SetDepth(px, py, depth, out)
 		}

@@ -274,7 +274,7 @@ func TestACreatureInViewIsDrawn(t *testing.T) {
 }
 
 // A whole frame of play: the blocks, the clouds, the creatures and the HUD, at 240 by
-// 67 cells.
+// 67 cells, by day and by night, when the stars are out.
 func BenchmarkFrame(b *testing.B) {
 	g, err := New(Options{Seed: 1})
 	if err != nil {
@@ -286,8 +286,16 @@ func BenchmarkFrame(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	for b.Loop() {
-		fb.Clear()
-		g.Draw(fb)
+	for _, c := range []struct {
+		name string
+		days float64
+	}{{"day", 0}, {"night", 0.7}} {
+		b.Run(c.name, func(b *testing.B) {
+			g.days = c.days
+			for b.Loop() {
+				fb.Clear()
+				g.Draw(fb)
+			}
+		})
 	}
 }

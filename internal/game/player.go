@@ -90,8 +90,8 @@ func readControls(in *engine.Input) controls {
 	}
 }
 
-// Camera returns the view from the player's eyes, as deep and with the fog the world is
-// drawn with, so that what glonk draws through it ends and fades where the blocks do.
+// Camera returns the view from the player's eyes, as deep as the world is drawn, so that
+// what glonk draws through it ends where the blocks do. It has no fog: that is the sky's.
 func (p *Player) Camera() mesh.Camera {
 	return mesh.Camera{
 		Position: geometry.Vector3{X: p.Pos.X, Y: p.Pos.Y + eyeHeight, Z: p.Pos.Z},
@@ -99,7 +99,6 @@ func (p *Player) Camera() mesh.Camera {
 		Pitch:    p.Pitch,
 		FOV:      fieldOfView,
 		Far:      render.ViewDistance,
-		Fog:      render.Fog,
 	}
 }
 

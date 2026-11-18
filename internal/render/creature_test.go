@@ -23,8 +23,9 @@ func newMossbacks(t testing.TB) *Mossbacks {
 // ahead is a mossback standing in front of the facing camera, turned by yaw, at a depth.
 func ahead(depth, yaw float64) Mossback {
 	return Mossback{
-		Pos: geometry.Vector3{X: facing.Position.X, Y: facing.Position.Y - 0.6, Z: facing.Position.Z + depth},
-		Yaw: yaw,
+		Pos:   geometry.Vector3{X: facing.Position.X, Y: facing.Position.Y - 0.6, Z: facing.Position.Z + depth},
+		Yaw:   yaw,
+		Light: 1, // in the full light of day
 	}
 }
 
@@ -33,9 +34,9 @@ func with(t *testing.T, w *world.World, all ...Mossback) (bare, drawn *engine.Ca
 	t.Helper()
 	rend, moss := newRenderer(t), newMossbacks(t)
 	bare, drawn = newCanvas(t, 80, 40), newCanvas(t, 80, 40)
-	rend.Draw(bare, w, facing)
-	rend.Draw(drawn, w, facing)
-	moss.Draw(drawn, facing, all)
+	rend.Draw(bare, w, facing, noon)
+	rend.Draw(drawn, w, facing, noon)
+	moss.Draw(drawn, facing, all, noon)
 	return bare, drawn
 }
 
@@ -119,7 +120,7 @@ func TestTheLegsSwingWithTheStride(t *testing.T) {
 func TestAFarMossbackFadesIntoTheFog(t *testing.T) {
 	bare, drawn := with(t, world.New(), ahead(ViewDistance-3, math.Pi/2))
 
-	fr, fg, fb := Fog.Color.RGB()
+	fr, fg, fb := noon.Fog.Color.RGB()
 	for y := range drawn.Height() {
 		for x := range drawn.Width() {
 			if bare.At(x, y) == drawn.At(x, y) {
@@ -128,7 +129,7 @@ func TestAFarMossbackFadesIntoTheFog(t *testing.T) {
 			r, g, b := drawn.At(x, y).RGB()
 			if off := max(int(fr)-int(r), int(fg)-int(g), int(fb)-int(b)); off > 40 {
 				t.Fatalf("pixel %d,%d of a creature at the end of the view is %v, wanted nearly the fog's %v",
-					x, y, drawn.At(x, y), Fog.Color)
+					x, y, drawn.At(x, y), noon.Fog.Color)
 			}
 		}
 	}
@@ -147,6 +148,6 @@ func BenchmarkMossbacks(b *testing.B) {
 
 	for b.Loop() {
 		c.Clear()
-		moss.Draw(c, facing, all)
+		moss.Draw(c, facing, all, noon)
 	}
 }
