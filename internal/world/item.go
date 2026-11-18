@@ -33,6 +33,13 @@ const (
 	IronAxe
 	IronShovel
 
+	WoodBlade
+	StoneBlade
+	CopperBlade
+	IronBlade
+	Moss
+	MossCake
+
 	itemEnd
 )
 
@@ -48,6 +55,7 @@ const (
 	Pick        // stone, ore and brick
 	Axe         // wood
 	Shovel      // earth, sand and snow
+	Blade       // nothing: it is for hitting
 )
 
 // The tiers of tools, from the first to the best, as Item.Tool gives them. A block that
@@ -97,6 +105,13 @@ var things = [itemEnd - 256]thing{
 	IronPick - 256:     {name: "iron pick", icon: tile.IronPick, tool: Pick, tier: TierIron},
 	IronAxe - 256:      {name: "iron axe", icon: tile.IronAxe, tool: Axe, tier: TierIron},
 	IronShovel - 256:   {name: "iron shovel", icon: tile.IronShovel, tool: Shovel, tier: TierIron},
+
+	WoodBlade - 256:   {name: "wood blade", icon: tile.WoodBlade, tool: Blade, tier: TierWood},
+	StoneBlade - 256:  {name: "stone blade", icon: tile.StoneBlade, tool: Blade, tier: TierStone},
+	CopperBlade - 256: {name: "copper blade", icon: tile.CopperBlade, tool: Blade, tier: TierCopper},
+	IronBlade - 256:   {name: "iron blade", icon: tile.IronBlade, tool: Blade, tier: TierIron},
+	Moss - 256:        {name: "moss", icon: tile.Moss},
+	MossCake - 256:    {name: "moss cake", icon: tile.MossCake, food: 8},
 }
 
 // MaxFood is how full the player can be.
@@ -165,6 +180,21 @@ func (i Item) Tool() (Tool, int) {
 func (i Item) Uses() int {
 	_, tier := i.Tool()
 	return toolUses[tier]
+}
+
+// bladeDamage is how hard a blade of each tier hits, in points of health.
+var bladeDamage = [...]float64{1, 3, 4, 5, 6}
+
+// Damage is how hard a hit with the item in hand is, in points of a creature's health:
+// 1 for a hand or a thing that is not a tool, 2 for a tool, and a blade's by its tier.
+func (i Item) Damage() float64 {
+	switch kind, tier := i.Tool(); kind {
+	case NoTool:
+		return 1
+	case Blade:
+		return bladeDamage[tier]
+	}
+	return 2
 }
 
 // StackSize is the most of the item one slot holds.

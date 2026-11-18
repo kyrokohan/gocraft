@@ -174,3 +174,20 @@ func TestSomeLeavesHoldAFruitAndAlwaysTheSameOnes(t *testing.T) {
 		t.Error("DropAt changed what dirt drops")
 	}
 }
+
+func TestABladeHitsHarderTheBetterItIs(t *testing.T) {
+	if NoItem.Damage() != 1 || Dirt.Item().Damage() != 1 || WoodPick.Damage() != 2 {
+		t.Errorf("a hand hits %v, dirt %v and a pick %v: wanted 1, 1 and 2",
+			NoItem.Damage(), Dirt.Item().Damage(), WoodPick.Damage())
+	}
+	last := WoodPick.Damage()
+	for _, b := range []Item{WoodBlade, StoneBlade, CopperBlade, IronBlade} {
+		if b.Damage() <= last || b.StackSize() != 1 || b.Uses() == 0 {
+			t.Errorf("%s hits %v after %v, stacks %d, lasts %d", b.Name(), b.Damage(), last, b.StackSize(), b.Uses())
+		}
+		last = b.Damage()
+	}
+	if s, _ := Stone.DigWith(IronBlade); s != Stone.Info().Dig*3 {
+		t.Errorf("a blade digs stone in %v s, as a hand does in %v", s, Stone.Info().Dig*3)
+	}
+}

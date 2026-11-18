@@ -36,6 +36,10 @@ func played(t *testing.T) (*World, Meta) {
 		Food:   11.5,
 		Air:    4,
 		Drops:  []Drop{{Stack: Stack{Item: Cobble.Item(), Count: 1}, Pos: geometry.Vector3{X: 703.5, Y: 91, Z: 2.5}, Age: 12}},
+		Mossbacks: []Mossback{
+			{Pos: geometry.Vector3{X: 710.5, Y: 88, Z: 4.5}, Yaw: 0.5, Regrow: 120},
+			{Pos: geometry.Vector3{X: 690.5, Y: 89, Z: -3.5}, Yaw: -2},
+		},
 	}
 }
 
@@ -71,7 +75,8 @@ func TestASavedWorldComesBackAsItWas(t *testing.T) {
 		t.Errorf("the player came back as %+v", back)
 	}
 	if back.Mode != Survival || back.Health != 15 || back.Food != 11.5 || back.Air != 4 ||
-		!slices.Equal(back.Items, meta.Items) || !slices.Equal(back.Drops, meta.Drops) {
+		!slices.Equal(back.Items, meta.Items) || !slices.Equal(back.Drops, meta.Drops) ||
+		!slices.Equal(back.Mossbacks, meta.Mossbacks) {
 		t.Errorf("the player's body and things came back as %+v", back)
 	}
 	// The world opens round the player, with what was built there.
@@ -192,6 +197,7 @@ func TestABrokenWorldFileIsAnErrorAndNeverAPanic(t *testing.T) {
 		"body nowhere":   strings.Replace(text, `"health": 15`, `"health": 1e999`, 1),
 		"an empty drop":  strings.Replace(text, `"count": 1,`, `"count": 0,`, 1),
 		"worn through":   strings.Replace(text, `"wear": 7`, `"wear": 9999`, 1),
+		"moss ungrown":   strings.Replace(text, `"regrow": 120`, `"regrow": -5`, 1),
 	} {
 		if content == text {
 			t.Fatalf("%s: the test did not change the file", name)

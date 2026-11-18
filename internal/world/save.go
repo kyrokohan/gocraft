@@ -56,6 +56,10 @@ type Meta struct {
 
 	// Drops are the things lying on the ground to be picked up.
 	Drops []Drop `json:"drops,omitempty"`
+
+	// Mossbacks are the animals round the player. A save from before they were kept has
+	// none, and a herd is found round the player again.
+	Mossbacks []Mossback `json:"mossbacks,omitempty"`
 }
 
 // The ways a world is played, as Meta.Mode names them.
@@ -76,11 +80,23 @@ type Drop struct {
 	Age float64 `json:"age"`
 }
 
-// The most a save may hold of what is carried and of what lies on the ground: far more
-// than a game makes, and few enough that a file cannot make the game hold a lot.
+// Mossback is a mossback as a save holds it.
+type Mossback struct {
+	Pos geometry.Vector3 `json:"pos"`
+	Yaw float64          `json:"yaw"`
+
+	// Regrow is how many seconds its moss takes to grow back after it was shorn, and 0
+	// while it has its moss.
+	Regrow float64 `json:"regrow,omitempty"`
+}
+
+// The most a save may hold of what is carried, of what lies on the ground, and of
+// animals: far more than a game makes, and few enough that a file cannot make the game
+// hold a lot.
 const (
-	maxSlots = 256
-	maxDrops = 1 << 14
+	maxSlots     = 256
+	maxDrops     = 1 << 14
+	maxMossbacks = 1 << 10
 )
 
 // check returns what is wrong with what a save says beside its blocks, or "".
@@ -99,7 +115,7 @@ func (m Meta) check() string {
 		return fmt.Sprintf("it is played in a way this game does not have: %q", m.Mode)
 	case !finite(m.Health, m.Food, m.Air):
 		return "its player's body is not one"
-	case len(m.Items) > maxSlots || len(m.Drops) > maxDrops:
+	case len(m.Items) > maxSlots || len(m.Drops) > maxDrops || len(m.Mossbacks) > maxMossbacks:
 		return "it holds more things than a game can make"
 	}
 	for _, s := range m.Items {
@@ -110,6 +126,11 @@ func (m Meta) check() string {
 	for _, d := range m.Drops {
 		if !d.valid() || d.Count == 0 || !finite(d.Pos.X, d.Pos.Y, d.Pos.Z, d.Age) {
 			return "something lying on its ground is not a thing this game has"
+		}
+	}
+	for _, a := range m.Mossbacks {
+		if !finite(a.Pos.X, a.Pos.Y, a.Pos.Z, a.Yaw, a.Regrow) || a.Regrow < 0 {
+			return "one of its mossbacks is nowhere"
 		}
 	}
 	return ""
