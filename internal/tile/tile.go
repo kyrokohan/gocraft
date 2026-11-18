@@ -50,6 +50,7 @@ const (
 	Reed
 	DryBush
 	Mushroom
+	Torch
 
 	// Count is the number of tiles in the strip.
 	Count

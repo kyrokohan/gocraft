@@ -45,6 +45,8 @@ const (
 	DryBush
 	Mushroom
 
+	Torch
+
 	blockCount
 )
 
@@ -65,36 +67,44 @@ type Info struct {
 
 	// Fixed blocks cannot be broken.
 	Fixed bool
+
+	// Shade is how many levels of light the block takes from light that passes through
+	// it, from 0 to MaxLight: 0 for air and glass, a little for leaves and water, and
+	// MaxLight for a block that lets none through.
+	Shade uint8
+
+	// Glow is the level of light the block gives off, from 0 to MaxLight.
+	Glow uint8
 }
 
 var infos = [256]Info{
 	Air:       {Name: "air"},
-	Grass:     {Name: "grass", Top: tile.GrassTop, Side: tile.GrassSide, Bottom: tile.Dirt, Solid: true},
-	Dirt:      {Name: "dirt", Top: tile.Dirt, Side: tile.Dirt, Bottom: tile.Dirt, Solid: true},
-	Stone:     {Name: "stone", Top: tile.Stone, Side: tile.Stone, Bottom: tile.Stone, Solid: true},
-	Sand:      {Name: "sand", Top: tile.Sand, Side: tile.Sand, Bottom: tile.Sand, Solid: true},
-	Log:       {Name: "log", Top: tile.LogTop, Side: tile.LogSide, Bottom: tile.LogTop, Solid: true},
-	Leaves:    {Name: "leaves", Top: tile.Leaves, Side: tile.Leaves, Bottom: tile.Leaves, Solid: true},
-	Planks:    {Name: "planks", Top: tile.Planks, Side: tile.Planks, Bottom: tile.Planks, Solid: true},
-	Brick:     {Name: "brick", Top: tile.Brick, Side: tile.Brick, Bottom: tile.Brick, Solid: true},
+	Grass:     solid("grass", tile.GrassTop, tile.GrassSide, tile.Dirt),
+	Dirt:      cube("dirt", tile.Dirt),
+	Stone:     cube("stone", tile.Stone),
+	Sand:      cube("sand", tile.Sand),
+	Log:       solid("log", tile.LogTop, tile.LogSide, tile.LogTop),
+	Leaves:    leaves("leaves", tile.Leaves),
+	Planks:    cube("planks", tile.Planks),
+	Brick:     cube("brick", tile.Brick),
 	Glass:     {Name: "glass", Top: tile.Glass, Side: tile.Glass, Bottom: tile.Glass, Solid: true},
-	Water:     {Name: "water", Top: tile.Water, Side: tile.Water, Bottom: tile.Water},
-	Snow:      {Name: "snow", Top: tile.Snow, Side: tile.Snow, Bottom: tile.Snow, Solid: true},
-	Deepstone: {Name: "deepstone", Top: tile.Deepstone, Side: tile.Deepstone, Bottom: tile.Deepstone, Solid: true, Fixed: true},
+	Water:     {Name: "water", Top: tile.Water, Side: tile.Water, Bottom: tile.Water, Shade: 1},
+	Snow:      cube("snow", tile.Snow),
+	Deepstone: fixed(cube("deepstone", tile.Deepstone)),
 
 	Gravel:      cube("gravel", tile.Gravel),
 	Clay:        cube("clay", tile.Clay),
-	Sandstone:   {Name: "sandstone", Top: tile.SandstoneTop, Side: tile.SandstoneSide, Bottom: tile.SandstoneTop, Solid: true},
+	Sandstone:   solid("sandstone", tile.SandstoneTop, tile.SandstoneSide, tile.SandstoneTop),
 	Cobble:      cube("cobble", tile.Cobble),
 	CoalOre:     cube("coal ore", tile.CoalOre),
 	CopperOre:   cube("copper ore", tile.CopperOre),
 	IronOre:     cube("iron ore", tile.IronOre),
-	CrystalOre:  cube("crystal ore", tile.CrystalOre),
-	PineLog:     {Name: "pine log", Top: tile.PineLogTop, Side: tile.PineLogSide, Bottom: tile.PineLogTop, Solid: true},
-	PineNeedles: cube("pine needles", tile.PineNeedles),
-	PaleLog:     {Name: "pale log", Top: tile.PaleLogTop, Side: tile.PaleLogSide, Bottom: tile.PaleLogTop, Solid: true},
-	PaleLeaves:  cube("pale leaves", tile.PaleLeaves),
-	Cactus:      {Name: "cactus", Top: tile.CactusTop, Side: tile.CactusSide, Bottom: tile.CactusTop, Solid: true},
+	CrystalOre:  glowing(cube("crystal ore", tile.CrystalOre), 6),
+	PineLog:     solid("pine log", tile.PineLogTop, tile.PineLogSide, tile.PineLogTop),
+	PineNeedles: leaves("pine needles", tile.PineNeedles),
+	PaleLog:     solid("pale log", tile.PaleLogTop, tile.PaleLogSide, tile.PaleLogTop),
+	PaleLeaves:  leaves("pale leaves", tile.PaleLeaves),
+	Cactus:      solid("cactus", tile.CactusTop, tile.CactusSide, tile.CactusTop),
 	Ice:         cube("ice", tile.Ice),
 
 	TallGrass:    plant("tall grass", tile.TallGrass),
@@ -104,11 +114,37 @@ var infos = [256]Info{
 	Reed:         plant("reed", tile.Reed),
 	DryBush:      plant("dry bush", tile.DryBush),
 	Mushroom:     plant("mushroom", tile.Mushroom),
+
+	// A torch stands on the ground as a plant does, and is drawn as one.
+	Torch: glowing(plant("torch", tile.Torch), 14),
+}
+
+// solid is a block that stops the player and lets no light through, with a tile for
+// its top, its sides and its bottom.
+func solid(name string, top, side, bottom tile.ID) Info {
+	return Info{Name: name, Top: top, Side: side, Bottom: bottom, Solid: true, Shade: MaxLight}
 }
 
 // cube is a solid block with one tile on every face.
 func cube(name string, t tile.ID) Info {
-	return Info{Name: name, Top: t, Side: t, Bottom: t, Solid: true}
+	return solid(name, t, t, t)
+}
+
+// leaves are a solid block that light comes through, a little dimmed.
+func leaves(name string, t tile.ID) Info {
+	info := cube(name, t)
+	info.Shade = 1
+	return info
+}
+
+func fixed(info Info) Info {
+	info.Fixed = true
+	return info
+}
+
+func glowing(info Info, level uint8) Info {
+	info.Glow = level
+	return info
 }
 
 // plant is a plant with one picture.

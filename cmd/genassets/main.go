@@ -107,6 +107,7 @@ var painters = [tile.Count]painter{
 	tile.Reed:          reed,
 	tile.DryBush:       dryBush,
 	tile.Mushroom:      mushroom,
+	tile.Torch:         torch,
 }
 
 func grassTop(x, y int) (rgb, bool) {
@@ -541,6 +542,27 @@ func mushroom(x, y int) (rgb, bool) {
 			return rgb{236, 226, 206}, true // a spot on the cap
 		}
 		return grain(rgb{166, 84, 62}, 0.06, x, y, 102), true
+	}
+	return rgb{}, false
+}
+
+func torch(x, y int) (rgb, bool) {
+	// A stick standing on the ground with a flame on its top: white in the heart, then
+	// yellow, then orange at the edge.
+	switch {
+	case y >= 7 && (x == 7 || x == 8):
+		return grain(rgb{118, 82, 48}, 0.08, x, y, 103), true
+	case y == 6 && (x == 7 || x == 8):
+		return rgb{70, 44, 30}, true // charred where it burns
+	}
+	dx, dy := float64(x)-7.5, float64(y)-4.2
+	switch d := dx*dx/2.6 + dy*dy/5.2; {
+	case d < 0.35:
+		return rgb{255, 250, 222}, true
+	case d < 0.75:
+		return rgb{255, 214, 86}, true
+	case d < 1.15:
+		return rgb{246, 138, 44}, true
 	}
 	return rgb{}, false
 }

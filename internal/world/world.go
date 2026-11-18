@@ -54,7 +54,12 @@ type World struct {
 
 	gen    Generator
 	blocks []Block // the window: indexed y<<16 | (z&255)<<8 | x&255
+	light  []Light // the light in each cell of the window, indexed as blocks is
 	height int     // one above the highest layer that has ever held a block
+
+	stale  lightBox // where the light is out of date, since blocks changed there
+	queue  []int32  // cells of the window with light to pass on to their neighbors
+	levels []int8   // for skyDown, the sky's light in each column it works on
 
 	cx, cz int                              // the chunk in the middle of the window
 	owner  [windowChunks * windowChunks]key // the chunk each place in the window holds, if it is loaded
@@ -81,17 +86,23 @@ func New() *World {
 // newWorld returns a world with the chunks round the column at x, z loaded: made by
 // gen, but for those saved in the folder dir, if one is named.
 func newWorld(seed int64, gen Generator, dir string, x, z float64) *World {
-	w := &World{
+	w := emptyWorld(seed, gen, dir)
+	w.Follow(x, z)
+	w.LoadAll()
+	return w
+}
+
+// emptyWorld returns a world with no chunks loaded, round the chunk at the origin.
+func emptyWorld(seed int64, gen Generator, dir string) *World {
+	return &World{
 		Seed:    seed,
 		gen:     gen,
 		dir:     dir,
 		blocks:  make([]Block, windowSize*windowSize*Height),
+		light:   make([]Light, windowSize*windowSize*Height),
 		stash:   make(map[key][]byte),
 		scratch: make([]Block, chunkBlocks),
 	}
-	w.Follow(x, z)
-	w.LoadAll()
-	return w
 }
 
 // chunkOf returns the chunk a block coordinate is in. Shifting rounds down, so it is
@@ -129,9 +140,10 @@ func (w *World) At(x, y, z int) Block {
 // world is not loaded.
 func (w *World) Set(x, y, z int, b Block) {
 	k := key{chunkOf(x), chunkOf(z)}
-	if uint(y) >= Height || !w.inSquare(k) || !w.loaded[place(k)] {
+	if uint(y) >= Height || !w.holds(k) {
 		return
 	}
+	w.changed(x, y, z, w.blocks[index(x, y, z)], b)
 	w.blocks[index(x, y, z)] = b
 	w.dirty[place(k)] = true
 	if b != Air {
@@ -142,8 +154,7 @@ func (w *World) Set(x, y, z int, b Block) {
 
 // Loaded reports whether the chunk that holds the column at x, z is loaded.
 func (w *World) Loaded(x, z int) bool {
-	k := key{chunkOf(x), chunkOf(z)}
-	return w.inSquare(k) && w.loaded[place(k)]
+	return w.holds(key{chunkOf(x), chunkOf(z)})
 }
 
 // Height returns a layer above which there is only air: one above the highest layer
@@ -216,7 +227,11 @@ func (w *World) Follow(x, z float64) {
 }
 
 // evict takes a chunk out of the window. Its place in the list is cleared to air, which
-// is what a place that is not loaded has to hold.
+// is what a place that is not loaded has to hold, and to dark.
+//
+// The light it gave the chunks beside it stays in them. That is the light they will
+// have when it comes back, as nothing can change it while it is away, and they are at
+// the edge of the window, too far off to be seen before it does.
 func (w *World) evict(at int) {
 	k := w.owner[at]
 	if w.dirty[at] && !w.held[at] {
@@ -226,6 +241,7 @@ func (w *World) evict(at int) {
 		for z := range ChunkSize {
 			row := index(k.x*ChunkSize, y, k.z*ChunkSize+z)
 			clear(w.blocks[row : row+ChunkSize])
+			clear(w.light[row : row+ChunkSize])
 		}
 	}
 	w.loaded[at], w.dirty[at], w.held[at] = false, false, false
@@ -274,8 +290,9 @@ func (w *World) LoadAll() {
 }
 
 // load brings one chunk into the window: as the player left it, if it was ever changed,
-// and from the Generator if not.
+// and from the Generator if not. It is lit, and lights the chunks round it.
 func (w *World) load(k key) {
+	w.settle() // the light it spreads into must be right first
 	at := place(k)
 	chunk, held := w.source(k)
 	for y := range Height {
@@ -294,6 +311,7 @@ func (w *World) load(k key) {
 		}
 	}
 	w.height = max(w.height, w.tops[at])
+	w.lightChunk(k)
 }
 
 // source returns the blocks of a chunk, in the scratch chunk: from the chunks set aside

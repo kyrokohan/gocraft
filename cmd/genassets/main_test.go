@@ -62,7 +62,7 @@ func TestOnlyLeavesGlassAndPlantsHaveHoles(t *testing.T) {
 		}
 		seeThrough := slices.Contains([]tile.ID{
 			tile.Leaves, tile.Glass, tile.PineNeedles, tile.PaleLeaves,
-			tile.TallGrass, tile.RedFlower, tile.YellowFlower, tile.Bush, tile.Reed, tile.DryBush, tile.Mushroom,
+			tile.TallGrass, tile.RedFlower, tile.YellowFlower, tile.Bush, tile.Reed, tile.DryBush, tile.Mushroom, tile.Torch,
 		}, tile.ID(id))
 		if seeThrough && holes == 0 {
 			t.Errorf("tile %d should have holes and has none", id)
