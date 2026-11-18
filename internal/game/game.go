@@ -69,6 +69,7 @@ type Game struct {
 	exact  bool         // whether the terminal reports key releases, so that two keys can be held
 
 	world   *world.World
+	clouds  *render.Clouds
 	player  Player
 	saved   bool // the world is the one in the save file
 	started bool // play has begun, so there is something worth saving
@@ -107,6 +108,7 @@ func (g *Game) load() error {
 		switch {
 		case err == nil:
 			g.world = s.World
+			g.clouds = render.NewClouds(g.world.Seed)
 			g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
 			g.selected = min(max(s.Slot, 0), len(hotbar)-1)
 			g.saved = true
@@ -143,6 +145,7 @@ func (g *Game) newWorld() {
 		seed = time.Now().UnixNano()
 	}
 	g.world = world.Generate(seed)
+	g.clouds = render.NewClouds(seed)
 	g.player = Player{Pos: g.world.Spawn()}
 	g.selected, g.aimed, g.saved = 0, false, false
 }
@@ -187,6 +190,10 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 	// Escape is a switch on every screen, so it is read with Started: held, it must
 	// not open the pause menu and close it again, or leave the question and then quit.
 	escape := in.Started(engine.KeyEscape)
+
+	if g.screen != paused {
+		g.clouds.Advance(dt) // the sky moves behind the title too, and stands still in a pause
+	}
 
 	if g.screen == playing {
 		if escape {
@@ -248,12 +255,16 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		cam.Position.Y += 4
 		cam.Yaw, cam.Pitch = g.spin, 0.15
 		g.rend.Draw(c, g.world, cam)
+		g.clouds.Draw(c, cam)
 		g.drawTitle(fb, c)
 		return
 	}
 
+	// The blocks first, by rays, and then what glonk draws into the same canvas: the
+	// depth the rays stored hides it where a block is nearer.
 	cam := g.player.Camera()
 	g.rend.Draw(c, g.world, cam)
+	g.clouds.Draw(c, cam)
 	if g.aimed {
 		// The outline lies on the faces of the block, which the rays have drawn with
 		// their depth, so glonk draws it whole there and hides it behind what is nearer.
