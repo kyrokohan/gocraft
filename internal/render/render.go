@@ -102,10 +102,36 @@ const plantLight = 238
 
 // Renderer draws worlds. Make one with New and keep it.
 type Renderer struct {
+	// Crack is the block being broken, if any, which is drawn with cracks on its faces.
+	Crack Crack
+
 	tiles    *[tile.Count]assets.Texture
 	faceTile [256][6]tile.ID  // the tile on each face of each kind of block
 	plant    [256]bool        // the kinds of block that are plants: two crossed pictures, and not a cube
 	glow     [256]world.Light // the light each kind of block gives off
+}
+
+// Crack is a block that is being broken, and how far the breaking has gone, from 0, not
+// at all, to 1, broken. The cracks grow out from the middle of each face as it goes.
+type Crack struct {
+	X, Y, Z int
+	Part    float64
+}
+
+// crackShade is how bright a crack is, out of 256, of what is under it.
+const crackShade = 64
+
+// cracked returns a pixel of a face of the block being broken, with the cracks on it.
+func (r *Renderer) cracked(pixel uint32, u, v float64, level int) uint32 {
+	side := assets.Side(level)
+	ui := min(max(int(u*float64(side)), 0), side-1)
+	vi := min(max(int(v*float64(side)), 0), side-1)
+	crack := r.tiles[tile.Cracks][level][vi*side+ui]
+	if crack>>24 == 0 || float64(crack>>16&0xFF) > r.Crack.Part*255 {
+		return pixel // no crack here, or not yet
+	}
+	c := unpack(pixel).lit(crackShade)
+	return 0xFF000000 | c.r<<16 | c.g<<8 | c.b
 }
 
 // New returns a renderer that draws blocks with the tiles of set.
@@ -274,7 +300,11 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 					continue // through the holes of the plant
 				}
 				fu, fv := onFace(hit, eye.Add(d.Scale(hit.T)))
-				if pixel = r.texel(hit, fu, fv, levelAt(hit.T/unit)); pixel>>24 != 0 {
+				level := levelAt(hit.T / unit)
+				if pixel = r.texel(hit, fu, fv, level); pixel>>24 != 0 {
+					if crack := r.Crack; crack.Part > 0 && hit.X == crack.X && hit.Y == crack.Y && hit.Z == crack.Z {
+						pixel = r.cracked(pixel, fu, fv, level)
+					}
 					light, depth, found = r.lightOn(w, sky, hit), hit.T, true
 					break
 				}

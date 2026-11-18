@@ -78,16 +78,16 @@ func NewMossbacks(set *assets.Set) *Mossbacks {
 	leg := [6]int{tileLeg, tileLeg, tileLeg, tileLeg, tileLeg, tileLeg}
 
 	return &Mossbacks{
-		body: box(-bodyWidth/2, legLength, -bodyLength/2, bodyWidth, bodyHeight, bodyLength, hide, look),
-		head: box(-headWidth/2, legLength+0.15, bodyLength/2, headWidth, headHeight, headLength, face, look),
+		body: box(-bodyWidth/2, legLength, -bodyLength/2, bodyWidth, bodyHeight, bodyLength, hide, mossbackTiles, look),
+		head: box(-headWidth/2, legLength+0.15, bodyLength/2, headWidth, headHeight, headLength, face, mossbackTiles, look),
 		// A leg hangs from its own origin, so that turning it there swings it from the hip.
-		leg: box(-legWidth/2, -legLength, -legWidth/2, legWidth, legLength, legWidth, leg, look),
+		leg: box(-legWidth/2, -legLength, -legWidth/2, legWidth, legLength, legWidth, leg, mossbackTiles, look),
 	}
 }
 
 // box returns a mesh of a box with one corner at (x, y, z) and the given size, with a
 // tile of the picture on each face.
-func box(x, y, z, w, h, d float64, tiles [6]int, look mesh.Material) mesh.Mesh {
+func box(x, y, z, w, h, d float64, tiles [6]int, count int, look mesh.Material) mesh.Mesh {
 	m := mesh.Mesh{Material: look}
 	// Corner i is on the far side along x, y and z when bit 1, 2 and 4 of i is set, as
 	// in glonk's Cube, whose faces these are: each wound so that it faces out.
@@ -119,7 +119,7 @@ func box(x, y, z, w, h, d float64, tiles [6]int, look mesh.Material) mesh.Mesh {
 			across, down = fx, 1-fy
 		}
 		inside := func(f float64) float64 { return 0.02 + 0.96*f }
-		return geometry.Vector2{X: (float64(tiles[side]) + inside(across)) / mossbackTiles, Y: inside(down)}
+		return geometry.Vector2{X: (float64(tiles[side]) + inside(across)) / float64(count), Y: inside(down)}
 	}
 	for side, q := range quads {
 		side := world.Face(side)
@@ -133,6 +133,18 @@ func box(x, y, z, w, h, d float64, tiles [6]int, look mesh.Material) mesh.Mesh {
 	return m
 }
 
+// lightsIn returns the lights a glonk mesh is drawn with where the light is a brightness
+// from 0 to 1. The ambient light lights every face, and the other fills in part of what
+// that leaves dark: so a face toward the sun or the moon is as bright as the light, and
+// one turned away from it seven tenths of that.
+func lightsIn(brightness float64, sky *Sky) [2]mesh.Light {
+	lit := min(max(brightness, 0.01), 1)
+	return [2]mesh.Light{
+		mesh.Ambient{Level: 0.7 * lit},
+		mesh.Directional{Direction: sky.giver().Neg(), Intensity: 0.3 * lit / (1 - 0.7*lit)},
+	}
+}
+
 // Draw draws the creatures as the camera sees them, over what is in the canvas. Call
 // it after the blocks, and before anything that is seen through.
 //
@@ -140,14 +152,7 @@ func box(x, y, z, w, h, d float64, tiles [6]int, look mesh.Material) mesh.Mesh {
 // stands in, and its side away from the sun or the moon less.
 func (m *Mossbacks) Draw(c *engine.Canvas, cam mesh.Camera, all []Mossback, sky *Sky) {
 	for _, one := range all {
-		// The ambient light lights every face, and the other fills in part of what that
-		// leaves dark: so a face toward the sun is as bright as the light, and one turned
-		// away from it seven tenths of that.
-		lit := min(max(one.Light, 0.01), 1)
-		m.lights = [2]mesh.Light{
-			mesh.Ambient{Level: 0.7 * lit},
-			mesh.Directional{Direction: sky.giver().Neg(), Intensity: 0.3 * lit / (1 - 0.7*lit)},
-		}
+		m.lights = lightsIn(one.Light, sky)
 		turned := mesh.Camera{Yaw: one.Yaw}
 		ahead, aside := turned.Forward(), turned.Right()
 

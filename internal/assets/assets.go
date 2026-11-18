@@ -38,6 +38,9 @@ type Set struct {
 	// view of its part of the strip.
 	Icons [tile.Count]*bitmap.Bitmap
 
+	// Strip is the whole strip of tiles, for a glonk mesh that has a tile on each face.
+	Strip *bitmap.Bitmap
+
 	// Title is the name of the game, for the title screen.
 	Title *bitmap.Bitmap
 
@@ -57,7 +60,7 @@ func Load() (*Set, error) {
 			strip.Width(), strip.Height(), tile.Size*int(tile.Count), tile.Size)
 	}
 
-	set := &Set{}
+	set := &Set{Strip: strip}
 	for id := range set.Tiles {
 		full := make([]uint32, tile.Size*tile.Size)
 		for y := range tile.Size {
