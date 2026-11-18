@@ -74,9 +74,9 @@ func (h *herd) add(w *world.World, round geometry.Vector3, near, far float64) bo
 	angle, away := h.rng.Float64()*2*math.Pi, near+h.rng.Float64()*(far-near)
 	x := int(math.Floor(round.X + math.Cos(angle)*away))
 	z := int(math.Floor(round.Z + math.Sin(angle)*away))
-	y := w.Surface(x, z)
-	if w.At(x, y, z) != world.Grass || y+2 >= world.Height {
-		return false // not grass, or a tree's leaves, or a place that is not loaded
+	y := w.Ground(x, z) // under any plant
+	if w.At(x, y, z) != world.Grass || y+2 >= world.Height || w.At(x, y+2, z) != world.Air {
+		return false // not grass, or under a tree, or a place that is not loaded
 	}
 	pos := geometry.Vector3{X: float64(x) + 0.5, Y: float64(y + 1), Z: float64(z) + 0.5}
 	for _, other := range h.all {

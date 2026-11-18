@@ -159,6 +159,17 @@ func (w *World) Surface(x, z int) int {
 	return -1
 }
 
+// Ground returns the layer of the highest block in a column that something can stand
+// on or grow from: the surface, but under any plant. It is -1 if there is none.
+func (w *World) Ground(x, z int) int {
+	for y := w.Surface(x, z); y >= 0; y-- {
+		if b := w.At(x, y, z); b != Air && !b.Info().Plant {
+			return y
+		}
+	}
+	return -1
+}
+
 // Fault returns the first problem met in reading a saved chunk, or nil. Such a chunk is
 // made afresh from the seed and its file is left as it is; what is built there is not
 // saved.
@@ -302,7 +313,7 @@ func (w *World) Spawn() geometry.Vector3 {
 				if max(abs(x), abs(z)) != ring {
 					continue
 				}
-				y := w.Surface(x, z)
+				y := w.Ground(x, z)
 				switch w.At(x, y, z) {
 				case Grass, Sand, Snow, Stone:
 					if y+2 < Height {

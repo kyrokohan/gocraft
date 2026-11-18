@@ -213,3 +213,16 @@ func TestTargetIsNothingOverOpenWater(t *testing.T) {
 		t.Errorf("got %+v, wanted nothing", hit)
 	}
 }
+
+// A plant does not stop a body, but it can be aimed at, to pick it or build in its place.
+func TestTargetStopsAtAPlant(t *testing.T) {
+	w := New()
+	w.Set(3, 1, 1, RedFlower)
+	w.Set(5, 1, 1, Stone)
+
+	hit, ok := w.Target(vec(1.5, 1.5, 1.5), vec(1, 0, 0), 5)
+
+	if !ok || hit.Block != RedFlower || hit.X != 3 {
+		t.Errorf("got %+v %v, wanted the flower at x=3", hit, ok)
+	}
+}

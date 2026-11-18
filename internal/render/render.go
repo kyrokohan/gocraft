@@ -106,10 +106,15 @@ func (r rays) through(px, py int) geometry.Vector3 {
 	return r.first.Add(r.across.Scale(float64(px))).Add(r.down.Scale(float64(py)))
 }
 
+// plantLight is how bright a plant is drawn, out of 256: nearly as bright as the top
+// of a block, as it stands in the open.
+const plantLight = 238
+
 // Renderer draws worlds. Make one with New and keep it.
 type Renderer struct {
 	tiles    *[tile.Count]assets.Texture
 	faceTile [256][6]tile.ID // the tile on each face of each kind of block
+	plant    [256]bool       // the kinds of block that are plants: two crossed pictures, and not a cube
 }
 
 // New returns a renderer that draws blocks with the tiles of set.
@@ -122,8 +127,45 @@ func New(set *assets.Set) *Renderer {
 			world.FaceYNeg: info.Bottom, world.FaceYPos: info.Top,
 			world.FaceZNeg: info.Side, world.FaceZPos: info.Side,
 		}
+		r.plant[b] = info.Plant
 	}
 	return r
+}
+
+// cross finds where a ray from eye along d meets a plant in the cell of hit. A plant
+// is two pictures standing corner to corner in its cell, crossing in the middle, so
+// that it is seen from every side. The ray takes the nearer picture that it meets at a
+// pixel which is not a hole: t is how far along the ray that is, and ok is false if it
+// passes through the holes of both.
+func (r *Renderer) cross(hit world.Hit, eye, d geometry.Vector3, level int) (t float64, pixel uint32, ok bool) {
+	// The eye, counted from the corner of the cell.
+	ox, oy, oz := eye.X-float64(hit.X), eye.Y-float64(hit.Y), eye.Z-float64(hit.Z)
+	side := assets.Side(level)
+	picture := r.tiles[r.faceTile[hit.Block][world.FaceXNeg]][level]
+
+	t = math.Inf(1)
+	for _, plane := range [2]struct{ num, den float64 }{
+		{oz - ox, d.X - d.Z},     // the picture from one corner to the far one: where x is z
+		{1 - ox - oz, d.X + d.Z}, // and the one across it: where x and z add up to 1
+	} {
+		if plane.den == 0 {
+			continue // the ray runs along the picture, edge on
+		}
+		at := plane.num / plane.den
+		if !(at > 0) || at >= t {
+			continue
+		}
+		// Across the picture is how far along x the ray meets it, and down it is how
+		// far below the top of the cell.
+		u, v := ox+d.X*at, 1-(oy+d.Y*at)
+		if u < 0 || u >= 1 || v < 0 || v >= 1 {
+			continue // the ray meets the plane outside the cell
+		}
+		if p := picture[int(v*float64(side))*side+int(u*float64(side))]; p>>24 != 0 {
+			t, pixel, ok = at, p, true
+		}
+	}
+	return t, pixel, ok
 }
 
 // onFace returns where on the face of a block a ray met it at the point p: u across
@@ -211,8 +253,9 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 			}
 
 			ray := world.NewRay(eye, d)
-			var solid, surface world.Hit
-			var pixel uint32
+			var surface world.Hit
+			var pixel, light uint32
+			var depth float64 // of the block or plant the ray stops at, if found
 			found, wet := false, false
 			for {
 				hit, ok := w.Next(&ray, reach)
@@ -227,9 +270,16 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 					}
 					continue
 				}
+				if r.plant[hit.Block] {
+					if at, p, ok := r.cross(hit, eye, d, levelAt(hit.T/unit)); ok {
+						pixel, light, depth, found = p, plantLight, at, true
+						break
+					}
+					continue // through the holes of the plant
+				}
 				fu, fv := onFace(hit, eye.Add(d.Scale(hit.T)))
 				if pixel = r.texel(hit, fu, fv, levelAt(hit.T/unit)); pixel>>24 != 0 {
-					solid, found = hit, true
+					light, depth, found = faceLight[hit.Face], hit.T, true
 					break
 				}
 			}
@@ -246,16 +296,16 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera) {
 			// thing the ray shows is, which is what fades. They differ under water:
 			// water is seen through, so what is stored is the ground under it, and a
 			// line drawn on a block down there is not hidden by the surface.
-			col, depth, seen := above, solid.T, solid.T
+			col, seen := above, depth
 			if found {
-				col = unpack(pixel).lit(faceLight[solid.Face])
+				col = unpack(pixel).lit(light)
 			}
 			if wet {
 				// Water is drawn over what lies under it, more strongly the more of it
 				// the ray went through.
 				through := ViewDistance
 				if found {
-					through = (solid.T - surface.T) / unit
+					through = (depth - surface.T) / unit
 				}
 				su, sv := onFace(surface, eye.Add(d.Scale(surface.T)))
 				ripple := unpack(r.texel(surface, su, sv, levelAt(surface.T/unit))).lit(faceLight[surface.Face])

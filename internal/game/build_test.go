@@ -225,3 +225,61 @@ func TestNothingIsOutlinedWhenNothingIsAimedAt(t *testing.T) {
 		t.Errorf("%d pixels are outline with nothing aimed at", n)
 	}
 }
+
+func TestAPlantDoesNotStopThePlayerAndCanBePicked(t *testing.T) {
+	g := lookingDown(t)
+	g.world.Set(20, 6, 21, world.TallGrass) // on the block the player aims at
+	hold(t, g, 1)
+	if !g.aimed || g.target.Block != world.TallGrass {
+		t.Fatalf("aimed %v at %+v, wanted the plant", g.aimed, g.target)
+	}
+
+	hold(t, g, 30, 'w') // a second of walking, straight through it
+	if g.player.Pos.Z < 22 {
+		t.Errorf("the player is at z=%v: a plant stopped it", g.player.Pos.Z)
+	}
+
+	g = lookingDown(t)
+	g.world.Set(20, 6, 21, world.TallGrass)
+	hold(t, g, 1, 'q')
+	if got := g.world.At(20, 6, 21); got != world.Air {
+		t.Errorf("after Q the plant is %v, wanted it picked", got.Info().Name)
+	}
+	if got := g.world.At(20, 5, 21); got != world.Stone {
+		t.Errorf("picking the plant broke the block under it: %v", got.Info().Name)
+	}
+}
+
+func TestABlockPlacedOnAPlantTakesItsPlace(t *testing.T) {
+	g := lookingDown(t)
+	g.world.Set(20, 6, 21, world.RedFlower)
+
+	hold(t, g, 1, '8')
+	hold(t, g, 1, 'e')
+
+	if got := g.world.At(20, 6, 21); got != world.Brick {
+		t.Errorf("the cell of the flower holds %v, wanted the brick that was placed", got.Info().Name)
+	}
+	if got := g.world.At(20, 7, 21); got != world.Air {
+		t.Errorf("a block of %v was placed above the flower", got.Info().Name)
+	}
+}
+
+func TestBreakingTheGroundTakesThePlantOnIt(t *testing.T) {
+	g := onFloor(t)
+	g.world.Set(20, 6, 22, world.Dirt) // a block standing on the floor ahead of the player
+	g.world.Set(20, 7, 22, world.Bush) // with a bush on it
+	g.player.Pitch = -0.45             // at the side of the block, under the bush
+	hold(t, g, 1)
+	if want := (world.Hit{X: 20, Y: 6, Z: 22, Face: world.FaceZNeg, Block: world.Dirt}); !g.aimed ||
+		g.target.X != want.X || g.target.Y != want.Y || g.target.Z != want.Z || g.target.Block != want.Block {
+		t.Fatalf("aimed %v at %+v, wanted the side of the block under the bush", g.aimed, g.target)
+	}
+
+	hold(t, g, 1, 'q')
+
+	if g.world.At(20, 6, 22) != world.Air || g.world.At(20, 7, 22) != world.Air {
+		t.Errorf("after the block was broken it is %v with %v on it, wanted both gone",
+			g.world.At(20, 6, 22).Info().Name, g.world.At(20, 7, 22).Info().Name)
+	}
+}

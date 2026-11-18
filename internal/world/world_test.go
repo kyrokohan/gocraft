@@ -308,3 +308,31 @@ func BenchmarkFollowAndLoad(b *testing.B) {
 		w.Load(1)
 	}
 }
+
+func TestGroundIsUnderThePlants(t *testing.T) {
+	w := New()
+	w.Set(2, 5, 2, Grass)
+	w.Set(2, 6, 2, TallGrass)
+
+	if got := w.Ground(2, 2); got != 5 {
+		t.Errorf("the ground under a plant is %d, wanted 5", got)
+	}
+	if got := w.Surface(2, 2); got != 6 {
+		t.Errorf("the surface of a column with a plant is %d, wanted the plant at 6", got)
+	}
+	if got := w.Ground(3, 3); got != -1 {
+		t.Errorf("an empty column has ground at %d, wanted -1", got)
+	}
+}
+
+func TestEveryBlockHasANameAndPlantsAreNotSolid(t *testing.T) {
+	for b := Grass; b < blockCount; b++ {
+		info := b.Info()
+		if info.Name == "" {
+			t.Errorf("block %d has no name", b)
+		}
+		if info.Plant && info.Solid {
+			t.Errorf("%s is a plant and solid", info.Name)
+		}
+	}
+}

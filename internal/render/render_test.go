@@ -331,3 +331,98 @@ func BenchmarkDraw(b *testing.B) {
 		})
 	}
 }
+
+// reds counts the pixels of a canvas that are the red of a flower's petals.
+func reds(c *engine.Canvas) int {
+	n := 0
+	for y := range c.Height() {
+		for x := range c.Width() {
+			if p := c.At(x, y); !p.IsDefault() {
+				if r, g, b := p.RGB(); int(r) > int(g)+70 && int(r) > int(b)+70 {
+					n++
+				}
+			}
+		}
+	}
+	return n
+}
+
+// A plant is two pictures that cross in its cell. The ray takes the color of the
+// picture it meets, and goes on through the holes round it to what is behind.
+func TestAPlantShowsItsPictureAndWhatIsBehindIt(t *testing.T) {
+	w := world.New()
+	wall(w, 6, world.Stone)
+	w.Set(12, 12, 4, world.RedFlower) // straight ahead of the camera, in front of the wall
+	c := newCanvas(t, 80, 40)
+
+	newRenderer(t).Draw(c, w, facing)
+
+	petals, gray := reds(c), 0
+	for y := range c.Height() {
+		for x := range c.Width() {
+			if r, g, b := c.At(x, y).RGB(); max(r, g, b)-min(r, g, b) < 24 {
+				gray++
+			}
+		}
+	}
+	if petals < 20 {
+		t.Errorf("%d pixels are the red of the flower, wanted its bloom", petals)
+	}
+	if total := c.Width() * c.Height(); gray < total*3/4 {
+		t.Errorf("%d of %d pixels are the stone behind the flower, wanted most", gray, total)
+	}
+}
+
+func TestAPlantIsSeenFromEverySide(t *testing.T) {
+	w := world.New()
+	w.Set(12, 12, 12, world.RedFlower)
+	rend := newRenderer(t)
+
+	for _, from := range []struct {
+		name string
+		x, z float64
+		yaw  float64
+	}{
+		{"south", 12.5, 9.5, 0}, {"north", 12.5, 15.5, math.Pi},
+		{"west", 9.5, 12.5, math.Pi / 2}, {"east", 15.5, 12.5, -math.Pi / 2},
+		{"a corner", 10.5, 10.5, math.Pi / 4},
+	} {
+		c := newCanvas(t, 80, 40)
+		cam := facing
+		cam.Position, cam.Yaw = geometry.Vector3{X: from.x, Y: 12.5, Z: from.z}, from.yaw
+
+		rend.Draw(c, w, cam)
+
+		if n := reds(c); n < 10 {
+			t.Errorf("from the %s, %d pixels are the red of the flower", from.name, n)
+		}
+	}
+}
+
+// A plant stores the depth of its own picture, so a thing behind it is hidden by its
+// petals and shows through its holes.
+func TestAPlantHidesWhatIsBehindItsPictureOnly(t *testing.T) {
+	w := world.New()
+	w.Set(12, 12, 4, world.RedFlower)
+	rend := newRenderer(t)
+	c := newCanvas(t, 80, 40)
+	rend.Draw(c, w, facing)
+	before := reds(c)
+
+	// A sheet of pixels at a depth just behind the plant, over the whole canvas.
+	marker, shown := engine.RGB(0, 255, 255), 0
+	for y := range c.Height() {
+		for x := range c.Width() {
+			if c.SetDepth(x, y, 2.6, marker) {
+				shown++
+			}
+		}
+	}
+
+	if reds(c) != before {
+		t.Errorf("%d pixels of the flower are left of %d after a thing was drawn behind it", reds(c), before)
+	}
+	if shown == 0 || shown == c.Width()*c.Height() {
+		t.Errorf("the thing behind shows in %d pixels of %d, wanted it round the flower and not over it", shown, c.Width()*c.Height())
+	}
+}

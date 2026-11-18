@@ -194,10 +194,17 @@ func (g *Game) build(in *engine.Input, dt float64) {
 			return
 		}
 		g.world.Set(t.X, t.Y, t.Z, world.Air)
+		if g.world.At(t.X, t.Y+1, t.Z).Info().Plant {
+			g.world.Set(t.X, t.Y+1, t.Z, world.Air) // a plant goes with the ground it stood on
+		}
 	case places:
-		nx, ny, nz := t.Face.Normal()
-		x, y, z := t.X+nx, t.Y+ny, t.Z+nz
-		if b := g.world.At(x, y, z); (b != world.Air && b != world.Water) || g.player.overlaps(x, y, z) {
+		// A block goes against the face aimed at, or in the place of a plant aimed at.
+		x, y, z := t.X, t.Y, t.Z
+		if !t.Block.Info().Plant {
+			nx, ny, nz := t.Face.Normal()
+			x, y, z = x+nx, y+ny, z+nz
+		}
+		if b := g.world.At(x, y, z); (b != world.Air && b != world.Water && !b.Info().Plant) || g.player.overlaps(x, y, z) {
 			return
 		}
 		g.world.Set(x, y, z, hotbar[g.selected])
