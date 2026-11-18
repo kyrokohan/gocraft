@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"image"
 	"image/draw"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
 
+	"github.com/kyrokohan/gocraft/internal/sound"
 	"github.com/kyrokohan/gocraft/internal/tile"
 )
 
@@ -87,6 +90,49 @@ func TestACreaturesFaceIsTheSameBothWaysRound(t *testing.T) {
 					t.Fatalf("the %s's face differs at %d,%d from its mirror", name, x, y)
 				}
 			}
+		}
+	}
+}
+
+func TestEverySoundIsHeardAndNeverPastFull(t *testing.T) {
+	for n := range sound.Count {
+		s := makeSound(n)
+		if len(s) < samples(0.05) || len(s) > samples(8) {
+			t.Errorf("%s is %d samples long", n.File(), len(s))
+			continue
+		}
+		peak, mean := 0.0, 0.0
+		for _, v := range s {
+			if math.IsNaN(v) {
+				t.Fatalf("%s has a sample that is not a number", n.File())
+			}
+			peak, mean = max(peak, math.Abs(v)), mean+v/float64(len(s))
+		}
+		if peak < 0.2 || peak > 0.95 {
+			t.Errorf("%s peaks at %.3f, wanted it heard and short of full", n.File(), peak)
+		}
+		if math.Abs(mean) > 0.02 {
+			t.Errorf("%s sits %.3f off the middle", n.File(), mean)
+		}
+		// Where a loop goes round it moves no more than from one sample to the next
+		// anywhere in it.
+		steepest := 0.0
+		for i := 1; i < len(s); i++ {
+			steepest = max(steepest, math.Abs(s[i]-s[i-1]))
+		}
+		if n.Loops() && math.Abs(s[0]-s[len(s)-1]) > steepest {
+			t.Errorf("%s jumps from %.3f to %.3f where it goes round", n.File(), s[len(s)-1], s[0])
+		}
+		if !n.Loops() && math.Abs(s[len(s)-1]) > 1e-3 {
+			t.Errorf("%s ends at %.3f, with a click", n.File(), s[len(s)-1])
+		}
+	}
+}
+
+func TestASoundComesOutTheSameEveryTime(t *testing.T) {
+	for _, n := range []sound.Name{sound.Break(sound.Glass), sound.Call, sound.Wind} {
+		if !bytes.Equal(wav(makeSound(n)), wav(makeSound(n))) {
+			t.Errorf("%s came out two ways", n.File())
 		}
 	}
 }

@@ -11,7 +11,7 @@ check:
 	go vet ./...
 	go test $(RACE) ./...
 
-# Draws the PNG assets again. The output is the same bytes every run.
+# Makes the pictures and the sounds again. The output is the same bytes every run.
 assets:
 	go run ./cmd/genassets
 

@@ -3,6 +3,7 @@ package assets
 import (
 	"testing"
 
+	"github.com/kyrokohan/gocraft/internal/sound"
 	"github.com/kyrokohan/gocraft/internal/tile"
 )
 
@@ -95,5 +96,30 @@ func TestEveryTileHasAnIconOfItsOwnPixels(t *testing.T) {
 				t.Errorf("icon %d pixel %v is %v, the tile has %06X", id, at, got, want&0xFFFFFF)
 			}
 		}
+	}
+}
+
+func TestEverySoundIsRead(t *testing.T) {
+	set, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for n, s := range set.Sounds {
+		peak := float32(0)
+		for _, v := range s {
+			peak = max(peak, v, -v)
+		}
+		if len(s) < sound.Rate/20 || peak < 0.2 || peak > 1 {
+			t.Errorf("%s: %d samples, peaking at %.3f", sound.Name(n).File(), len(s), peak)
+		}
+	}
+	if len(set.Sounds[sound.Wind]) != 6*sound.Rate {
+		t.Errorf("the wind is %d samples, wanted six seconds", len(set.Sounds[sound.Wind]))
+	}
+}
+
+func TestAFileThatIsNotASoundOfTheGameIsRefused(t *testing.T) {
+	if _, err := readWAV("img/title.png"); err == nil {
+		t.Error("a picture was read as a sound")
 	}
 }

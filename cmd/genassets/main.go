@@ -1,9 +1,9 @@
 // Command genassets draws gocraft's pictures: the strip of block tiles, the title and
-// the creature.
+// the creatures; and it makes the game's sounds.
 // Everything is drawn by the code in this file, from a fixed hash, so the pictures are
 // the same every run and nothing is downloaded or copied from anywhere.
 //
-//	go run ./cmd/genassets                     # writes internal/assets/img/*.png
+//	go run ./cmd/genassets                     # writes internal/assets/img/*.png and sound/*.wav
 //	go run ./cmd/genassets -preview sheet.png  # and an enlarged sheet to look at
 package main
 
@@ -1158,7 +1158,12 @@ func writePNG(path string, img image.Image) error {
 func run() error {
 	out := flag.String("out", "internal/assets/img", "folder to write the pictures into")
 	preview := flag.String("preview", "", "also write an enlarged sheet of everything to this file, to look at")
+	sounds := flag.String("sounds", "internal/assets/sound", "folder to write the sounds into")
 	flag.Parse()
+
+	if err := writeSounds(*sounds); err != nil {
+		return err
+	}
 
 	if err := os.MkdirAll(*out, 0o755); err != nil {
 		return err

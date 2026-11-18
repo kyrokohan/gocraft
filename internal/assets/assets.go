@@ -1,18 +1,20 @@
-// Package assets holds gocraft's pictures and reads them once at start-up. The pictures
-// are drawn by cmd/genassets; run `make assets` to draw them again.
+// Package assets holds gocraft's pictures and sounds and reads them once at start-up.
+// They are made by cmd/genassets; run `make assets` to make them again.
 package assets
 
 import (
 	"bytes"
 	"embed"
+	"encoding/binary"
 	"fmt"
 
 	"glonk.dev/bitmap"
 
+	"github.com/kyrokohan/gocraft/internal/sound"
 	"github.com/kyrokohan/gocraft/internal/tile"
 )
 
-//go:embed img/blocks.png img/title.png img/mossback.png img/gloam.png
+//go:embed img/blocks.png img/title.png img/mossback.png img/gloam.png sound/*.wav
 var files embed.FS
 
 // Levels is how many sizes each tile is kept in: 16, 8, 4, 2 and 1 pixels across. A
@@ -51,6 +53,9 @@ type Set struct {
 
 	// Gloam is the same for the gloam: GloamTiles tiles, its smoke, its face and an arm.
 	Gloam *bitmap.Bitmap
+
+	// Sounds are the game's sounds, by their names: samples from -1 to 1 at sound.Rate.
+	Sounds [sound.Count][]float32
 }
 
 // How many tiles the pictures of the creatures have.
@@ -97,7 +102,35 @@ func Load() (*Set, error) {
 	if set.Gloam, err = creature("img/gloam.png", GloamTiles); err != nil {
 		return nil, err
 	}
+	for n := range sound.Count {
+		if set.Sounds[n], err = readWAV("sound/" + n.File()); err != nil {
+			return nil, err
+		}
+	}
 	return set, nil
+}
+
+// readWAV reads a sound as cmd/genassets writes it: a WAV file of one channel, 16 bits
+// a sample, at sound.Rate.
+func readWAV(name string) ([]float32, error) {
+	data, err := files.ReadFile(name)
+	if err != nil {
+		return nil, err
+	}
+	le := binary.LittleEndian
+	if len(data) < 44 || string(data[:4]) != "RIFF" || string(data[8:16]) != "WAVEfmt " || string(data[36:40]) != "data" ||
+		le.Uint16(data[20:]) != 1 || le.Uint16(data[22:]) != 1 || le.Uint32(data[24:]) != sound.Rate || le.Uint16(data[34:]) != 16 {
+		return nil, fmt.Errorf("assets: %s is not a WAV file of one channel, 16 bits a sample, at %d a second", name, sound.Rate)
+	}
+	pcm := data[44:]
+	if n := int(le.Uint32(data[40:])); n <= len(pcm) {
+		pcm = pcm[:n]
+	}
+	out := make([]float32, len(pcm)/2)
+	for i := range out {
+		out[i] = float32(int16(le.Uint16(pcm[2*i:]))) / 32767
+	}
+	return out, nil
 }
 
 // creature reads the picture of a creature, which is a number of square tiles side by side.
