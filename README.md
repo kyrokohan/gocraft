@@ -1,16 +1,21 @@
 # gocraft
 
+[![ci](https://github.com/kyrokohan/gocraft/actions/workflows/ci.yml/badge.svg)](https://github.com/kyrokohan/gocraft/actions/workflows/ci.yml)
+
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
+
+![A snowy shore with pines, a lake and a mossback, drawn in terminal cells](docs/shot.png)
 
 Walk a world with no end, made from a seed: seas and shores, plains in flower, forest, desert, snowy tundra and bare crags, with caves and ores under them, drifting clouds over them and mossbacks grazing on the grass. The sun crosses the sky and sets, the stars come out, and the caves are dark until you bring a torch: in survival, the gloam gathers in the dark and comes for you. Play it in survival, where you dig what you need, carry it, eat and stay alive, or in creative, with every block and nothing to fear. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art and the sounds are original, and made by code in this repo.
 
-## Run
+## Install and run
 
 ```
-go run .
+go install github.com/kyrokohan/gocraft@latest
+gocraft
 ```
 
-Requires Go 1.26 or newer.
+Or from a clone of this repo, `go run .`. Requires Go 1.27.2 or newer. The pictures and the sounds are built into the program, so it runs from any folder.
 
 - **Use a terminal that reports key releases:** Ghostty, kitty, WezTerm, foot, iTerm2 or Alacritty. There you can walk and turn at once. In other terminals (Apple's Terminal, for one) only one key stays held at a time, which is playable but clumsy, and the game says so on screen. This is how glonk reads keys; see its README.
 - **A bigger window is a sharper picture.** Every cell is two pixels, one above the other, so 200 by 60 cells is a picture of 200 by 120 pixels.
@@ -46,6 +51,7 @@ Requires Go 1.26 or newer.
 - **Drag to look.** A terminal reports the pointer in cells and cannot lock it, so the view cannot follow the mouse as it does in a window. Holding the left button and dragging turns it, a cell at a time; a press let go where it is stays a click. The arrows turn it too.
 - While the game runs, the terminal cannot select text with the mouse. `-mouse=false` gives the pointer back to it.
 - Letters work in either case, and Ctrl-C quits (and saves).
+
 ## Survival and creative
 
 **New world** asks how the world is played, and the world keeps that.
@@ -182,3 +188,7 @@ gocraft uses glonk v0.12.0, and oto v3.5.1 for sound.
 - A view that follows the mouse without a button held.
 - Music, and sounds that echo in a cave or are muffled behind a wall.
 - Renaming a world, or making a copy of one.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
