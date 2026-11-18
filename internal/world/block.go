@@ -48,6 +48,8 @@ const (
 	Torch
 	Workbench
 	Kiln
+	Crate
+	Bedroll
 
 	blockCount
 )
@@ -66,6 +68,10 @@ type Info struct {
 	// Plant blocks are not cubes: they are drawn as two pictures that cross in the
 	// middle of the cell, and they need a block under them to stand on.
 	Plant bool
+
+	// Mat blocks are not cubes either: they lie flat on the block under them, drawn as
+	// their Top a little above the floor of the cell, and they are walked over.
+	Mat bool
 
 	// Fixed blocks cannot be broken.
 	Fixed bool
@@ -131,6 +137,10 @@ var infos = [256]Info{
 	// Standing near a workbench or a kiln lets the player make more.
 	Workbench: byAxe(solid("workbench", tile.WorkbenchTop, tile.WorkbenchSide, tile.Planks), 1.5),
 	Kiln:      byPick(solid("kiln", tile.KilnTop, tile.KilnSide, tile.Cobble), 2.5, TierWood),
+
+	// A crate keeps things, and a bedroll is where the player sleeps and wakes.
+	Crate:   byAxe(solid("crate", tile.CrateTop, tile.CrateSide, tile.CrateTop), 1.2),
+	Bedroll: dig(Info{Name: "bedroll", Top: tile.Bedroll, Side: tile.Bedroll, Bottom: tile.Bedroll, Mat: true}, 0.3),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for
@@ -186,6 +196,12 @@ func byShovel(info Info, seconds float64) Info {
 // plant is a plant with one picture.
 func plant(name string, t tile.ID) Info {
 	return Info{Name: name, Top: t, Side: t, Bottom: t, Plant: true}
+}
+
+// Stands reports whether the block needs one under it, and goes when that one does: a
+// plant or a mat.
+func (i Info) Stands() bool {
+	return i.Plant || i.Mat
 }
 
 // Info returns what is known about the kind of block. A number that is no kind of block

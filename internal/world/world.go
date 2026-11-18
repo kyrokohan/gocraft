@@ -192,10 +192,10 @@ func (w *World) Surface(x, z int) int {
 }
 
 // Ground returns the layer of the highest block in a column that something can stand
-// on or grow from: the surface, but under any plant. It is -1 if there is none.
+// on or grow from: the surface, but under any plant or mat. It is -1 if there is none.
 func (w *World) Ground(x, z int) int {
 	for y := w.Surface(x, z); y >= 0; y-- {
-		if b := w.At(x, y, z); b != Air && !b.Info().Plant {
+		if b := w.At(x, y, z); b != Air && !b.Info().Stands() {
 			return y
 		}
 	}

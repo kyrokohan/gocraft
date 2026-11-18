@@ -434,7 +434,7 @@ func BenchmarkFollowAndLoad(b *testing.B) {
 	}
 }
 
-func TestGroundIsUnderThePlants(t *testing.T) {
+func TestGroundIsUnderThePlantsAndTheMats(t *testing.T) {
 	w := New()
 	w.Set(2, 5, 2, Grass)
 	w.Set(2, 6, 2, TallGrass)
@@ -447,6 +447,11 @@ func TestGroundIsUnderThePlants(t *testing.T) {
 	}
 	if got := w.Ground(3, 3); got != -1 {
 		t.Errorf("an empty column has ground at %d, wanted -1", got)
+	}
+	w.Set(4, 5, 4, Stone)
+	w.Set(4, 6, 4, Bedroll)
+	if got := w.Ground(4, 4); got != 5 {
+		t.Errorf("the ground under a bedroll is %d, wanted 5", got)
 	}
 }
 

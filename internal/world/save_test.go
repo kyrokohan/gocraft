@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -40,6 +41,13 @@ func played(t *testing.T) (*World, Meta) {
 			{Pos: geometry.Vector3{X: 710.5, Y: 88, Z: 4.5}, Yaw: 0.5, Regrow: 120},
 			{Pos: geometry.Vector3{X: 690.5, Y: 89, Z: -3.5}, Yaw: -2},
 		},
+		Crates: []CrateStore{{Cell: Cell{X: 705, Y: 102, Z: 4}, Items: []Stack{{}, {Item: Coal, Count: 5}}}},
+		Kilns: []KilnStore{{
+			Cell: Cell{X: 706, Y: 102, Z: 3},
+			In:   Stack{Item: IronOre.Item(), Count: 2}, Fuel: Stack{Item: Coal, Count: 1}, Out: Stack{Item: IronBar, Count: 4},
+			Burn: 20.5, Burns: 48, Cooked: 2.25,
+		}},
+		Bed: &Cell{X: 704, Y: 103, Z: 3},
 	}
 }
 
@@ -78,6 +86,9 @@ func TestASavedWorldComesBackAsItWas(t *testing.T) {
 		!slices.Equal(back.Items, meta.Items) || !slices.Equal(back.Drops, meta.Drops) ||
 		!slices.Equal(back.Mossbacks, meta.Mossbacks) {
 		t.Errorf("the player's body and things came back as %+v", back)
+	}
+	if !reflect.DeepEqual(back.Crates, meta.Crates) || !slices.Equal(back.Kilns, meta.Kilns) || back.Bed == nil || *back.Bed != *meta.Bed {
+		t.Errorf("the crates, the kilns and the bed came back as %+v, %+v and %v", back.Crates, back.Kilns, back.Bed)
 	}
 	// The world opens round the player, with what was built there.
 	if !got.Loaded(702, 1) || got.At(705, 102, 3) != Sand {
@@ -198,6 +209,10 @@ func TestABrokenWorldFileIsAnErrorAndNeverAPanic(t *testing.T) {
 		"an empty drop":  strings.Replace(text, `"count": 1,`, `"count": 0,`, 1),
 		"worn through":   strings.Replace(text, `"wear": 7`, `"wear": 9999`, 1),
 		"moss ungrown":   strings.Replace(text, `"regrow": 120`, `"regrow": -5`, 1),
+		"overfull crate": strings.Replace(text, `"count": 5`, `"count": 65`, 1),
+		"unburnt kiln":   strings.Replace(text, `"burn": 20.5`, `"burn": -1`, 1),
+		"kiln out cold":  strings.Replace(text, `"cooked": 2.25`, `"cooked": 1e999`, 1),
+		"bed in the sky": strings.Replace(text, `"y": 103`, `"y": 500`, 1),
 	} {
 		if content == text {
 			t.Fatalf("%s: the test did not change the file", name)
