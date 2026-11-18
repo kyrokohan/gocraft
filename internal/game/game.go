@@ -85,6 +85,9 @@ type Game struct {
 	pointing       bool       // the pointer aims, and not the middle of the view
 	mouseX, mouseY int        // the cell the pointer was last in
 	clickWait      [3]float64 // for each mouse button, the time until it acts again while held
+	pressX, pressY int        // where the left button went down
+	dragging       bool       // the left button is dragging the view round
+	dug            bool       // the left button, held still, has broken a block since it went down
 	box            mesh.Mesh  // the outline drawn round that block: the edges of a cube its size
 }
 

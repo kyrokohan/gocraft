@@ -1,6 +1,8 @@
 package game
 
 import (
+	"math"
+
 	"glonk.dev/engine"
 
 	"github.com/kyrokohan/gocraft/internal/world"
@@ -21,6 +23,11 @@ const (
 	clickDelay  = 0.35
 	clickRepeat = 0.2
 )
+
+// dragSpeed is how far a drag turns the view, as a multiple of the angle the pointer
+// moved through: at 1 the world would stay under the pointer, and a little more saves
+// the hand some travel.
+const dragSpeed = 1.5
 
 // Resize is called by glonk with the size of the frame in cells, which says where on
 // the screen the pointer is. It makes the game an engine.Resizer.
@@ -71,6 +78,61 @@ func (g *Game) aim() {
 	g.target, g.aimed = g.world.Target(cam.Position, direction, reach)
 }
 
+// drag reads the left mouse button, which does two things, and reports whether it
+// breaks a block in this frame.
+//
+// Pressed and let go where it is, it is a click, and breaks. Held still, it digs on, as
+// a held key does. Pressed and moved, it drags the view round and breaks nothing: so a
+// press cannot break at once, since it may be the start of a drag. The pointer moved
+// from (fromX, fromY) in this frame.
+func (g *Game) drag(in *engine.Input, dt float64, fromX, fromY int) (breaks bool) {
+	const b = engine.MouseLeft
+	if in.MouseStarted(b) {
+		g.pressX, g.pressY = g.mouseX, g.mouseY
+		g.dragging, g.dug = false, false
+		g.clickWait[b] = clickDelay
+	}
+
+	if in.MouseDown(b) {
+		// A hand is not perfectly still in a click, so a drag begins two pixels from
+		// where the button went down: two cells across, or one up or down. A button
+		// that has begun to dig goes on digging wherever the pointer goes.
+		dx, dy := g.mouseX-g.pressX, g.mouseY-g.pressY
+		if !g.dragging && !g.dug && dx*dx+4*dy*dy >= 4 {
+			g.dragging = true
+			fromX, fromY = g.pressX, g.pressY // the turn takes in the move that began it
+		}
+		switch {
+		case g.dragging:
+			g.turn(g.mouseX-fromX, g.mouseY-fromY)
+		default:
+			if g.clickWait[b] -= dt; g.clickWait[b] <= 0 {
+				g.clickWait[b] = clickRepeat
+				g.dug, breaks = true, true
+			}
+		}
+	}
+
+	if in.MouseReleased(b) {
+		// Let go with no drag and nothing dug: a click.
+		breaks = breaks || (!g.dragging && !g.dug)
+		g.dragging = false
+	}
+	return breaks
+}
+
+// turn turns the view by a move of the pointer, in cells: right looks right and down
+// looks down. A cell turns the view by the angle it covers at the middle of the view,
+// times dragSpeed; it is half as wide as it is tall, so a cell across turns half as far
+// as a cell up. Until the size of the frame is known, that angle is not, and nothing turns.
+func (g *Game) turn(dx, dy int) {
+	if g.rows <= 0 {
+		return
+	}
+	cell := dragSpeed * 2 * math.Tan(fieldOfView/2) / float64(g.rows)
+	g.player.Turn(float64(dx)*cell/2, -float64(dy)*cell)
+}
+
 // held reports whether a mouse button acts in this frame: when it goes down, and then
 // again and again while it stays down.
 func (g *Game) held(in *engine.Input, b engine.MouseButton, dt float64) bool {
@@ -105,8 +167,9 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		g.selected = ((g.selected+steps)%n + n) % n
 	}
 
+	fromX, fromY := g.mouseX, g.mouseY
 	slot := g.point(in)
-	breaks := g.held(in, engine.MouseLeft, dt)
+	breaks := g.drag(in, dt, fromX, fromY)
 	places := g.held(in, engine.MouseRight, dt)
 	if slot >= 0 {
 		// The pointer is on the hotbar: a click picks the slot, and no block behind the

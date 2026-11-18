@@ -2,7 +2,7 @@
 
 A block-building sandbox that runs in the terminal, built on [glonk](https://glonk.dev).
 
-Walk a world of hills, water and trees made from a seed, under drifting clouds and among grazing mossbacks. Break blocks and place your own, with the keys or the mouse, and find the world as you left it the next time. The art is original and drawn by code in this repo.
+Walk a world of hills, water and trees made from a seed, under drifting clouds and among grazing mossbacks. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art is original and drawn by code in this repo.
 
 > An MVP: one world of a fixed size, creative play only. See [Not in yet](#not-in-yet).
 
@@ -35,12 +35,13 @@ Requires Go 1.26 or newer.
 | Mouse | Action |
 |---|---|
 | Move | aim at the block under the pointer |
-| Left / right button | break / place (hold to repeat) |
+| Hold left and drag | turn the view |
+| Left click / right click | break / place (hold still to repeat) |
 | Wheel | pick a block |
 | Click a hotbar slot | pick that block |
 
 - **Whichever you used last aims.** Move or click the mouse and the pointer aims. Press an arrow key and the middle of the view aims again, with its crosshair.
-- **The view turns with the arrows only.** A terminal reports the pointer in cells and cannot lock it, so there is no mouse look.
+- **Drag to look.** A terminal reports the pointer in cells and cannot lock it, so the view cannot follow the mouse as it does in a window. Holding the left button and dragging turns it, a cell at a time; a press let go where it is stays a click. The arrows turn it too.
 - While the game runs, the terminal cannot select text with the mouse. `-mouse=false` gives the pointer back to it.
 - Letters work in either case, and Ctrl-C quits (and saves).
 
@@ -109,4 +110,4 @@ gocraft uses glonk v0.12.0.
 - An endless world, day and night, flowing water, light and shadows.
 - More kinds of creature, creatures in the save file, anything to do to them.
 - Crafting, counted blocks, health.
-- Mouse look and sound.
+- A view that follows the mouse without a button held, and sound.

@@ -36,7 +36,7 @@ const (
 
 // help is the keys, shown on the pause menu.
 var help = []string{
-	"W A S D   walk         Arrows  look",
+	"W A S D   walk         Arrows, drag    look",
 	"Space     jump, up     X       down",
 	"F         fly on, off  Esc     this menu",
 	"F3        frame numbers",

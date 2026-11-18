@@ -1,6 +1,7 @@
 package game
 
 import (
+	"math"
 	"testing"
 
 	"glonk.dev/engine"
@@ -123,16 +124,18 @@ func TestAHeldButtonRepeats(t *testing.T) {
 	kb.MouseMove(cols/2, rows/2)
 	kb.MouseDown(engine.MouseLeft)
 
-	step(t, g, kb, 6) // a fifth of a second: a click, and not yet a repeat
-	if n := dug(g); n != 1 {
-		t.Fatalf("%d blocks broken in a fifth of a second, wanted the one click", n)
+	// A button that is down may be the start of a drag, so nothing breaks at once.
+	step(t, g, kb, 6) // a fifth of a second
+	if n := dug(g); n != 0 {
+		t.Fatalf("%d blocks broken in a fifth of a second of holding, wanted none yet", n)
 	}
 
-	step(t, g, kb, 30) // a second more
-	if n := dug(g); n < 4 || n > 7 {
-		t.Errorf("%d blocks broken with the button held for 1.2 seconds, wanted about five", n)
+	step(t, g, kb, 30) // a second more: held still, it digs
+	if n := dug(g); n < 3 || n > 6 {
+		t.Errorf("%d blocks broken with the button held still for 1.2 seconds, wanted about four", n)
 	}
 
+	// Letting go of a button that has dug is not one more click.
 	kb.MouseUp(engine.MouseLeft)
 	before := dug(g)
 	step(t, g, kb, 30)
@@ -209,5 +212,122 @@ func TestThePointerAimsFromTheMiddleUntilTheSizeIsKnown(t *testing.T) {
 
 	if !g.aimed || g.target != middle {
 		t.Errorf("aimed %v at %+v, wanted the middle: %+v", g.aimed, g.target, middle)
+	}
+}
+
+// cellAngle is how far one cell of a drag turns the view up or down; across, a cell
+// turns it half as far, since a cell is half as wide as it is tall.
+func cellAngle() float64 {
+	return dragSpeed * 2 * math.Tan(fieldOfView/2) / rows
+}
+
+func TestDraggingTurnsTheViewAndBreaksNothing(t *testing.T) {
+	g, kb := withMouse(t)
+	yaw, pitch := g.player.Yaw, g.player.Pitch
+	kb.MouseMove(40, 15)
+	kb.MouseDown(engine.MouseLeft)
+	step(t, g, kb, 1)
+
+	kb.MouseMove(52, 15) // twelve cells to the right
+	step(t, g, kb, 1)
+	if want := yaw + 12*cellAngle()/2; !near(g.player.Yaw, want) || g.player.Pitch != pitch {
+		t.Fatalf("after a drag of 12 cells right: yaw %v pitch %v, wanted yaw %v and the pitch unchanged", g.player.Yaw, g.player.Pitch, want)
+	}
+
+	kb.MouseMove(52, 11) // and four up
+	step(t, g, kb, 1)
+	if want := pitch + 4*cellAngle(); !near(g.player.Pitch, want) {
+		t.Errorf("after a drag of 4 cells up: pitch %v, wanted %v", g.player.Pitch, want)
+	}
+
+	// Held still at the end of a drag, the button does not start to dig.
+	step(t, g, kb, 30)
+	kb.MouseUp(engine.MouseLeft)
+	step(t, g, kb, 2)
+	if n := dug(g); n != 0 {
+		t.Errorf("a drag broke %d blocks", n)
+	}
+
+	// With the button up the pointer aims again and does not turn the view.
+	turned := g.player.Yaw
+	kb.MouseMove(20, 15)
+	step(t, g, kb, 1)
+	if g.player.Yaw != turned {
+		t.Error("the view turned with the pointer after the button was let go")
+	}
+}
+
+func TestAClickThatShiftsByOneColumnIsStillAClick(t *testing.T) {
+	g, kb := withMouse(t)
+	yaw := g.player.Yaw
+	kb.MouseMove(cols/2, rows/2)
+	kb.MouseDown(engine.MouseLeft)
+	step(t, g, kb, 1)
+
+	kb.MouseMove(cols/2+1, rows/2) // a hand is not perfectly still
+	step(t, g, kb, 1)
+	kb.MouseUp(engine.MouseLeft)
+	step(t, g, kb, 1)
+
+	if g.player.Yaw != yaw {
+		t.Error("a click that shifted by one column turned the view")
+	}
+	if n := dug(g); n != 1 {
+		t.Errorf("the click broke %d blocks, wanted 1", n)
+	}
+}
+
+func TestAClickShorterThanAFrameBreaksOneBlock(t *testing.T) {
+	g, kb := withMouse(t)
+	kb.MouseMove(cols/2, rows/2)
+	step(t, g, kb, 1)
+
+	kb.MouseDown(engine.MouseLeft)
+	kb.MouseUp(engine.MouseLeft)
+	step(t, g, kb, 3)
+
+	if n := dug(g); n != 1 {
+		t.Errorf("a quick click broke %d blocks, wanted 1", n)
+	}
+}
+
+func TestADragCannotTipTheViewOver(t *testing.T) {
+	g, kb := withMouse(t)
+	kb.MouseMove(50, 2)
+	kb.MouseDown(engine.MouseLeft)
+	step(t, g, kb, 1)
+
+	for range 20 { // down the whole frame, again and again
+		kb.MouseMove(50, rows-1)
+		step(t, g, kb, 1)
+		kb.MouseUp(engine.MouseLeft)
+		kb.MouseMove(50, 2)
+		step(t, g, kb, 1)
+		kb.MouseDown(engine.MouseLeft)
+		step(t, g, kb, 1)
+	}
+
+	if g.player.Pitch != -maxPitch {
+		t.Errorf("pitch %v after dragging down many times, wanted it held at %v", g.player.Pitch, -maxPitch)
+	}
+}
+
+// A game that was never told the size of its frame cannot tell how far a cell turns
+// the view, so a drag does nothing, and does not break a block either.
+func TestADragDoesNothingUntilTheSizeIsKnown(t *testing.T) {
+	g := lookingDown(t)
+	kb := engine.NewKeyboard()
+	yaw := g.player.Yaw
+	kb.MouseMove(10, 10)
+	kb.MouseDown(engine.MouseLeft)
+	step(t, g, kb, 1)
+
+	kb.MouseMove(30, 10)
+	step(t, g, kb, 1)
+	kb.MouseUp(engine.MouseLeft)
+	step(t, g, kb, 1)
+
+	if g.player.Yaw != yaw || dug(g) != 0 {
+		t.Errorf("yaw %v, %d blocks broken: wanted nothing to happen", g.player.Yaw, dug(g))
 	}
 }

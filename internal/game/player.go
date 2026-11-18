@@ -115,11 +115,17 @@ func (p *Player) overlaps(x, y, z int) bool {
 	return true
 }
 
+// Turn turns the view to the right by yaw and up by pitch, in radians. It cannot be
+// tipped past straight up or straight down.
+func (p *Player) Turn(yaw, pitch float64) {
+	p.Yaw = math.Remainder(p.Yaw+yaw, 2*math.Pi)
+	p.Pitch = min(max(p.Pitch+pitch, -maxPitch), maxPitch)
+}
+
 // Step moves the player for dt seconds: turns the view, then walks, falls, swims or
 // flies, stopping at solid blocks.
 func (p *Player) Step(w *world.World, c controls, dt float64) {
-	p.Yaw = math.Remainder(p.Yaw+c.turn*turnSpeed*dt, 2*math.Pi)
-	p.Pitch = min(max(p.Pitch+c.tilt*tiltSpeed*dt, -maxPitch), maxPitch)
+	p.Turn(c.turn*turnSpeed*dt, c.tilt*tiltSpeed*dt)
 	if c.toggleFly {
 		p.Flying = !p.Flying
 		p.velY = 0
