@@ -30,14 +30,6 @@ const (
 	sinkSpeed = 2.5  // the fastest fall in water
 	swimUp    = 4.0  // enough to hop out onto a shore level with the water
 
-	// maxStep is the farthest the player moves before blocks are looked at again. It
-	// is under half a block, so no frame is long enough to carry it through a wall.
-	maxStep = 0.4
-
-	// gap is how far from a block the player is left when stopped by it. Without it,
-	// rounding could leave the player a hair inside the block.
-	gap = 1e-7
-
 	// ceiling is how high the player can fly: far enough to look down on the world.
 	ceiling = world.SizeY + 16
 )
@@ -111,25 +103,9 @@ func (p *Player) Camera() mesh.Camera {
 	}
 }
 
-// solid reports whether a cell stops the player. The sides and the bottom of the world
-// are walls; above it there is open air.
-func solid(w *world.World, x, y, z int) bool {
-	if x < 0 || x >= world.SizeX || z < 0 || z >= world.SizeZ || y < 0 {
-		return true
-	}
-	return w.At(x, y, z).Info().Solid
-}
-
-// box returns the low and high corner of the player's box.
-func (p *Player) box() (lo, hi [3]float64) {
-	half := playerWidth / 2.0
-	return [3]float64{p.Pos.X - half, p.Pos.Y, p.Pos.Z - half},
-		[3]float64{p.Pos.X + half, p.Pos.Y + playerHeight, p.Pos.Z + half}
-}
-
 // overlaps reports whether the player's box is in any part of a cell.
 func (p *Player) overlaps(x, y, z int) bool {
-	lo, hi := p.box()
+	lo, hi := boxOf(p.Pos, playerWidth, playerHeight)
 	cell := [3]float64{float64(x), float64(y), float64(z)}
 	for a := range 3 {
 		if hi[a] <= cell[a] || lo[a] >= cell[a]+1 {
@@ -137,11 +113,6 @@ func (p *Player) overlaps(x, y, z int) bool {
 		}
 	}
 	return true
-}
-
-// swimming reports whether the player's feet are in water.
-func (p *Player) swimming(w *world.World) bool {
-	return w.At(int(math.Floor(p.Pos.X)), int(math.Floor(p.Pos.Y+0.1)), int(math.Floor(p.Pos.Z))) == world.Water
 }
 
 // Step moves the player for dt seconds: turns the view, then walks, falls, swims or
@@ -165,7 +136,7 @@ func (p *Player) Step(w *world.World, c controls, dt float64) {
 		if c.sink {
 			p.velY -= flySpeed
 		}
-	case p.swimming(w):
+	case inWater(w, p.Pos):
 		speed = swimSpeed
 		p.velY = max(p.velY-gravity/4*dt, -sinkSpeed)
 		if c.rise {
@@ -183,66 +154,10 @@ func (p *Player) Step(w *world.World, c controls, dt float64) {
 	move := facing.Forward().Scale(c.forward).Add(facing.Right().Scale(c.strafe)).Normalize().Scale(speed * dt)
 	move.Y = p.velY * dt
 
-	p.OnGround = false
-	steps := max(1, int(math.Ceil(max(math.Abs(move.X), math.Abs(move.Y), math.Abs(move.Z))/maxStep)))
-	part := move.Scale(1 / float64(steps))
-	for range steps {
-		p.slide(w, 0, part.X)
-		p.slide(w, 2, part.Z)
-		if p.slide(w, 1, part.Y) {
-			p.OnGround = part.Y < 0
-			p.velY = 0
-		}
+	stopped := travel(w, &p.Pos, playerWidth, playerHeight, move)
+	p.OnGround = stopped[1] && move.Y < 0
+	if stopped[1] {
+		p.velY = 0
 	}
 	p.Pos.Y = min(p.Pos.Y, ceiling)
-}
-
-// slide moves the player along one axis (0 is x, 1 is y, 2 is z) and, if that takes its
-// box into a solid block, puts it back against the block's face. It reports whether the
-// player was stopped. Moving one axis at a time is what lets the player slide along a
-// wall it walks into at an angle.
-func (p *Player) slide(w *world.World, axis int, delta float64) bool {
-	if delta == 0 {
-		return false
-	}
-	coord := [3]*float64{&p.Pos.X, &p.Pos.Y, &p.Pos.Z}[axis]
-	*coord += delta
-
-	lo, hi := p.box()
-	var from, to [3]int
-	for a := range 3 {
-		from[a], to[a] = int(math.Floor(lo[a])), int(math.Ceil(hi[a]))-1
-	}
-
-	// The face that stops the player is the nearest one it has gone past.
-	stopped := false
-	face := math.Inf(1)
-	if delta < 0 {
-		face = math.Inf(-1)
-	}
-	for y := from[1]; y <= to[1]; y++ {
-		for z := from[2]; z <= to[2]; z++ {
-			for x := from[0]; x <= to[0]; x++ {
-				if !solid(w, x, y, z) {
-					continue
-				}
-				stopped = true
-				cell := float64([3]int{x, y, z}[axis])
-				if delta > 0 {
-					face = min(face, cell)
-				} else {
-					face = max(face, cell+1)
-				}
-			}
-		}
-	}
-	if !stopped {
-		return false
-	}
-	if delta > 0 {
-		*coord = face - (hi[axis] - *coord) - gap
-	} else {
-		*coord = face + (*coord - lo[axis]) + gap
-	}
-	return true
 }
