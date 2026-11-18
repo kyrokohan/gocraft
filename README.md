@@ -84,7 +84,7 @@ The world is saved when you choose **Save and leave**, which goes back to the li
 
 ## Settings
 
-**Settings**, on the title and the pause menu, has the mouse speed (how far a drag turns the view), the view distance (32, 48 or 64 blocks: less is a little faster) and the field of view (50° to 90°). Left and Right, or a click, change a line. They are kept in `gocraft/settings.json` in your config folder, apart from any world.
+**Settings**, on the title and the pause menu, has the mouse speed (how far a drag turns the view), the view distance (32, 48 or 64 blocks: less is a little faster), the field of view (50° to 90°) and the volume (0% to 100%). Left and Right, or a click, change a line. They are kept in `gocraft/settings.json` in your config folder, apart from any world.
 
 ## Flags
 
@@ -94,6 +94,7 @@ The world is saved when you choose **Save and leave**, which goes back to the li
 | `-worlds folder` | the folder of the worlds the title lists |
 | `-world folder` | play only the world in this folder, with no list |
 | `-mouse=false` | leave the pointer to the terminal |
+| `-mute` | play with no sound, and leave the sound device alone |
 | `-shot file.png` | draw one frame of play into a PNG and quit, to look at it without a terminal. A letter is a mark in its color where it stands |
 
 ## How it is drawn
@@ -126,6 +127,19 @@ Tests check the light against a plain, slow flood fill: in chunks of jumbled blo
 
 glonk also runs the loop and the terminal, reads the keys, the mouse and what is typed or pasted for a name (`Input.Text`, `Input.Paste`), draws the title picture (`bitmap`), the menus, the HUD and the health and food bars (`widget`), puts the pictures of the hotbar and the bag down over their panels (`Canvas.ComposeRect`), reports the frame numbers (`Stats`), draws the `-shot` picture (`FrameBuffer.Image`), and runs every test without a terminal.
 
+## Sound
+
+Every sound is heard from where it is made: quieter the farther it is, gone at 24 blocks, and louder in the ear on its side. Your steps sound as the ground you walk on, and digging, breaking and placing as the block, in seven kinds: earth, stone, sand, wood, plants, glass and snow. You hear water you fall into, what you pick up or make, being hurt and eating; mossbacks to themselves and when hit, gloams in the dark, a kiln's fire, and water dripping in caves. Under all of it the wind blows as much as the sky reaches you, and fades into the low air of a cave where it does not.
+
+A small mixer of the game's own plays up to 16 sounds at once, each a little higher or lower at random so that steps do not sound the same, bends the loudest moments so that many at once do not crack, and brings the wind and the cave air up and down slowly. [oto](https://github.com/ebitengine/oto) v3.5.1 plays what it makes, with no C compiler needed on macOS, Linux or Windows. With no sound device the game plays on in silence and the title says why. On Linux oto plays through PulseAudio, which PipeWire also serves.
+
+The sounds are made by code too, as WAV files in `internal/assets/sound`, so each can be listened to on its own:
+
+```
+make assets                                   # make them again, with the pictures
+afplay internal/assets/sound/step-wood.wav    # listen to one, on a Mac
+```
+
 ## Pictures
 
 `internal/assets/img` holds the four pictures the game uses: a strip of 74 tiles (the blocks', the cracks', and the pictures of the things that are not blocks: tools, blades, bars, food and the rest), the title, the mossback's six tiles and the gloam's three. All are drawn by `cmd/genassets` from a fixed hash, so they come out the same every time:
@@ -150,12 +164,13 @@ The race detector needs cgo. Where there is no C compiler, run `make check RACE=
 |---|---|
 | `internal/world` | the blocks round the player in a sliding window and their light, the land a seed makes, rays through the grid, items, saved worlds |
 | `internal/render` | the blocks drawn by rays into a glonk `Canvas`, the sky at each hour, and the clouds, creatures and things on the ground drawn into it as glonk meshes |
-| `internal/game` | the game glonk runs: the player and its body, the creatures, digging and building, what is carried and what is made from it, the mouse, the HUD, the bag, the list of worlds, the settings, the title and pause menus |
-| `internal/assets` | the pictures, read once at start-up, each block tile in five sizes |
+| `internal/game` | the game glonk runs: the player and its body, the creatures, digging and building, what is carried and what is made from it, the mouse, the HUD, the bag, the list of worlds, the settings, the title and pause menus, and what makes a sound when |
+| `internal/sound` | the names of the sounds, the mixer that places each in the world, and the speaker that plays it with oto |
+| `internal/assets` | the pictures and the sounds, read once at start-up, each block tile in five sizes |
 | `internal/tile` | the names of the tiles in the strip |
-| `cmd/genassets` | draws the pictures |
+| `cmd/genassets` | draws the pictures and makes the sounds |
 
-gocraft uses glonk v0.12.0.
+gocraft uses glonk v0.12.0, and oto v3.5.1 for sound.
 
 ## Not in yet
 
@@ -164,5 +179,6 @@ gocraft uses glonk v0.12.0.
 - More kinds of creature, and anything a gloam leaves when it is undone.
 - The I screen needs a terminal about 25 rows tall in creative, and 21 rows tall and 90 columns wide in survival; a kiln needs 25 rows, and a crate 29.
 - A crate or a kiln does not open in creative, where every block is at hand.
-- A view that follows the mouse without a button held, and sound.
+- A view that follows the mouse without a button held.
+- Music, and sounds that echo in a cave or are muffled behind a wall.
 - Renaming a world, or making a copy of one.
