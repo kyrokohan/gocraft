@@ -269,6 +269,7 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		}
 		g.world.Set(t.X, t.Y, t.Z, world.Air)
 		g.ears.Play(sound.Break(materialOf(t.Block)), cellMid(t.X, t.Y, t.Z), 1)
+		g.shatter(t.X, t.Y, t.Z, t.Block)
 		if _, yields := g.digTime(t.Block); yields {
 			g.leave(t.X, t.Y, t.Z, t.Block)
 		}

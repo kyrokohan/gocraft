@@ -65,3 +65,24 @@ func TestAThingOnTheGroundIsDrawnAsASmallBlock(t *testing.T) {
 		t.Errorf("the brick is drawn red %d green %d, wanted it red", red, green)
 	}
 }
+
+func TestABitIsDrawnAsATinyBlockWhereItIs(t *testing.T) {
+	set, err := assets.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, d := New(set), NewDrops(set)
+	w := world.New()
+	wall(w, 8, world.Stone)
+	c := newCanvas(t, 60, 30)
+	r.Draw(c, w, facing, noon)
+	before, corner := c.At(30, 30), c.At(5, 5)
+
+	d.DrawBits(c, facing, []Bit{{Item: world.Brick.Item(), Pos: geometry.Vector3{X: 12.5, Y: 12.5, Z: 4}, Size: 0.15, Spin: 1, Light: 1}}, noon)
+	if red, green, _ := c.At(30, 30).RGB(); c.At(30, 30) == before || int(red) < int(green)+20 {
+		t.Errorf("the middle of the view is %v with a bit of brick in front of it, was %v", c.At(30, 30), before)
+	}
+	if c.At(5, 5) != corner {
+		t.Error("a tiny bit in the middle changed the corner of the view")
+	}
+}

@@ -70,3 +70,30 @@ func (d *Drops) Draw(c *engine.Canvas, cam mesh.Camera, all []Lying, sky *Sky) {
 		m.DrawShadedPixels(c, cam, d.lights[:]...)
 	}
 }
+
+// Bit is a small piece of a broken block, flying from where it broke, as it is drawn.
+type Bit struct {
+	Item world.Item
+
+	// Pos is its middle, Size how far across it is, and Spin how far it has turned as
+	// it tumbles, in radians.
+	Pos  geometry.Vector3
+	Size float64
+	Spin float64
+
+	// Light is how bright the light it is in is, from 0 to 1, as for a Lying.
+	Light float64
+}
+
+// DrawBits draws the bits of broken blocks as the camera sees them, each a tiny block
+// with the tiles of its item, tumbling. Call it after the blocks.
+func (d *Drops) DrawBits(c *engine.Canvas, cam mesh.Camera, bits []Bit, sky *Sky) {
+	for _, one := range bits {
+		m := d.cube(one.Item)
+		d.lights = lightsIn(one.Light, sky)
+		at := one.Pos
+		at.Y -= one.Size / 2 // the cube's origin is the middle of its bottom
+		m.Transform = mesh.Transform{Position: at, Yaw: one.Spin, Pitch: 0.7 * one.Spin, Scale: one.Size}
+		m.DrawShadedPixels(c, cam, d.lights[:]...)
+	}
+}

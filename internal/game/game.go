@@ -135,6 +135,12 @@ type Game struct {
 	look     *render.Drops
 	lying    []render.Lying // the drops as they are drawn, kept between frames
 
+	// The bits flying from blocks broken, the chances that throw them, and the bits as
+	// they are drawn, kept between frames.
+	bits    []bit
+	scatter *rand.Rand
+	pieces  []render.Bit
+
 	// The player's body, in survival.
 	health, food, air float64
 	hunger, mend      float64 // seconds since food last went down, and since the body last mended
@@ -209,6 +215,7 @@ func New(opts Options) (*Game, error) {
 		shades: render.NewGloams(set),
 		exact:  true, box: mesh.Cube(1), settings: loadSettings(opts.Settings),
 		ears: sound.NewMixer(set.Sounds), noises: rand.New(rand.NewPCG(1, 0x736f756e)),
+		scatter: rand.New(rand.NewPCG(2, 0x62697473)),
 	}
 	g.ears.SetVolume(g.settings.volume())
 	if err := g.load(); err != nil {
@@ -246,7 +253,7 @@ func (g *Game) use(w *world.World, s world.Meta) {
 	g.clouds = render.NewClouds(g.world.Seed)
 	g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
 	g.herd = herdFrom(g.world, s.Mossbacks, g.player.Pos)
-	g.gloams = nil
+	g.gloams, g.bits = nil, nil
 	g.selected = min(max(s.Slot, 0), hotbarSlots-1)
 	g.days = s.Days
 	g.saved = true
@@ -338,7 +345,7 @@ func (g *Game) newWorld(seed int64) {
 	g.player = Player{Pos: g.world.Spawn()}
 	g.herd = newHerd(g.world, g.player.Pos)
 	g.selected, g.aimed, g.saved, g.days = 0, false, false, 0
-	g.drops, g.gloams = nil, nil
+	g.drops, g.gloams, g.bits = nil, nil, nil
 	g.loadStores(world.Meta{})
 	g.begin(false)
 }
@@ -439,6 +446,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			return nil // a gloam made the player faint
 		}
 		g.stepDrops(dt)
+		g.stepBits(dt)
 		g.stepKilns(dt)
 		g.noticeLeft = max(g.noticeLeft-dt, 0)
 		g.build(in, dt)
@@ -604,6 +612,7 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera) {
 		})
 	}
 	g.look.Draw(c, cam, g.lying, g.sky)
+	g.look.DrawBits(c, cam, g.drawnBits(), g.sky)
 
 	// A gloam is seen through as it fades, so it comes after what is solid.
 	g.shapes = g.shapes[:0]
