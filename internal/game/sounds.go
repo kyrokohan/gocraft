@@ -81,9 +81,9 @@ func (g *Game) ambience() (wind, cave float64) {
 		return 0, 0
 	case playing, inBag:
 		open := float64(g.lightAt(g.player.Camera().Position).Sky()) / world.MaxLight
-		return 0.7 * open, 0.8 * (1 - open)
+		return 0.4 * open, 0.6 * (1 - open)
 	}
-	return 0.4, 0
+	return 0.3, 0
 }
 
 // stepSounds plays the player's steps on the ground, a landing, and a splash where it
@@ -100,11 +100,11 @@ func (g *Game) stepSounds(from geometry.Vector3, wasWet bool, fell float64) {
 		return
 	}
 	if fell > landSpeed {
-		g.ears.PlayNear(sound.Step(materialOf(under)), 0.9)
+		g.ears.PlayNear(sound.Step(materialOf(under)), 1.3)
 	}
 	if g.walked += math.Hypot(p.Pos.X-from.X, p.Pos.Z-from.Z); g.walked >= stepLength {
 		g.walked = 0
-		g.ears.PlayNear(sound.Step(materialOf(under)), 0.5)
+		g.ears.PlayNear(sound.Step(materialOf(under)), 1)
 	}
 }
 

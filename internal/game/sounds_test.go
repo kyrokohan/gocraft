@@ -124,7 +124,7 @@ func TestCreaturesAndKilnsAreHeard(t *testing.T) {
 
 func TestTheWindBlowsOutsideAndCaveAirIsHeardInTheDark(t *testing.T) {
 	g := onFloor(t)
-	if wind, cave := g.ambience(); !near(wind, 0.7) || cave != 0 {
+	if wind, cave := g.ambience(); !near(wind, 0.4) || cave != 0 {
 		t.Errorf("outside: wind %.2f, cave %.2f", wind, cave)
 	}
 	for x := 18; x <= 22; x++ { // a stone box round the player's head, and over it
@@ -136,7 +136,7 @@ func TestTheWindBlowsOutsideAndCaveAirIsHeardInTheDark(t *testing.T) {
 			}
 		}
 	}
-	if wind, cave := g.ambience(); wind != 0 || !near(cave, 0.8) {
+	if wind, cave := g.ambience(); wind != 0 || !near(cave, 0.6) {
 		t.Errorf("shut in: wind %.2f, cave %.2f", wind, cave)
 	}
 	press(g, engine.KeyEscape)
@@ -173,5 +173,44 @@ func TestTheTitleSaysWhenThereIsNoSound(t *testing.T) {
 	g.NoSound(errors.New("no device"))
 	if text, _ := drawn(t, g); !strings.Contains(text, "no sound: no device") {
 		t.Errorf("the title does not say there is no sound:\n%s", text)
+	}
+}
+
+// loudness plays the game for a number of frames with keys held, reading what the mixer
+// makes as a speaker would, and returns how loud it was on the whole and at its loudest,
+// in decibels of full.
+func loudness(t *testing.T, g *Game, frames int, keys ...engine.Key) (rms, peak float64) {
+	t.Helper()
+	kb := engine.NewKeyboard()
+	kb.Press(keys...)
+	p := make([]byte, 8*sound.Rate/30)
+	var sum float64
+	n := 0
+	for range frames {
+		if err := g.Update(frame, kb.Input()); err != nil {
+			t.Fatal(err)
+		}
+		kb.EndFrame()
+		g.ears.Read(p)
+		for i := 0; i < len(p); i += 4 {
+			s := float64(math.Float32frombits(binary.LittleEndian.Uint32(p[i:])))
+			sum, peak, n = sum+s*s, max(peak, math.Abs(s)), n+1
+		}
+	}
+	return 20 * math.Log10(math.Sqrt(sum/float64(n))), 20 * math.Log10(peak)
+}
+
+func TestPlayIsLoudEnoughAndStepsStandOutOfTheWind(t *testing.T) {
+	still, stillPeak := loudness(t, onFloor(t), seconds(3))
+	_, walkPeak := loudness(t, onFloor(t), seconds(3), 'w')
+	_, breakPeak := loudness(t, lookingDown(t), seconds(1), 'q')
+	if still < -30 || still > -18 {
+		t.Errorf("the wind outside is at %.1f dB, wanted it between -30 and -18", still)
+	}
+	if walkPeak < stillPeak+4 {
+		t.Errorf("steps peak at %.1f dB over wind that peaks at %.1f: lost in it", walkPeak, stillPeak)
+	}
+	if breakPeak > 0 || breakPeak < -6 {
+		t.Errorf("a block breaking peaks at %.1f dB, wanted it loud and short of full", breakPeak)
 	}
 }
