@@ -103,7 +103,10 @@ func (g *Game) playWorld(w savedWorld) {
 // reason is the last part of an error: what is wrong, without where.
 func reason(err error) string {
 	text := err.Error()
-	return text[strings.LastIndex(text, ": ")+2:]
+	if i := strings.LastIndex(text, ": "); i >= 0 {
+		return text[i+2:]
+	}
+	return text
 }
 
 // deleteWorld deletes a world of the list for good. It deletes nothing but a folder in
