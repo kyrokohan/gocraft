@@ -4,8 +4,6 @@ import (
 	"strconv"
 
 	"glonk.dev/engine"
-	"glonk.dev/geometry"
-	"glonk.dev/mesh"
 	"glonk.dev/widget"
 
 	"github.com/kyrokohan/gocraft/internal/world"
@@ -16,11 +14,27 @@ import (
 // Enter, or with a click, which takes what is in it in hand, or puts down what is in hand,
 // so that things are moved from one slot to another. In creative the rows above the
 // hotbar are every block there is, and taking one takes as many as are wanted.
+//
+// In survival the list of what can be made is at the right of the slots: Right from the
+// last column goes into it, and Enter or a click makes one of what is picked there.
 
 // rowPitch is how far down one row of slots is from the one above: they share a line.
 const rowPitch = barHeight - 1
 
-const bagHint = " Arrows: move   Enter, click: take or put   I: close "
+// listWidth is how wide the list of what can be made is, with its frame, and listGap the
+// cells between it and the slots.
+const (
+	listWidth = 24
+	listGap   = 1
+)
+
+const (
+	bagHint  = " Arrows: move   Enter, click: take or put   I: close "
+	makeHint = " Arrows: move   Enter, click: take, put or make   I: close "
+)
+
+// hudDim is the look of a line of the list that cannot be made, for want of something.
+var hudDim = engine.Cell{Foreground: engine.RGB(92, 96, 112), Background: hudGround}
 
 // palette is every item a creative player can take: every block, but water, which is
 // not built with, and deepstone, which is the floor of the world.
@@ -57,11 +71,19 @@ func (g *Game) bagCell(row, col int) (slot int, item world.Item) {
 	return -1, world.NoItem
 }
 
+// bagWidth is how wide the bag is: the slots, and in survival the list beside them.
+func (g *Game) bagWidth() int {
+	if g.survival {
+		return barWidth + listGap + listWidth
+	}
+	return barWidth
+}
+
 // bagOrigin returns the left of the rows of the bag in a frame of a size in cells, and
 // the top of its title over them.
 func (g *Game) bagOrigin(width, height int) (x, top int) {
 	tall := 1 + g.bagRows()*rowPitch + 1 + 1 + 2 // the title, the rows, the gap over the hotbar, and two lines under
-	return (width - barWidth) / 2, max((height-tall)/2, 0)
+	return max((width-g.bagWidth())/2, 0), max((height-tall)/2, 0)
 }
 
 // bagRowY returns the top of a row of the bag. The hotbar's is set apart by a line.
@@ -73,9 +95,19 @@ func (g *Game) bagRowY(top, row int) int {
 	return y
 }
 
+// listBox returns the top left corner of the panel of the list of what can be made, and
+// its height, in a frame of a size in cells: beside the rows of slots, from the top of the first to the bottom of the
+// hotbar.
+func (g *Game) listBox(width, height int) (x, y, h int) {
+	x0, top := g.bagOrigin(width, height)
+	y = top + 1
+	return x0 + barWidth + listGap, y, g.bagRowY(top, g.bagRows()-1) + barHeight - y
+}
+
 // openBag shows the bag, with the keys on the slot of the hotbar in use.
 func (g *Game) openBag() {
 	g.cursor = (g.bagRows()-1)*hotbarSlots + g.selected
+	g.inList, g.recipe, g.listTop = false, 0, 0
 	g.hand, g.digging = world.Stack{}, 0
 	g.show(inBag)
 }
@@ -84,10 +116,8 @@ func (g *Game) openBag() {
 // what does not fit is put down in front of the player.
 func (g *Game) closeBag() {
 	if g.survival && g.hand.Count > 0 {
-		if left := g.items.add(g.hand.Item, g.hand.Count); left > 0 {
-			ahead := mesh.Camera{Yaw: g.player.Yaw}.Forward()
-			at := g.player.Pos.Add(ahead).Add(geometry.Vector3{Y: 1})
-			g.drops = append(g.drops, drop{Drop: world.Drop{Stack: world.Stack{Item: g.hand.Item, Count: left}, Pos: at}})
+		if left := g.items.add(g.hand); left > 0 {
+			g.putDown(world.Stack{Item: g.hand.Item, Count: left, Wear: g.hand.Wear})
 		}
 	}
 	g.hand = world.Stack{}
@@ -100,11 +130,41 @@ func (g *Game) useBag(in *engine.Input, escape bool) {
 		g.closeBag()
 		return
 	}
+	if x, y, ok := in.MousePos(); ok {
+		// The pointer moved onto a line of the list picks it, so that what it needs is
+		// shown before it is clicked.
+		moved := x != g.mouseX || y != g.mouseY
+		g.mouseX, g.mouseY = x, y
+		i, onList := g.listAt(x, y)
+		if onList && moved {
+			g.inList, g.recipe = true, i
+		}
+		if in.MouseStarted(engine.MouseLeft) {
+			if r, c, on := g.bagAt(x, y); on {
+				g.inList, g.cursor = false, r*hotbarSlots+c
+				g.pickCell(r, c)
+				return
+			}
+			if onList {
+				g.inList, g.recipe = true, i
+				g.craft(g.makeable()[i])
+				return
+			}
+		}
+	}
+	if g.inList {
+		g.useList(in)
+		return
+	}
+
 	rows := g.bagRows()
 	row, col := g.cursor/hotbarSlots, g.cursor%hotbarSlots
 	switch {
 	case in.Pressed(engine.KeyLeft):
 		col = (col + hotbarSlots - 1) % hotbarSlots
+	case in.Pressed(engine.KeyRight) && g.survival && col == hotbarSlots-1:
+		g.inList = true
+		return
 	case in.Pressed(engine.KeyRight):
 		col = (col + 1) % hotbarSlots
 	case in.Pressed(engine.KeyUp):
@@ -112,16 +172,34 @@ func (g *Game) useBag(in *engine.Input, escape bool) {
 	case in.Pressed(engine.KeyDown):
 		row = (row + 1) % rows
 	}
-	pick := in.Started(engine.KeyEnter) || in.Started(' ')
-	if x, y, ok := in.MousePos(); ok && in.MouseStarted(engine.MouseLeft) {
-		if r, c, on := g.bagAt(x, y); on {
-			row, col, pick = r, c, true
-		}
-	}
 	g.cursor = row*hotbarSlots + col
-	if pick {
+	if in.Started(engine.KeyEnter) || in.Started(' ') {
 		g.pickCell(row, col)
 	}
+}
+
+// useList reads the keys while they are on the list of what can be made. Enter makes
+// one, and goes on making them while it is held.
+func (g *Game) useList(in *engine.Input) {
+	here := g.makeable()
+	g.recipe = min(g.recipe, len(here)-1)
+	switch {
+	case in.Pressed(engine.KeyLeft):
+		g.inList = false
+		g.cursor = g.cursor/hotbarSlots*hotbarSlots + hotbarSlots - 1
+	case in.Pressed(engine.KeyUp):
+		g.recipe = (g.recipe + len(here) - 1) % len(here)
+	case in.Pressed(engine.KeyDown):
+		g.recipe = (g.recipe + 1) % len(here)
+	case in.Pressed(engine.KeyEnter) || in.Pressed(' '):
+		g.craft(here[g.recipe])
+	}
+
+	// The list scrolls to keep the line the keys are on in view.
+	_, _, h := g.listBox(g.cols, g.rows)
+	lines := h - 2
+	g.listTop = min(g.listTop, g.recipe)
+	g.listTop = max(g.listTop, g.recipe-lines+1)
 }
 
 // bagAt returns the row and the column of the bag a cell of the frame is in, if it is in one.
@@ -138,8 +216,23 @@ func (g *Game) bagAt(x, y int) (row, col int, ok bool) {
 	return 0, 0, false
 }
 
+// listAt returns the line of the list of what can be made a cell of the frame is on, if
+// it is on one.
+func (g *Game) listAt(x, y int) (int, bool) {
+	if !g.survival {
+		return 0, false
+	}
+	lx, ly, h := g.listBox(g.cols, g.rows)
+	i := g.listTop + y - (ly + 1)
+	if x <= lx || x >= lx+listWidth-1 || y <= ly || y >= ly+h-1 || i >= len(g.makeable()) {
+		return 0, false
+	}
+	return i, true
+}
+
 // pickCell takes what is in a cell of the bag in hand, or puts down what is in hand there:
 // on the same kind, as many as fit, and in the place of another kind, which is taken up.
+// Tools are one to a slot, so a tool put on another changes places with it.
 func (g *Game) pickCell(row, col int) {
 	slot, item := g.bagCell(row, col)
 	if slot < 0 {
@@ -151,8 +244,8 @@ func (g *Game) pickCell(row, col int) {
 		return
 	}
 	s := &g.items[slot]
-	if g.survival && g.hand.Count > 0 && s.Item == g.hand.Item {
-		put := min(g.hand.Count, world.StackSize-s.Count)
+	if size := s.Item.StackSize(); g.survival && g.hand.Count > 0 && s.Item == g.hand.Item && size > 1 {
+		put := min(g.hand.Count, size-s.Count)
 		s.Count += put
 		if g.hand.Count -= put; g.hand.Count == 0 {
 			g.hand = world.Stack{}
@@ -187,22 +280,86 @@ func (g *Game) drawBag(fb *engine.FrameBuffer, c *engine.Canvas) {
 		under = y + barHeight
 	}
 	row, col := g.cursor/hotbarSlots, g.cursor%hotbarSlots
-	widget.Panel{Style: hudPick}.Draw(fb, x0+col*slotPitch, g.bagRowY(top, row), slotPitch+1, barHeight)
+	if !g.inList {
+		widget.Panel{Style: hudPick}.Draw(fb, x0+col*slotPitch, g.bagRowY(top, row), slotPitch+1, barHeight)
+	}
 
-	// What is in hand, or else the name of what the keys are on.
+	// What is in hand, or what the line of the list the keys are on needs, or else the
+	// name of what the keys are on.
 	text := ""
-	if g.hand.Count > 0 {
+	switch {
+	case g.hand.Count > 0:
 		text = " holding " + g.hand.Item.Name() + " "
 		if g.survival && g.hand.Count > 1 {
 			text = " holding " + strconv.Itoa(g.hand.Count) + " " + g.hand.Item.Name() + " "
 		}
-	} else if slot, item := g.bagCell(row, col); slot >= 0 && g.items[slot].Count > 0 {
-		text = " " + g.items[slot].Item.Name() + " "
-	} else if item != world.NoItem {
-		text = " " + item.Name() + " "
+	case g.inList:
+		if here := g.makeable(); g.recipe < len(here) {
+			makes, from := here[g.recipe].label()
+			text = " " + makes + " from " + from + " "
+		}
+	default:
+		if slot, item := g.bagCell(row, col); slot >= 0 && g.items[slot].Count > 0 {
+			text = " " + g.items[slot].Item.Name() + " "
+		} else if item != world.NoItem {
+			text = " " + item.Name() + " "
+		}
 	}
 	if text != "" {
-		widget.Label{Text: text, Align: widget.Center, Style: hudPick}.Draw(fb, x0, under, barWidth)
+		widget.Label{Text: text, Align: widget.Center, Style: hudPick}.Draw(fb, x0, under, g.bagWidth())
 	}
-	widget.Label{Text: bagHint, Align: widget.Center, Style: hudText}.Draw(fb, 0, under+1, fb.Width())
+	hint := bagHint
+	if g.survival {
+		hint = makeHint
+		g.drawList(fb)
+	}
+	widget.Label{Text: hint, Align: widget.Center, Style: hudText}.Draw(fb, 0, under+1, fb.Width())
+}
+
+// drawList draws the list of what can be made where the player stands, dim where there
+// is not enough for it. What a line needs is shown under the bag while it is picked.
+func (g *Game) drawList(fb *engine.FrameBuffer) {
+	x, y, h := g.listBox(fb.Width(), fb.Height())
+	bench, kiln := g.near(world.Workbench), g.near(world.Kiln)
+	title := "make by hand"
+	switch {
+	case bench && kiln:
+		title = "make: bench, kiln"
+	case bench:
+		title = "make: workbench"
+	case kiln:
+		title = "make: kiln"
+	}
+	widget.Panel{Title: title, Style: hudFrame, Fill: hudFill}.Draw(fb, x, y, listWidth, h)
+
+	here, lines := g.makeable(), h-2
+	top := min(g.listTop, max(len(here)-lines, 0))
+	for line := range min(lines, len(here)-top) {
+		i, row := top+line, y+1+line
+		makes, _ := here[i].label()
+		style := hudText
+		if !g.affords(here[i]) {
+			style = hudDim
+		}
+		if g.inList && i == g.recipe {
+			marker := hudPick
+			marker.Character = '▶'
+			fb.Set(x+1, row, marker)
+			if style == hudText {
+				style = hudPick
+			}
+		}
+		widget.Label{Text: makes, Style: style}.Draw(fb, x+3, row, listWidth-5)
+	}
+
+	// Marks on the frame where there is more of the list than it shows.
+	more := hudFrame
+	if top > 0 {
+		more.Character = '▲'
+		fb.Set(x+listWidth-3, y, more)
+	}
+	if top+lines < len(here) {
+		more.Character = '▼'
+		fb.Set(x+listWidth-3, y+h-1, more)
+	}
 }

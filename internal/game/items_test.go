@@ -10,11 +10,11 @@ func TestThingsPickedUpStackAndFillTheHotbarFirst(t *testing.T) {
 	var inv inventory
 	dirt, sand := world.Dirt.Item(), world.Sand.Item()
 
-	if left := inv.add(dirt, 10); left != 0 || inv[0] != (world.Stack{Item: dirt, Count: 10}) {
+	if left := inv.add(world.Stack{Item: dirt, Count: 10}); left != 0 || inv[0] != (world.Stack{Item: dirt, Count: 10}) {
 		t.Fatalf("10 dirt: %d left, slot 0 holds %+v", left, inv[0])
 	}
-	inv.add(sand, 1)
-	inv.add(dirt, 60) // 54 more fit with the first 10, and 6 go in the next empty slot
+	inv.add(world.Stack{Item: sand, Count: 1})
+	inv.add(world.Stack{Item: dirt, Count: 60}) // 54 more fit with the first 10, and 6 go in the next empty slot
 	if inv[0].Count != world.StackSize || inv[1] != (world.Stack{Item: sand, Count: 1}) || inv[2] != (world.Stack{Item: dirt, Count: 6}) {
 		t.Errorf("after 70 dirt and a sand the first slots hold %+v", inv[:3])
 	}
@@ -27,10 +27,10 @@ func TestWhatDoesNotFitIsLeftOver(t *testing.T) {
 	}
 	inv[slots-1].Count = 60
 
-	if left := inv.add(world.Stone.Item(), 10); left != 6 || inv[slots-1].Count != world.StackSize {
+	if left := inv.add(world.Stack{Item: world.Stone.Item(), Count: 10}); left != 6 || inv[slots-1].Count != world.StackSize {
 		t.Errorf("10 stone into room for 4: %d left, the last slot holds %d", left, inv[slots-1].Count)
 	}
-	if left := inv.add(world.Dirt.Item(), 3); left != 3 {
+	if left := inv.add(world.Stack{Item: world.Dirt.Item(), Count: 3}); left != 3 {
 		t.Errorf("3 dirt into a full inventory: %d left, wanted all 3", left)
 	}
 }

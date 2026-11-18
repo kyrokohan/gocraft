@@ -1,6 +1,10 @@
 package game
 
-import "github.com/kyrokohan/gocraft/internal/world"
+import (
+	"slices"
+
+	"github.com/kyrokohan/gocraft/internal/world"
+)
 
 // What the player carries: the hotbar, on the keys 1 to 9, and the pack behind it.
 const (
@@ -26,25 +30,53 @@ func creativeStart() (inv inventory) {
 	return inv
 }
 
-// add puts n of an item into the inventory, and returns how many did not fit. They go
+// add puts a stack into the inventory, and returns how many of it did not fit. They go
 // on the stacks of that item that have room first, and then into the first empty slots,
-// the hotbar before the pack, so what is picked up is at hand.
-func (inv *inventory) add(item world.Item, n int) (left int) {
+// the hotbar before the pack, so what is picked up is at hand. A tool is one to a slot,
+// and keeps its wear.
+func (inv *inventory) add(s world.Stack) (left int) {
+	n, size := s.Count, s.Item.StackSize()
 	for i := range inv {
-		if s := &inv[i]; s.Item == item && s.Count < world.StackSize {
-			put := min(n, world.StackSize-s.Count)
-			s.Count += put
+		if in := &inv[i]; in.Item == s.Item && in.Count < size {
+			put := min(n, size-in.Count)
+			in.Count += put
 			n -= put
 		}
 	}
 	for i := range inv {
-		if s := &inv[i]; n > 0 && s.Count == 0 {
-			put := min(n, world.StackSize)
-			*s = world.Stack{Item: item, Count: put}
+		if in := &inv[i]; n > 0 && in.Count == 0 {
+			put := min(n, size)
+			*in = world.Stack{Item: s.Item, Count: put, Wear: s.Wear}
 			n -= put
 		}
 	}
 	return n
+}
+
+// count returns how many the inventory holds of any of some items.
+func (inv *inventory) count(items []world.Item) (n int) {
+	for _, s := range inv {
+		if slices.Contains(items, s.Item) {
+			n += s.Count
+		}
+	}
+	return n
+}
+
+// use takes n of some items out of the inventory, of the first item of them that it has
+// first, and from the pack before the hotbar. It has them: count says so.
+func (inv *inventory) use(items []world.Item, n int) {
+	for _, item := range items {
+		for i := len(inv) - 1; i >= 0 && n > 0; i-- {
+			if s := &inv[i]; s.Item == item {
+				took := min(n, s.Count)
+				if s.Count -= took; s.Count == 0 {
+					*s = world.Stack{}
+				}
+				n -= took
+			}
+		}
+	}
 }
 
 // takeOne takes one thing from a slot.

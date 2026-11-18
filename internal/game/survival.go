@@ -107,7 +107,7 @@ func (g *Game) eat() bool {
 
 // leave puts down what a block broken in survival leaves, in the middle of its cell.
 func (g *Game) leave(x, y, z int, b world.Block) {
-	item, n := b.Drop()
+	item, n := b.DropAt(x, y, z)
 	if !g.survival || n == 0 {
 		return
 	}

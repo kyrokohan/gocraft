@@ -132,8 +132,16 @@ func (g *Game) drawRow(fb *engine.FrameBuffer, c *engine.Canvas, x, y int, row [
 	// under the row are rubbed out first, or they would be put down with them.
 	c.FillRect(x, 2*y, w, 2*barHeight, engine.Color{})
 	for i, s := range row {
-		if s.Count > 0 {
-			g.set.Icons[s.Item.Icon()].DrawScaled(c, x+1+i*slotPitch, 2*(y+1), slotSize, slotSize)
+		if s.Count == 0 {
+			continue
+		}
+		px, py := x+1+i*slotPitch, 2*(y+1)
+		g.set.Icons[s.Item.Icon()].DrawScaled(c, px, py, slotSize, slotSize)
+		if uses := s.Item.Uses(); s.Wear > 0 && uses > 0 {
+			// A worn tool has a bar along the bottom of its picture of how much is left.
+			left := 1 - float64(s.Wear)/float64(uses)
+			c.FillRect(px, py+slotSize-1, slotSize, 1, wearGround)
+			c.FillRect(px, py+slotSize-1, max(int(math.Round(left*slotSize)), 1), 1, wearColor(left))
 		}
 	}
 	c.ComposeRect(x, 2*y, w, 2*barHeight)
@@ -147,6 +155,15 @@ func (g *Game) drawRow(fb *engine.FrameBuffer, c *engine.Canvas, x, y int, row [
 			widget.Label{Text: n, Style: hudText}.Draw(fb, x+(i+1)*slotPitch-len(n), y+barHeight-2, len(n))
 		}
 	}
+}
+
+// wearGround is under the bar of a worn tool.
+var wearGround = engine.RGB(30, 30, 30)
+
+// wearColor is the color of the bar of a worn tool with a part of it left: green when it
+// is new, and red as it is worn out.
+func wearColor(left float64) engine.Color {
+	return engine.RGB(uint8(230*(1-left)+20), uint8(200*left+30), 40)
 }
 
 // The colors of the player's health, food and air.

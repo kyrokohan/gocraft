@@ -59,8 +59,10 @@ func mustFrame(t *testing.T) *engine.FrameBuffer {
 
 func TestInSurvivalABlockTakesItsTimeToDig(t *testing.T) {
 	g := digging(t, world.Stone)
+	g.items[0] = world.Stack{Item: world.WoodPick, Count: 1}
+	time, _ := world.Stone.DigWith(world.WoodPick)
 
-	hold(t, g, seconds(world.Stone.Info().Dig)-3, 'q')
+	hold(t, g, seconds(time)-3, 'q')
 	if got := g.world.At(20, 5, 21); got != world.Stone {
 		t.Fatalf("the stone is %v before its time was up", got.Info().Name)
 	}
@@ -354,6 +356,7 @@ func TestSurvivalIsSavedWithItsThingsAndBody(t *testing.T) {
 	startNew(t, g, true)
 	g.items[0] = world.Stack{Item: world.Berries, Count: 7}
 	g.items[20] = world.Stack{Item: world.Cobble.Item(), Count: 64}
+	g.items[21] = world.Stack{Item: world.StonePick, Count: 1, Wear: 40}
 	g.health, g.food, g.air = 12, 9, 3
 	g.drops = []drop{{Drop: world.Drop{Stack: world.Stack{Item: world.Sand.Item(), Count: 2}, Pos: g.player.Pos, Age: 4}}}
 	if err := g.Save(); err != nil {

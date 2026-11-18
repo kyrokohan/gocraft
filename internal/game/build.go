@@ -160,7 +160,7 @@ func (g *Game) dig(digging bool, dt float64) bool {
 		return false
 	}
 	g.digging += dt
-	if g.digging < max(g.target.Block.Info().Dig, minDig) {
+	if seconds, _ := g.digTime(g.target.Block); g.digging < seconds {
 		return false
 	}
 	g.digging = 0
@@ -168,10 +168,29 @@ func (g *Game) dig(digging bool, dt float64) bool {
 	return true
 }
 
+// digTime returns how many seconds a block takes to dig in survival with what is in hand,
+// and whether it leaves anything when it breaks.
+func (g *Game) digTime(b world.Block) (seconds float64, yields bool) {
+	seconds, yields = b.DigWith(g.items[g.selected].Item)
+	return max(seconds, minDig), yields
+}
+
+// wear wears the tool in hand by a block broken, which is gone once it is worn out. A
+// block that breaks at once, as a plant does, does not wear it.
+func (g *Game) wear(b world.Block) {
+	s := &g.items[g.selected]
+	if uses := s.Item.Uses(); uses > 0 && b.Info().Dig > 0 {
+		if s.Wear++; s.Wear >= uses {
+			*s = world.Stack{}
+		}
+	}
+}
+
 // build handles the keys and the mouse that pick, break and place blocks. In creative a
 // block breaks at once, and a held key or button repeats, so holding Q digs on. In
-// survival a block breaks once it has been dug for its time, and leaves what it is
-// made of. Holding E, or the right button, builds on.
+// survival a block breaks once it has been dug for its time, which the right tool makes
+// shorter, and leaves what it is made of, if it was dug with a tool it needs. Holding E,
+// or the right button, builds on.
 func (g *Game) build(in *engine.Input, dt float64) {
 	for i := range hotbarSlots {
 		if in.Pressed(engine.Key('1' + rune(i))) {
@@ -218,7 +237,12 @@ func (g *Game) build(in *engine.Input, dt float64) {
 			return
 		}
 		g.world.Set(t.X, t.Y, t.Z, world.Air)
-		g.leave(t.X, t.Y, t.Z, t.Block)
+		if _, yields := g.digTime(t.Block); yields {
+			g.leave(t.X, t.Y, t.Z, t.Block)
+		}
+		if g.survival {
+			g.wear(t.Block)
+		}
 		if above := g.world.At(t.X, t.Y+1, t.Z); above.Info().Plant {
 			g.world.Set(t.X, t.Y+1, t.Z, world.Air) // a plant goes with the ground it stood on
 			g.leave(t.X, t.Y+1, t.Z, above)

@@ -115,8 +115,11 @@ type Game struct {
 	digAt    [3]int  // the block being dug, in survival
 	digging  float64 // for how long it has been dug
 
-	hand   world.Stack // what is held while things are moved in the bag
-	cursor int         // the slot of the bag the keys are on
+	hand    world.Stack // what is held while things are moved in the bag
+	cursor  int         // the slot of the bag the keys are on
+	inList  bool        // the keys are on the list of what can be made, and not on a slot
+	recipe  int         // the line of that list the keys are on
+	listTop int         // the first line of it shown, when it is longer than its panel
 
 	cols, rows     int        // the size of the frame in cells, once glonk has said
 	pointing       bool       // the pointer aims, and not the middle of the view
@@ -451,10 +454,8 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	// depth the rays stored hides it where a block is nearer.
 	cam := g.camera()
 	if g.digging > 0 && g.aimed {
-		g.rend.Crack = render.Crack{
-			X: g.target.X, Y: g.target.Y, Z: g.target.Z,
-			Part: g.digging / max(g.target.Block.Info().Dig, minDig),
-		}
+		seconds, _ := g.digTime(g.target.Block)
+		g.rend.Crack = render.Crack{X: g.target.X, Y: g.target.Y, Z: g.target.Z, Part: g.digging / seconds}
 	}
 	g.rend.Draw(c, g.world, cam, g.sky)
 	g.drawThings(c, cam)
