@@ -108,6 +108,7 @@ type Renderer struct {
 	tiles    *[tile.Count]assets.Texture
 	faceTile [256][6]tile.ID  // the tile on each face of each kind of block
 	plant    [256]bool        // the kinds of block that are plants: two crossed pictures, and not a cube
+	mat      [256]bool        // the kinds of block that are mats: one picture lying flat
 	glow     [256]world.Light // the light each kind of block gives off
 }
 
@@ -145,6 +146,7 @@ func New(set *assets.Set) *Renderer {
 			world.FaceZNeg: info.Side, world.FaceZPos: info.Side,
 		}
 		r.plant[b] = info.Plant
+		r.mat[b] = info.Mat
 		r.glow[b] = world.Light(min(info.Glow, world.MaxLight))
 	}
 	return r
@@ -184,6 +186,26 @@ func (r *Renderer) cross(hit world.Hit, eye, d geometry.Vector3, level int) (t f
 		}
 	}
 	return t, pixel, ok
+}
+
+// matHeight is how far above the floor of its cell a mat lies, in blocks.
+const matHeight = 1.0 / 16
+
+// flat finds where a ray from eye along d meets a mat in the cell of hit: its top tile,
+// lying a little above the floor of the cell, the way a block's top is laid. ok is false
+// if the ray misses it, or meets it at a hole.
+func (r *Renderer) flat(hit world.Hit, eye, d geometry.Vector3, level int) (t float64, pixel uint32, ok bool) {
+	if d.Y == 0 {
+		return 0, 0, false // the ray runs along the mat, edge on
+	}
+	t = (float64(hit.Y) + matHeight - eye.Y) / d.Y
+	u, v := eye.X+d.X*t-float64(hit.X), eye.Z+d.Z*t-float64(hit.Z)
+	if !(t > 0) || u < 0 || u >= 1 || v < 0 || v >= 1 {
+		return 0, 0, false
+	}
+	side := assets.Side(level)
+	pixel = r.tiles[r.faceTile[hit.Block][world.FaceYPos]][level][int(v*float64(side))*side+int(u*float64(side))]
+	return t, pixel, pixel>>24 != 0
 }
 
 // onFace returns where on the face of a block a ray met it at the point p: u across
@@ -298,6 +320,14 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 						break
 					}
 					continue // through the holes of the plant
+				}
+				if r.mat[hit.Block] {
+					if at, p, ok := r.flat(hit, eye, d, levelAt(hit.T/unit)); ok {
+						pixel, depth, found = p, at, true
+						light = sky.shade[w.LightAt(hit.X, hit.Y, hit.Z)].lit(plantLight)
+						break
+					}
+					continue // over it, or through its holes
 				}
 				fu, fv := onFace(hit, eye.Add(d.Scale(hit.T)))
 				level := levelAt(hit.T / unit)

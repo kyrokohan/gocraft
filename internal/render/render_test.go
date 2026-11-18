@@ -376,6 +376,44 @@ func TestAPlantShowsItsPictureAndWhatIsBehindIt(t *testing.T) {
 	}
 }
 
+// A mat is one picture lying a little above the floor of its cell: it is seen from above,
+// lies over the ground, and from beside it hardly shows.
+func TestAMatLiesFlatOnTheGround(t *testing.T) {
+	w := world.New()
+	for z := 8; z < 17; z++ {
+		for x := 8; x < 17; x++ {
+			w.Set(x, 5, z, world.Stone)
+		}
+	}
+	w.Set(12, 6, 12, world.Bedroll)
+	rend := newRenderer(t)
+	greens := func(c *engine.Canvas) (n int) {
+		for y := range c.Height() {
+			for x := range c.Width() {
+				if r, g, b := c.At(x, y).RGB(); int(g) > int(r)+25 && int(g) > int(b)+25 {
+					n++
+				}
+			}
+		}
+		return n
+	}
+
+	above := newCanvas(t, 80, 40)
+	cam := facing
+	cam.Position, cam.Pitch = geometry.Vector3{X: 12.5, Y: 9, Z: 10}, -0.9
+	rend.Draw(above, w, cam, noon)
+	if n := greens(above); n < 30 {
+		t.Errorf("from above, %d pixels are the green of the bedroll's blanket", n)
+	}
+
+	beside := newCanvas(t, 80, 40)
+	cam.Position, cam.Pitch = geometry.Vector3{X: 12.5, Y: 6.0625, Z: 9.5}, 0
+	rend.Draw(beside, w, cam, noon)
+	if n := greens(beside); n > 0 {
+		t.Errorf("edge on, %d pixels are the green of the bedroll's blanket, wanted none", n)
+	}
+}
+
 func TestAPlantIsSeenFromEverySide(t *testing.T) {
 	w := world.New()
 	w.Set(12, 12, 12, world.RedFlower)
