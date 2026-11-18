@@ -99,7 +99,7 @@ var infos = [256]Info{
 	CoalOre:     cube("coal ore", tile.CoalOre),
 	CopperOre:   cube("copper ore", tile.CopperOre),
 	IronOre:     cube("iron ore", tile.IronOre),
-	CrystalOre:  glowing(cube("crystal ore", tile.CrystalOre), 6),
+	CrystalOre:  glowing(cube("crystal ore", tile.CrystalOre), 8),
 	PineLog:     solid("pine log", tile.PineLogTop, tile.PineLogSide, tile.PineLogTop),
 	PineNeedles: leaves("pine needles", tile.PineNeedles),
 	PaleLog:     solid("pale log", tile.PaleLogTop, tile.PaleLogSide, tile.PaleLogTop),

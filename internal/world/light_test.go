@@ -289,8 +289,8 @@ func TestCrystalOreGlowsFaintly(t *testing.T) {
 	w := New()
 	room(w, 10, 20, 10, Stone)
 	w.Set(10, 21, 10, CrystalOre) // the roof of the room
-	if got := w.LightAt(10, 20, 10).Block(); got != 5 {
-		t.Errorf("under crystal ore in a shut room the light is %d, wanted 5", got)
+	if got := w.LightAt(10, 20, 10).Block(); got != 7 {
+		t.Errorf("under crystal ore in a shut room the light is %d, wanted 7", got)
 	}
 }
 

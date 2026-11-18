@@ -44,7 +44,7 @@ var (
 
 // darkest is how bright the darkest place is drawn, as a part of full light: dark, but
 // not black, so that a cave can still be found the way out of.
-const darkest = 0.09
+const darkest = 0.12
 
 // starGrid is how many cells of the sky's star field there are along each way from its
 // middle, in a direction one long. A cell is about as wide as a pixel of the view.
