@@ -4,7 +4,7 @@ A block-building game that runs in the terminal, built on [glonk](https://glonk.
 
 Walk a world with no end, made from a seed: seas and shores, plains in flower, forest, desert, snowy tundra and bare crags, with caves and ores under them, drifting clouds over them and mossbacks grazing on the grass. The sun crosses the sky and sets, the stars come out, and the caves are dark until you bring a torch. Play it in survival, where you dig what you need, carry it, eat and stay alive, or in creative, with every block and nothing to fear. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art is original and drawn by code in this repo.
 
-> Crafting, tools and more creatures are still to come. See [Not in yet](#not-in-yet).
+> More creatures, and more to do with them, are still to come. See [Not in yet](#not-in-yet).
 
 ## Run
 
@@ -29,7 +29,7 @@ Requires Go 1.26 or newer.
 | F | flying on and off, in creative |
 | Q / E | break / place the block aimed at (hold to go on); E with food in hand eats it |
 | 1 to 9, Tab | pick a slot of the hotbar; the next one |
-| I | your things: move them between the hotbar and the pack (in creative: every block) |
+| I | your things: move them between the hotbar and the pack, and make things from them (in creative: every block) |
 | T | move the clock on six hours |
 | F3 | frame numbers: where the time of a frame goes and how much is sent, the seed, the day and the hour |
 | Esc | pause menu, with these keys on it |
@@ -41,7 +41,7 @@ Requires Go 1.26 or newer.
 | Left click / right click | break / place (hold still to go on) |
 | Wheel | pick a slot |
 | Click a hotbar slot | pick that slot |
-| Click in the bag (I) | take what is in a slot, or put down what you hold |
+| Click in the bag (I) | take what is in a slot, or put down what you hold; make a line of the list |
 
 - **Whichever you used last aims.** Move or click the mouse and the pointer aims. Press an arrow key and the middle of the view aims again, with its crosshair.
 - **Drag to look.** A terminal reports the pointer in cells and cannot lock it, so the view cannot follow the mouse as it does in a window. Holding the left button and dragging turns it, a cell at a time; a press let go where it is stays a click. The arrows turn it too.
@@ -51,8 +51,10 @@ Requires Go 1.26 or newer.
 
 **New world** asks how the world is played, and the world keeps that.
 
-- **Survival.** You start with nothing. A block takes time to dig, from a fifth of a second for leaves to two seconds for stone and more for ore, and cracks show as you dig. Let go, or look away, and it starts again. A broken block drops as a small block of itself (stone as cobble, grass as dirt, a bush as berries; leaves and grass tufts crumble away), which you pick up by walking near. You carry 9 slots on the hotbar and 27 in the pack, 64 of a kind to a slot, and placing a block uses one up.
-- **Your body.** Health, food and air show over the hotbar. A fall of more than three blocks hurts, a point for each block more, but not into water. Under water your air lasts 15 seconds, then you drown, slowly. Food goes down a point every 30 seconds; while it is 18 or more of 20 you heal, and at none hunger hurts, though it cannot kill. Berries from bushes are food.
+- **Survival.** You start with nothing. A block takes time to dig, from a fifth of a second for leaves to two seconds for stone with a pick and more for ore, and cracks show as you dig. Let go, or look away, and it starts again. A broken block drops as a small block of itself (stone as cobble, grass as dirt, a bush as berries; leaves and grass tufts crumble away), which you pick up by walking near. You carry 9 slots on the hotbar and 27 in the pack, 64 of a kind to a slot, and placing a block uses one up.
+- **Your body.** Health, food and air show over the hotbar. A fall of more than three blocks hurts, a point for each block more, but not into water. Under water your air lasts 15 seconds, then you drown, slowly. Food goes down a point every 30 seconds; while it is 18 or more of 20 you heal, and at none hunger hurts, though it cannot kill. Berries from bushes, fruit from now and then a leaf, and berry loaves from a kiln are food.
+- **Making things.** The I screen lists what you can make, beside your slots: Right from the last column goes into the list, and Enter or a click makes one. A line is dim while you lack something for it, and what a line needs shows under the slots. By hand you make planks from a log, sticks from planks, a workbench from planks and torches from a stick and coal. Stand within four blocks of a workbench to make tools and a kiln. At a kiln, ore makes a copper or iron bar, sand makes glass, clay makes brick and berries make a loaf, each for a piece of fuel: planks, a log or coal. A kiln works at once.
+- **Tools.** A pick, an axe and a shovel in wood, stone, copper and iron. The right tool digs its blocks two to six times faster: a pick stone and ore, an axe wood, a shovel earth, sand and snow. Some blocks leave nothing without a pick good enough: stone and coal need any pick, copper and iron ore a stone one, crystal a copper one. Without it they take three times as long and crumble. A tool wears by a block broken, a bar on its slot shows what is left, and it is gone when it is worn out. Tools are one to a slot.
 - **Fainting.** At no health you faint, and wake where a new player starts, whole again and with everything you carried.
 - **Creative.** Every block on the I screen, as many as you want, broken at once and dropping nothing. Nothing hurts and you can fly.
 - These numbers are first guesses, to be tuned.
@@ -112,7 +114,7 @@ glonk also runs the loop and the terminal, reads the keys and the mouse, draws t
 
 ## Pictures
 
-`internal/assets/img` holds the three pictures the game uses: a strip of 42 tiles (the blocks', the berries' and the cracks'), the title, and the mossback's four tiles. All are drawn by `cmd/genassets` from a fixed hash, so they come out the same every time:
+`internal/assets/img` holds the three pictures the game uses: a strip of 65 tiles (the blocks', the cracks', and the pictures of the things that are not blocks: tools, bars, food and the rest), the title, and the mossback's four tiles. All are drawn by `cmd/genassets` from a fixed hash, so they come out the same every time:
 
 ```
 make assets                                   # draw them again
@@ -134,7 +136,7 @@ The race detector needs cgo. Where there is no C compiler, run `make check RACE=
 |---|---|
 | `internal/world` | the blocks round the player in a sliding window and their light, the land a seed makes, rays through the grid, items, saved worlds |
 | `internal/render` | the blocks drawn by rays into a glonk `Canvas`, the sky at each hour, and the clouds, creatures and things on the ground drawn into it as glonk meshes |
-| `internal/game` | the game glonk runs: the player and its body, the creatures, digging and building, what is carried, the mouse, the HUD, the bag, the title and pause menus |
+| `internal/game` | the game glonk runs: the player and its body, the creatures, digging and building, what is carried and what is made from it, the mouse, the HUD, the bag, the title and pause menus |
 | `internal/assets` | the pictures, read once at start-up, each block tile in five sizes |
 | `internal/tile` | the names of the tiles in the strip |
 | `cmd/genassets` | draws the pictures |
@@ -146,6 +148,6 @@ gocraft uses glonk v0.12.0.
 - Flowing water, and shadows cast to the side by the sun: its light falls straight down.
 - Torches on walls: a torch stands on the ground, as a plant does.
 - More kinds of creature, creatures in the save, anything to do to them.
-- Crafting and tools: in survival a torch, and anything not found in the world, cannot be had yet.
-- The I screen needs a terminal about 25 rows tall in creative, and 21 in survival.
+- A kiln that takes its time, and crates to keep things in.
+- The I screen needs a terminal about 25 rows tall in creative, and 21 rows tall and 90 columns wide in survival.
 - A view that follows the mouse without a button held, and sound.
