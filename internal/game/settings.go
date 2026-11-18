@@ -23,6 +23,9 @@ type Settings struct {
 	// FieldOfView is how much of the world the view takes in, from its top to its bottom,
 	// in degrees.
 	FieldOfView int `json:"fieldOfView"`
+
+	// Volume is how loud the sounds are, from 0, none, to 100, as they were made.
+	Volume int `json:"volume"`
 }
 
 // The values each setting can take, and the ones a player starts with.
@@ -30,8 +33,9 @@ var (
 	mouseSpeeds   = []float64{0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3}
 	viewDistances = []int{32, 48, 64}
 	fieldsOfView  = []int{50, 60, 70, 80, 90}
+	volumes       = []int{0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
 
-	defaultSettings = Settings{MouseSpeed: 1.5, ViewDistance: 64, FieldOfView: 60}
+	defaultSettings = Settings{MouseSpeed: 1.5, ViewDistance: 64, FieldOfView: 60, Volume: 70}
 )
 
 // nearest returns the value of a list nearest v.
@@ -54,7 +58,13 @@ func (s Settings) fit() Settings {
 	s.MouseSpeed = nearest(mouseSpeeds, s.MouseSpeed)
 	s.ViewDistance = nearest(viewDistances, s.ViewDistance)
 	s.FieldOfView = nearest(fieldsOfView, s.FieldOfView)
+	s.Volume = nearest(volumes, s.Volume)
 	return s
+}
+
+// volume is the volume from 0 to 1, as the mixer takes it.
+func (s Settings) volume() float64 {
+	return float64(s.Volume) / 100
 }
 
 // fov is the field of view in radians, as a camera takes it.
@@ -107,11 +117,13 @@ func (s *Settings) step(i, by int) {
 		s.ViewDistance = viewDistances[turn(len(viewDistances), slices.Index(viewDistances, s.ViewDistance))]
 	case 2:
 		s.FieldOfView = fieldsOfView[turn(len(fieldsOfView), slices.Index(fieldsOfView, s.FieldOfView))]
+	case 3:
+		s.Volume = volumes[turn(len(volumes), slices.Index(volumes, s.Volume))]
 	}
 }
 
 // settingLines is how many lines of the settings screen are settings: the rest go back.
-const settingLines = 3
+const settingLines = 4
 
 // lines are the lines of the settings screen.
 func (s Settings) lines() []string {
@@ -120,6 +132,7 @@ func (s Settings) lines() []string {
 		line("Mouse speed", strconv.FormatFloat(s.MouseSpeed, 'f', -1, 64)),
 		line("View distance", strconv.Itoa(s.ViewDistance)+" blocks"),
 		line("Field of view", strconv.Itoa(s.FieldOfView)+"°"),
+		line("Volume", strconv.Itoa(s.Volume)+"%"),
 		itemBack,
 	}
 }

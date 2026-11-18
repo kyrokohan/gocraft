@@ -253,12 +253,13 @@ func TestSettingsChangeAreKeptAndAreUsed(t *testing.T) {
 		engine.KeyRight,                // mouse speed 1.5 to 2
 		engine.KeyDown, engine.KeyLeft, // view distance 64 to 48
 		engine.KeyDown, engine.KeyLeft, // field of view 60 to 50
+		engine.KeyDown, engine.KeyLeft, // volume 70 to 60
 		engine.KeyDown, engine.KeyEnter, // Back
 	} {
 		press(g, key)
 	}
 
-	want := Settings{MouseSpeed: 2, ViewDistance: 48, FieldOfView: 50}
+	want := Settings{MouseSpeed: 2, ViewDistance: 48, FieldOfView: 50, Volume: 60}
 	if g.settings != want || g.screen != onTitle {
 		t.Fatalf("settings %+v on screen %d, wanted %+v and the title", g.settings, g.screen, want)
 	}
@@ -298,19 +299,20 @@ func TestSettingsReadFromAFileAreOnesTheGameHas(t *testing.T) {
 	}{
 		{"none", filepath.Join(dir, "none.json"), defaultSettings},
 		{"not JSON", write("bad.json", "{"), defaultSettings},
-		{"near ones", write("near.json", `{"mouseSpeed": 1.3, "viewDistance": 1000, "fieldOfView": -5}`), Settings{1.25, 64, 50}},
-		{"some", write("some.json", `{"viewDistance": 32}`), Settings{1.5, 32, 60}},
+		{"near ones", write("near.json", `{"mouseSpeed": 1.3, "viewDistance": 1000, "fieldOfView": -5, "volume": 77}`), Settings{1.25, 64, 50, 80}},
+		{"some", write("some.json", `{"viewDistance": 32}`), Settings{1.5, 32, 60, 70}},
 	} {
 		if got := loadSettings(tc.path); got != tc.want {
 			t.Errorf("%s: %+v, wanted %+v", tc.name, got, tc.want)
 		}
 	}
 
-	s := Settings{MouseSpeed: 3, ViewDistance: 64, FieldOfView: 50}
+	s := Settings{MouseSpeed: 3, ViewDistance: 64, FieldOfView: 50, Volume: 0}
 	s.step(0, 1)
 	s.step(1, 1)
 	s.step(2, -1)
-	if want := (Settings{MouseSpeed: 0.5, ViewDistance: 32, FieldOfView: 90}); s != want {
+	s.step(3, -1)
+	if want := (Settings{MouseSpeed: 0.5, ViewDistance: 32, FieldOfView: 90, Volume: 100}); s != want {
 		t.Errorf("past the ends: %+v, wanted %+v", s, want)
 	}
 }

@@ -5,6 +5,7 @@ import (
 
 	"glonk.dev/engine"
 
+	"github.com/kyrokohan/gocraft/internal/sound"
 	"github.com/kyrokohan/gocraft/internal/world"
 )
 
@@ -164,6 +165,7 @@ func (g *Game) dig(digging bool, dt float64) bool {
 	if !digging || !g.aimed {
 		return false
 	}
+	g.digSound(g.digging, g.digging+dt)
 	g.digging += dt
 	if seconds, _ := g.digTime(g.target.Block); g.digging < seconds {
 		return false
@@ -266,6 +268,7 @@ func (g *Game) build(in *engine.Input, dt float64) {
 			return
 		}
 		g.world.Set(t.X, t.Y, t.Z, world.Air)
+		g.ears.Play(sound.Break(materialOf(t.Block)), cellMid(t.X, t.Y, t.Z), 1)
 		if _, yields := g.digTime(t.Block); yields {
 			g.leave(t.X, t.Y, t.Z, t.Block)
 		}
@@ -296,6 +299,7 @@ func (g *Game) build(in *engine.Input, dt float64) {
 			return
 		}
 		g.world.Set(x, y, z, b)
+		g.ears.Play(sound.Place(materialOf(b)), cellMid(x, y, z), 0.9)
 		if g.survival {
 			g.items.takeOne(g.selected)
 		}

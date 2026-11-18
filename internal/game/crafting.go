@@ -8,6 +8,7 @@ import (
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
 
+	"github.com/kyrokohan/gocraft/internal/sound"
 	"github.com/kyrokohan/gocraft/internal/world"
 )
 
@@ -136,6 +137,7 @@ func (g *Game) craft(r recipe) bool {
 		g.items.use(n.items, n.n)
 	}
 	made := world.Stack{Item: r.makes, Count: r.n}
+	g.ears.PlayNear(sound.Pickup, 0.6)
 	if left := g.items.add(made); left > 0 {
 		made.Count = left
 		g.putDown(made)

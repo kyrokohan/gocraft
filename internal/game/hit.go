@@ -6,6 +6,7 @@ import (
 	"glonk.dev/geometry"
 
 	"github.com/kyrokohan/gocraft/internal/render"
+	"github.com/kyrokohan/gocraft/internal/sound"
 	"github.com/kyrokohan/gocraft/internal/world"
 )
 
@@ -85,8 +86,10 @@ func (g *Game) strike(p prey) {
 	from := g.player.Pos
 	if p.gloam {
 		g.gloams[p.i].hit(from, g.items[g.selected].Item.Damage())
+		g.ears.Play(sound.Hiss, g.gloams[p.i].pos.Add(geometry.Vector3{Y: 1.2}), 1)
 	} else {
 		g.herd.all[p.i].hit(from)
+		g.ears.Play(sound.Cry, g.herd.all[p.i].Pos.Add(geometry.Vector3{Y: 0.8}), 1)
 	}
 	if g.survival {
 		g.wearOut()
@@ -104,6 +107,7 @@ func (g *Game) shear(p prey) bool {
 		return false
 	}
 	at := c.Pos.Add(geometry.Vector3{Y: render.MossbackHeight})
+	g.ears.Play(sound.Dig(sound.Plant), at, 0.8)
 	g.drops = append(g.drops, drop{Drop: world.Drop{Stack: world.Stack{Item: world.Moss, Count: mossShorn}, Pos: at}})
 	return true
 }

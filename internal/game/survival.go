@@ -5,6 +5,7 @@ import (
 
 	"glonk.dev/geometry"
 
+	"github.com/kyrokohan/gocraft/internal/sound"
 	"github.com/kyrokohan/gocraft/internal/world"
 )
 
@@ -71,6 +72,7 @@ func (g *Game) hurt(points float64) {
 	}
 	g.health = max(g.health-points, 0)
 	g.flash = hurtFlash
+	g.ears.PlayNear(sound.Hurt, 0.9)
 	if g.health == 0 {
 		g.show(fainted)
 	}
@@ -106,6 +108,7 @@ func (g *Game) eat() bool {
 		return false
 	}
 	g.food = min(g.food+float64(s.Item.Food()), maxFood)
+	g.ears.PlayNear(sound.Eat, 0.8)
 	g.items.takeOne(g.selected)
 	return true
 }

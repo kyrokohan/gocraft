@@ -16,6 +16,7 @@ import (
 
 	"github.com/kyrokohan/gocraft/internal/assets"
 	"github.com/kyrokohan/gocraft/internal/render"
+	"github.com/kyrokohan/gocraft/internal/sound"
 	"github.com/kyrokohan/gocraft/internal/world"
 )
 
@@ -169,6 +170,13 @@ type Game struct {
 	settings Settings
 	back     screen // the screen the settings go back to
 
+	// The sounds: the mixer they are played into, the chances they are played by, how far
+	// the player has walked since its last step, and until the kilns crackle again.
+	ears    *sound.Mixer
+	noises  *rand.Rand
+	walked  float64
+	crackle float64
+
 	// The list of worlds on the title, the one chosen, and the new one being made.
 	list    []savedWorld
 	chosen  int
@@ -200,7 +208,9 @@ func New(opts Options) (*Game, error) {
 		opts: opts, set: set, rend: render.New(set), moss: render.NewMossbacks(set), look: render.NewDrops(set),
 		shades: render.NewGloams(set),
 		exact:  true, box: mesh.Cube(1), settings: loadSettings(opts.Settings),
+		ears: sound.NewMixer(set.Sounds), noises: rand.New(rand.NewPCG(1, 0x736f756e)),
 	}
+	g.ears.SetVolume(g.settings.volume())
 	if err := g.load(); err != nil {
 		return nil, err
 	}
@@ -381,6 +391,7 @@ func (g *Game) Stats(s engine.Stats) {
 // Update advances the game by dt seconds.
 func (g *Game) Update(dt float64, in *engine.Input) error {
 	g.exact = in.Exact()
+	defer g.listen() // the listener moves with the player, after the frame has moved it
 	if in.Started(engine.KeyF3) {
 		g.debug = !g.debug
 	}
@@ -413,8 +424,11 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		}
 		c := readControls(in)
 		c.toggleFly = c.toggleFly && !g.survival // only in creative can the player fly
+		from, wasWet, fell := g.player.Pos, inWater(g.world, g.player.Pos), -g.player.velY
 		g.player.Step(g.world, c, dt)
+		g.stepSounds(from, wasWet, fell)
 		g.herd.step(g.world, g.player.Pos, dt)
+		g.worldSounds(dt)
 		g.flash = max(g.flash-dt, 0)
 		if g.survival {
 			if g.live(dt); g.screen != playing {
@@ -562,6 +576,7 @@ func (g *Game) titleShown() bool {
 func (g *Game) changeSetting(i, by int) {
 	g.settings.step(i, by)
 	g.menu.Items = g.settings.lines()
+	g.ears.SetVolume(g.settings.volume())
 	if err := g.settings.save(g.opts.Settings); err != nil {
 		g.note = "the settings were not saved: " + reason(err)
 	}

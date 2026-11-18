@@ -5,6 +5,7 @@ import (
 
 	"glonk.dev/geometry"
 
+	"github.com/kyrokohan/gocraft/internal/sound"
 	"github.com/kyrokohan/gocraft/internal/world"
 )
 
@@ -44,6 +45,7 @@ func (g *Game) stepDrops(dt float64) {
 		at := d.Pos.Add(geometry.Vector3{Y: dropSize / 2})
 		if d.Age >= pickWait && at.Sub(middle).Length() <= pickReach {
 			if d.Count = g.items.add(d.Stack); d.Count == 0 {
+				g.ears.PlayNear(sound.Pickup, 0.6)
 				continue
 			}
 		}
