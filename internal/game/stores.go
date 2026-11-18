@@ -3,7 +3,6 @@ package game
 import (
 	"cmp"
 	"fmt"
-	"math"
 	"slices"
 
 	"glonk.dev/engine"
@@ -286,18 +285,9 @@ func (g *Game) drawKiln(fb *engine.FrameBuffer, c *engine.Canvas, x, y int, k *w
 		}
 	}
 	bar := func(row int, part float64, full, empty rune) {
-		n := int(math.Round(min(part, 1) * float64(w)))
-		for i := range w {
-			cell := hudDim
-			if i < n {
-				cell = kilnHot
-			}
-			cell.Character = empty
-			if i < n {
-				cell.Character = full
-			}
-			fb.Set(mid+i, row, cell)
-		}
+		on, off := kilnHot, hudDim
+		on.Character, off.Character = full, empty
+		widget.Bar{Value: part, Full: on, Empty: off}.Draw(fb, mid, row, w)
 	}
 	bar(y+1, k.Cooked/cookTime, '━', '─')
 	arrow := hudDim
