@@ -29,7 +29,7 @@ const (
 	barHeight    = slotSize/2 + 2                     // with the frame
 	titleUnit    = 4                                  // pixels of the title picture to each little block of its letters
 	menuWidth    = 22                                 // cells, with the frame
-	helpWidth    = 46                                 // cells, with the frame
+	helpWidth    = 54                                 // cells, with the frame
 	numbersWidth = 32                                 // cells, with the frame
 	hint         = " Up, Down: choose   Enter: pick " // under the title's menu
 )
