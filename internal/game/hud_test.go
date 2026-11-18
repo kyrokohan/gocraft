@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"glonk.dev/engine"
 )
@@ -194,5 +195,97 @@ func TestEveryScreenDrawsAtAnySize(t *testing.T) {
 
 			g.Draw(fb)
 		}
+	}
+}
+
+func TestTheStatusLineShowsTheFrameRateGlonkReports(t *testing.T) {
+	g := onFloor(t)
+
+	g.Stats(engine.Stats{FPS: 23.6})
+
+	if text, _ := drawn(t, g); !strings.Contains(text, "24 fps") {
+		t.Errorf("the status line does not show 24 fps:\n%s", text)
+	}
+}
+
+func TestF3ShowsAndHidesTheFrameNumbers(t *testing.T) {
+	g := onFloor(t)
+	g.Stats(engine.Stats{
+		FPS:    29.6,
+		Update: 180 * time.Microsecond,
+		Draw:   2300 * time.Microsecond,
+		Write:  800 * time.Microsecond,
+		Bytes:  7100,
+	})
+	numbers := []string{"update", "0.2 ms", "draw", "2.3 ms", "write", "0.8 ms", "7.1 KB", "seed"}
+
+	if text, _ := drawn(t, g); strings.Contains(text, "update") {
+		t.Fatalf("the frame numbers show before F3 is pressed:\n%s", text)
+	}
+
+	if err := press(g, engine.KeyF3); err != nil {
+		t.Fatal(err)
+	}
+	text, _ := drawn(t, g)
+	for _, want := range numbers {
+		if !strings.Contains(text, want) {
+			t.Errorf("after F3 the view does not show %q:\n%s", want, text)
+		}
+	}
+
+	if err := press(g, engine.KeyF3); err != nil {
+		t.Fatal(err)
+	}
+	if text, _ = drawn(t, g); strings.Contains(text, "update") {
+		t.Errorf("a second F3 did not hide the frame numbers:\n%s", text)
+	}
+}
+
+func TestAHintSaysWhereOnlyOneKeyCanBeHeld(t *testing.T) {
+	const hint = "one key at a time"
+
+	g := onFloor(t)
+	if err := g.Update(frame, engine.NewKeyboard().Input()); err != nil {
+		t.Fatal(err)
+	}
+	if text, _ := drawn(t, g); strings.Contains(text, hint) {
+		t.Errorf("the hint shows on a terminal that reports key releases:\n%s", text)
+	}
+
+	g = onFloor(t)
+	if err := g.Update(frame, engine.NewLegacyKeyboard().Input()); err != nil {
+		t.Fatal(err)
+	}
+	if text, _ := drawn(t, g); !strings.Contains(text, hint) {
+		t.Errorf("no hint on a terminal that reports no key releases:\n%s", text)
+	}
+}
+
+func TestThePauseMenuDimsTheWorldBehindIt(t *testing.T) {
+	g := onFloor(t)
+	g.player.Pitch = -0.5 // at the floor, so the corner of the view is stone
+
+	// The cell at the left edge, half way down: clear of the menu and the hotbar.
+	light := func() int {
+		_, fb := drawn(t, g)
+		r, g, b := fb.At(0, 15).Background.RGB()
+		return int(r) + int(g) + int(b)
+	}
+	playing := light()
+	press(g, engine.KeyEscape)
+	paused := light()
+
+	if playing < 60 || paused > playing*2/3 {
+		t.Errorf("the world is %d bright in play and %d behind the pause menu, wanted it dimmed", playing, paused)
+	}
+}
+
+func TestAHeadlessRunTellsTheGameItsFrameNumbers(t *testing.T) {
+	g := newGame(t)
+
+	runHeadless(t, &quitAfter{Game: g, frames: 4}, "")
+
+	if g.stats.Bytes == 0 {
+		t.Error("the game was not told how many bytes its frames took")
 	}
 }

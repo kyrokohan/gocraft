@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"math"
+	"time"
 
 	"glonk.dev/engine"
 	"glonk.dev/widget"
@@ -22,14 +23,15 @@ var (
 // block. A slot is slotSize cells wide and half as many tall, which is slotSize pixels
 // each way, so the picture is square.
 const (
-	slotSize  = 6
-	slotPitch = slotSize + 1                       // from one slot to the next, with the line between
-	barWidth  = len(hotbar)*slotPitch + 1          // with the frame
-	barHeight = slotSize/2 + 2                     // with the frame
-	titleUnit = 4                                  // pixels of the title picture to each little block of its letters
-	menuWidth = 22                                 // cells, with the frame
-	helpWidth = 46                                 // cells, with the frame
-	hint      = " Up, Down: choose   Enter: pick " // under the title's menu
+	slotSize     = 6
+	slotPitch    = slotSize + 1                       // from one slot to the next, with the line between
+	barWidth     = len(hotbar)*slotPitch + 1          // with the frame
+	barHeight    = slotSize/2 + 2                     // with the frame
+	titleUnit    = 4                                  // pixels of the title picture to each little block of its letters
+	menuWidth    = 22                                 // cells, with the frame
+	helpWidth    = 46                                 // cells, with the frame
+	numbersWidth = 32                                 // cells, with the frame
+	hint         = " Up, Down: choose   Enter: pick " // under the title's menu
 )
 
 // help is the keys, shown on the pause menu.
@@ -37,6 +39,7 @@ var help = []string{
 	"W A S D   walk         Arrows  look",
 	"Space     jump, up     X       down",
 	"F         fly on, off  Esc     this menu",
+	"F3        frame numbers",
 	"Q         break        E       place",
 	"1 to 9    pick block   Tab     next block",
 }
@@ -61,9 +64,18 @@ func (g *Game) drawHUD(fb *engine.FrameBuffer, c *engine.Canvas) {
 		mode = "  flying"
 	}
 	p := g.player.Pos
-	status := fmt.Sprintf(" %.0f fps  %d %d %d%s  Esc: menu ", g.fps,
+	status := fmt.Sprintf(" %.0f fps  %d %d %d%s  Esc: menu ", g.stats.FPS,
 		int(math.Floor(p.X)), int(math.Floor(p.Y)), int(math.Floor(p.Z)), mode)
 	widget.Label{Text: status, Style: hudText}.Draw(fb, 0, 0, fb.Width())
+	row := 1
+	if !g.exact {
+		// Walking and turning at once needs two held keys, which this terminal cannot tell.
+		widget.Label{Text: " no key releases here: one key at a time ", Style: hudPick}.Draw(fb, 0, row, fb.Width())
+		row++
+	}
+	if g.debug {
+		g.drawNumbers(fb, row)
+	}
 
 	x0, y0 := barOrigin(fb)
 	widget.Panel{Style: hudFrame, Fill: hudFill}.Draw(fb, x0, y0, barWidth, barHeight)
@@ -97,6 +109,25 @@ func (g *Game) drawHUD(fb *engine.FrameBuffer, c *engine.Canvas) {
 		g.set.Icons[b.Info().Top].DrawScaled(c, x0+1+i*slotPitch, 2*(y0+1), slotSize, slotSize)
 	}
 	c.ComposeRect(x0, 2*y0, barWidth, 2*barHeight)
+}
+
+// drawNumbers draws the frame numbers glonk reports, in a panel at the left from the
+// given row down: where the time of a frame goes, and how much is sent to the terminal.
+func (g *Game) drawNumbers(fb *engine.FrameBuffer, y int) {
+	ms := func(d time.Duration) string {
+		return fmt.Sprintf("%.1f ms", float64(d.Microseconds())/1000)
+	}
+	lines := []string{
+		"update  " + ms(g.stats.Update),
+		"draw    " + ms(g.stats.Draw),
+		"write   " + ms(g.stats.Write),
+		fmt.Sprintf("sent    %.1f KB a frame", float64(g.stats.Bytes)/1000),
+		fmt.Sprintf("seed    %d", g.world.Seed),
+	}
+	widget.Panel{Title: "frame", Style: hudFrame, Fill: hudFill}.Draw(fb, 0, y, numbersWidth, len(lines)+2)
+	for i, line := range lines {
+		widget.Label{Text: line, Style: hudText}.Draw(fb, 2, y+1+i, numbersWidth-4)
+	}
 }
 
 // drawMenu draws the menu in a panel w cells wide with its top left corner at (x, y),

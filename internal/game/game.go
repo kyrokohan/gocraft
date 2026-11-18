@@ -63,8 +63,10 @@ type Game struct {
 
 	screen screen
 	menu   widget.Menu
-	spin   float64 // how far the view behind the title has turned
-	fps    float64
+	spin   float64      // how far the view behind the title has turned
+	stats  engine.Stats // how the last frame went, as glonk reports it
+	debug  bool         // whether the frame numbers are shown: F3
+	exact  bool         // whether the terminal reports key releases, so that two keys can be held
 
 	world   *world.World
 	player  Player
@@ -83,7 +85,7 @@ func New(opts Options) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := &Game{opts: opts, set: set, rend: render.New(set), fps: 30, box: mesh.Cube(1)}
+	g := &Game{opts: opts, set: set, rend: render.New(set), exact: true, box: mesh.Cube(1)}
 	if err := g.load(); err != nil {
 		return nil, err
 	}
@@ -164,10 +166,17 @@ func (g *Game) Play() {
 	g.show(playing)
 }
 
+// Stats is called by glonk after every frame with how the frame went. It makes the game
+// an engine.StatsReceiver.
+func (g *Game) Stats(s engine.Stats) {
+	g.stats = s
+}
+
 // Update advances the game by dt seconds.
 func (g *Game) Update(dt float64, in *engine.Input) error {
-	if dt > 0 {
-		g.fps = 0.9*g.fps + 0.1/dt
+	g.exact = in.Exact()
+	if in.Started(engine.KeyF3) {
+		g.debug = !g.debug
 	}
 
 	// Escape is a switch on every screen, so it is read with Started: held, it must
@@ -247,6 +256,9 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 			X: float64(g.target.X) + 0.5, Y: float64(g.target.Y) + 0.5, Z: float64(g.target.Z) + 0.5,
 		}
 		g.box.DrawOnSurfacePixels(c, cam, hudPick.Foreground)
+	}
+	if g.screen == paused {
+		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(0, 0, 0), 0.5) // the world dims behind the menu
 	}
 	c.Compose()
 	g.drawHUD(fb, c)

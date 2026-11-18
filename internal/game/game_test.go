@@ -26,6 +26,20 @@ type quitAfter struct {
 	frames int
 }
 
+// Stats and Resize pass on what glonk tells a game, which the game inside would not
+// otherwise be told: glonk looks for these methods on the game it was given.
+func (q *quitAfter) Stats(s engine.Stats) {
+	if r, ok := q.Game.(engine.StatsReceiver); ok {
+		r.Stats(s)
+	}
+}
+
+func (q *quitAfter) Resize(width, height int) {
+	if r, ok := q.Game.(engine.Resizer); ok {
+		r.Resize(width, height)
+	}
+}
+
 func (q *quitAfter) Update(dt float64, in *engine.Input) error {
 	if q.frames == 0 {
 		return engine.ErrQuit
