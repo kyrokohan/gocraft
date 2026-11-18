@@ -81,10 +81,13 @@ func TestHeadlessRunEndsOnCtrlC(t *testing.T) {
 // onFloor is a game whose player stands on the flat test floor, facing +z.
 func onFloor(t *testing.T) *Game {
 	t.Helper()
-	g := newGame(t)
+	g, err := New(Options{Seed: 1, world: floor()})
+	if err != nil {
+		t.Fatal(err)
+	}
 	g.Play()
-	g.world, g.player = floor(), *standing()
-	g.herd.all = nil // the creatures of the world the floor took the place of
+	g.player = *standing()
+	g.herd.all = nil // the floor is stone, so there are none, but a test may count on it
 	return g
 }
 

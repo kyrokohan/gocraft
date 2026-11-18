@@ -86,8 +86,9 @@ func Generate(seed int64) *World {
 // and high, warm and cold, wet and dry, each with what grows there.
 func Terrain(seed int64) Generator {
 	s := uint32(seed) ^ uint32(seed>>32)
+	below := new(under) // kept between chunks: it is big, and a chunk is made many times a second
 	return func(cx, cz int, blocks []Block) {
-		terrain{seed: s, cx: cx, cz: cz, blocks: blocks}.build()
+		terrain{seed: s, cx: cx, cz: cz, blocks: blocks, below: below}.build()
 	}
 }
 
@@ -151,6 +152,7 @@ type terrain struct {
 	seed   uint32
 	cx, cz int
 	blocks []Block
+	below  *under // the caves and ores under this chunk
 }
 
 // put sets the block at a place in the world, if the place is in this chunk. Leaves
@@ -169,12 +171,21 @@ func (t terrain) put(x, y, z int, b Block, onlyAir bool) {
 
 func (t terrain) build() {
 	x0, z0 := t.cx*ChunkSize, t.cz*ChunkSize
-	for z := z0; z < z0+ChunkSize; z++ {
-		for x := x0; x < x0+ChunkSize; x++ {
-			l := landAt(x, z, t.seed)
-			t.column(x, z, l)
-			t.grow(x, z, l)
-		}
+
+	// The land of every column first: how high the highest is says how much of what
+	// lies under the ground has to be worked out.
+	var lands [ChunkSize * ChunkSize]land
+	top := 0
+	for i := range lands {
+		lands[i] = landAt(x0+i%ChunkSize, z0+i/ChunkSize, t.seed)
+		top = max(top, lands[i].top)
+	}
+	t.below.fill(t.cx, t.cz, top, t.seed)
+
+	for i, l := range lands {
+		x, z := x0+i%ChunkSize, z0+i/ChunkSize
+		t.column(x, z, l)
+		t.grow(x, z, l)
 	}
 
 	// The trees whose leaves can reach into this chunk: those rooted in it or within
@@ -214,20 +225,25 @@ func (t terrain) column(x, z int, l land) {
 		}
 	}
 
+	lx, lz := x-t.cx*ChunkSize, z-t.cz*ChunkSize
 	t.put(x, 0, z, Deepstone, false)
-	for y := 1; y < l.top; y++ {
+	for y := 1; y <= l.top; y++ {
+		if t.below.hole(lx, y, lz, l) {
+			continue // a cave
+		}
 		b := Stone
-		if y >= l.top-deep {
+		switch {
+		case y == l.top:
+			b = surface
+		case l.biome == Desert && y >= l.top-2:
+			b = Sand // loose sand over the sandstone
+		case y >= l.top-deep:
 			b = under
+		default:
+			b = t.below.ore(x, y, z, lx, lz, t.seed)
 		}
 		t.put(x, y, z, b, false)
 	}
-	if l.biome == Desert {
-		for y := l.top - 2; y < l.top; y++ {
-			t.put(x, y, z, Sand, false) // loose sand over the sandstone
-		}
-	}
-	t.put(x, l.top, z, surface, false)
 
 	for y := l.top + 1; y <= SeaLevel; y++ {
 		t.put(x, y, z, Water, false)
@@ -239,6 +255,9 @@ func (t terrain) column(x, z int, l land) {
 
 // grow puts the small plant, if any, that stands on a column.
 func (t terrain) grow(x, z int, l land) {
+	if t.below.hole(x-t.cx*ChunkSize, l.top, z-t.cz*ChunkSize, l) {
+		return // the ground here is the mouth of a cave
+	}
 	chance := lattice(x, z, t.seed+8001)
 	var b Block
 	switch l.biome {
@@ -295,6 +314,11 @@ func (t terrain) byWater(x, z int) bool {
 // plant stands the tree, if any, that grows on the column at x, z. chance says whether
 // one does and kind what it is like, each a number from 0 to 1 of the tree's own.
 func (t terrain) plant(x, z int, l land, chance, kind float64) {
+	// The tree may stand in the chunk beside this one, so the ground at its foot is
+	// asked about by its place in the world, not by this chunk's grid.
+	if holeAt(x, l.top, z, l, t.seed) {
+		return // the ground here is the mouth of a cave
+	}
 	y := l.top + 1
 	switch l.biome {
 	case Forest:

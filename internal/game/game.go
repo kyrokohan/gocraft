@@ -39,6 +39,10 @@ type Options struct {
 	// OldSave is the file an earlier version of the game kept its one world in, if it
 	// is still there. This version cannot play it and leaves it alone, and says so.
 	OldSave string
+
+	// world is a world to play in as it is, in place of one made from the seed. Tests
+	// set it: making a world takes time, and most tests want a bare floor.
+	world *world.World
 }
 
 // screen is what the game is showing.
@@ -161,7 +165,9 @@ func (g *Game) newWorld() {
 	if seed == 0 {
 		seed = time.Now().UnixNano()
 	}
-	g.world = world.Generate(seed)
+	if g.world = g.opts.world; g.world == nil {
+		g.world = world.Generate(seed)
+	}
 	g.clouds = render.NewClouds(seed)
 	g.player = Player{Pos: g.world.Spawn()}
 	g.herd = newHerd(g.world, g.player.Pos)

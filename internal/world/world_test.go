@@ -154,10 +154,7 @@ func TestTreesAreWholeAcrossChunkEdges(t *testing.T) {
 	trunkOf := map[Block]Block{Leaves: Log, PaleLeaves: PaleLog, PineNeedles: PineLog}
 
 	for _, country := range []Biome{Forest, Tundra} {
-		x0, z0 := find(t, 5, country)
-		w := Generate(5)
-		w.Follow(float64(x0), float64(z0))
-		w.LoadAll()
+		w, x0, z0 := loadedAt(t, 5, country)
 
 		// Every leaf is within reach of a log of its own tree: a tree cut off at the
 		// edge of a chunk would leave leaves with no trunk.
@@ -229,10 +226,7 @@ func TestEveryKindOfCountryHasItsOwnGroundAndGrowth(t *testing.T) {
 		{"tundra", Tundra, []Block{Snow, PineLog, PineNeedles}, []Block{Cactus}},
 		{"crags", Crags, []Block{Stone}, nil},
 	} {
-		x, z := find(t, 7, tc.country)
-		w := Generate(7)
-		w.Follow(float64(x), float64(z))
-		w.LoadAll()
+		w, x, z := loadedAt(t, 7, tc.country)
 
 		// Only the columns of this country: others may reach into what is loaded.
 		count := map[Block]int{}
@@ -282,10 +276,7 @@ func TestTheWorldIsAMixOfEveryKindOfCountry(t *testing.T) {
 }
 
 func TestReedsStandAtTheWatersEdgeAndIceLiesOnColdWater(t *testing.T) {
-	x, z := find(t, 7, Sea)
-	w := Generate(7)
-	w.Follow(float64(x), float64(z))
-	w.LoadAll()
+	w, x, z := loadedAt(t, 7, Sea)
 
 	span := LoadRadius * ChunkSize
 	for dz := -span + 1; dz < span-1; dz++ {
@@ -334,7 +325,11 @@ func TestAFarPlaceHoldsItsOwnGround(t *testing.T) {
 
 		for _, d := range [][2]int{{0, 0}, {-90, 40}, {95, -95}, {-1, -1}} {
 			x, z := int(to[0])+d[0], int(to[1])+d[1]
-			top := landAt(x, z, s).top
+			l := landAt(x, z, s)
+			top := l.top
+			if holeAt(x, top, z, l, s) {
+				continue // the mouth of a cave: the ground here is lower than the land says
+			}
 			want := top
 			if top < SeaLevel {
 				want = SeaLevel // water lies over low ground
@@ -464,5 +459,119 @@ func TestEveryBlockHasANameAndPlantsAreNotSolid(t *testing.T) {
 		if info.Plant && info.Solid {
 			t.Errorf("%s is a plant and solid", info.Name)
 		}
+	}
+}
+
+// loadedAt returns the world of a seed with the chunks round a column of one kind of
+// country loaded.
+func loadedAt(t *testing.T, seed int64, country Biome) (w *World, x, z int) {
+	t.Helper()
+	x, z = find(t, seed, country)
+	return newWorld(seed, Terrain(seed), "", float64(x), float64(z)), x, z
+}
+
+func TestThereAreCavesUnderTheLand(t *testing.T) {
+	w, x0, z0 := loadedAt(t, 7, Plains)
+	s := uint32(7)
+
+	under, hollow := 0, 0
+	span := (LoadRadius - 1) * ChunkSize
+	for z := z0 - span; z < z0+span; z++ {
+		for x := x0 - span; x < x0+span; x++ {
+			top := landAt(x, z, s).top
+			for y := 5; y < top-4; y++ {
+				under++
+				if w.At(x, y, z) == Air {
+					hollow++
+				}
+			}
+		}
+	}
+	if share := float64(hollow) / float64(under); share < 0.01 || share > 0.2 {
+		t.Errorf("%.1f%% of the ground under the plains is cave, wanted between 1 and 20", share*100)
+	}
+}
+
+func TestCavesLeaveTheSeaItsBed(t *testing.T) {
+	w, x0, z0 := loadedAt(t, 7, Sea)
+
+	span := (LoadRadius - 1) * ChunkSize
+	for z := z0 - span; z < z0+span; z++ {
+		for x := x0 - span; x < x0+span; x++ {
+			for y := 1; y <= SeaLevel; y++ {
+				if b := w.At(x, y, z); b == Water || b == Ice {
+					// Water lies on water or on ground, and has water or ground beside it.
+					for _, d := range [][3]int{{0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}} {
+						if w.At(x+d[0], y+d[1], z+d[2]) == Air {
+							t.Fatalf("the water at %d,%d,%d has air beside or under it", x, y, z)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestNothingGrowsOverAHole(t *testing.T) {
+	trunks := map[Block]bool{Log: true, PaleLog: true, PineLog: true, Cactus: true}
+
+	for _, country := range []Biome{Plains, Forest, Tundra, Desert} {
+		w, x0, z0 := loadedAt(t, 7, country)
+
+		span := (LoadRadius - 1) * ChunkSize
+		for z := z0 - span; z < z0+span; z++ {
+			for x := x0 - span; x < x0+span; x++ {
+				for y := 1; y < Height; y++ {
+					b, below := w.At(x, y, z), w.At(x, y-1, z)
+					if (b.Info().Plant || (trunks[b] && !trunks[below])) && !below.Info().Solid {
+						t.Fatalf("country %d: a %s at %d,%d,%d stands on %s", country, b.Info().Name, x, y, z, below.Info().Name)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestEveryOreIsInTheStoneAtItsOwnDepth(t *testing.T) {
+	w, x0, z0 := loadedAt(t, 7, Crags) // high ground: the most stone
+	s := uint32(7)
+
+	count := map[Block]int{}
+	stone := 0
+	span := (LoadRadius - 1) * ChunkSize
+	for z := z0 - span; z < z0+span; z++ {
+		for x := x0 - span; x < x0+span; x++ {
+			top := landAt(x, z, s).top
+			for y := 1; y < Height; y++ {
+				switch b := w.At(x, y, z); b {
+				case Stone:
+					stone++
+				case CoalOre, CopperOre, IronOre, CrystalOre:
+					count[b]++
+					if y > top {
+						t.Fatalf("%s above the ground at %d,%d,%d", b.Info().Name, x, y, z)
+					}
+					if b == CrystalOre && y >= 20 {
+						t.Fatalf("crystal ore as high as layer %d", y)
+					}
+					if b == IronOre && y >= 44 {
+						t.Fatalf("iron ore as high as layer %d", y)
+					}
+				}
+			}
+		}
+	}
+	ores := 0
+	for _, b := range []Block{CoalOre, CopperOre, IronOre, CrystalOre} {
+		if count[b] == 0 {
+			t.Errorf("there is no %s", b.Info().Name)
+		}
+		ores += count[b]
+	}
+	if share := float64(ores) / float64(ores+stone); share < 0.004 || share > 0.05 {
+		t.Errorf("%.2f%% of the stone is ore, wanted between 0.4 and 5", share*100)
+	}
+	if count[CoalOre] < count[CrystalOre] {
+		t.Errorf("%d coal and %d crystal: coal should be the common one", count[CoalOre], count[CrystalOre])
 	}
 }

@@ -194,8 +194,9 @@ func TestABrokenWorldFileIsAnErrorAndNeverAPanic(t *testing.T) {
 // whatever can still be got out of it is not lost.
 func TestADamagedChunkIsMadeAfreshAndItsFileLeftAlone(t *testing.T) {
 	dir := t.TempDir()
-	w, meta := played(t)
-	if err := w.Save(dir, meta); err != nil {
+	w := Generate(3)
+	w.Set(10, 100, 10, Brick) // in the chunk at the origin, where the player is
+	if err := w.Save(dir, Meta{Pos: geometry.Vector3{X: 8, Y: 90, Z: 8}}); err != nil {
 		t.Fatal(err)
 	}
 	path := chunkPath(dir, key{0, 0})
@@ -226,8 +227,6 @@ func TestADamagedChunkIsMadeAfreshAndItsFileLeftAlone(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: the world did not open: %v", name, err)
 		}
-		got.Follow(10, 10)
-		got.LoadAll()
 		if got.Fault() == nil {
 			t.Errorf("%s: the game was not told the chunk could not be read", name)
 		}
