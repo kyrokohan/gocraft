@@ -89,9 +89,7 @@ func TestTheSkyIsDrawnAtTheHourOfTheClock(t *testing.T) {
 func TestTheClockIsSavedWithTheWorld(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "world")
 	g := savedGame(t, path)
-	if err := press(g, engine.KeyEnter); err != nil { // New world
-		t.Fatal(err)
-	}
+	startNew(t, g, true)
 	g.days = 1.6
 	if err := g.Save(); err != nil {
 		t.Fatal(err)

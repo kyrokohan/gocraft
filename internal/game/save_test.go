@@ -27,9 +27,7 @@ func savedGame(t *testing.T, path string) *Game {
 func playAndSave(t *testing.T, path string) (x, y, z int) {
 	t.Helper()
 	g := savedGame(t, path)
-	if err := press(g, engine.KeyEnter); err != nil { // New world
-		t.Fatal(err)
-	}
+	startNew(t, g, false) // in creative, where the player can fly
 	x, z = 30, -20
 	y = g.world.Surface(x, z)
 	g.world.Set(x, y, z, world.Air)
@@ -124,9 +122,11 @@ func TestANewWorldAsksBeforeItReplacesTheSave(t *testing.T) {
 		t.Errorf("screen %d after Escape, wanted the title", g.screen)
 	}
 
-	// Yes: a new world, played at once, that takes the place of the save when saved.
+	// Yes: a new world, played once it is said how, that takes the place of the save
+	// when saved.
 	press(g, engine.KeyDown, engine.KeyEnter)
 	press(g, engine.KeyDown, engine.KeyEnter) // Yes, start a new one
+	press(g, engine.KeyEnter)                 // Survival
 	if g.screen != playing || g.world.At(x, y, z) == world.Air {
 		t.Fatalf("screen %d: wanted play in a new world", g.screen)
 	}
@@ -175,7 +175,7 @@ func TestTheTitleSaysThatAnOlderSaveIsKept(t *testing.T) {
 func TestTheWorldFollowsThePlayerAndKeepsWhatWasBuilt(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "world")
 	g := savedGame(t, path)
-	press(g, engine.KeyEnter) // New world
+	startNew(t, g, false) // in creative, where the player can fly
 	home := g.player.Pos
 	x, z := int(home.X)+3, int(home.Z)+3
 	y := g.world.Surface(x, z) + 4

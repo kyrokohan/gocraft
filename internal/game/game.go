@@ -53,6 +53,9 @@ const (
 	playing
 	paused     // the world standing still under a menu
 	confirming // the title, asking whether a new world may take the place of the saved one
+	choosing   // the title, asking how the new world is to be played
+	fainted    // the player has no health left, and wakes from a menu
+	inBag      // what the player carries, over the world standing still
 )
 
 // The lines of the menus. What a line does is decided by its text, so the order of a
@@ -65,6 +68,9 @@ const (
 	itemReplace  = "Yes, start a new one"
 	itemResume   = "Resume"
 	itemSave     = "Save and quit"
+	itemSurvival = "Survival"
+	itemCreative = "Creative"
+	itemWake     = "Wake up"
 )
 
 // Game is the whole game. It implements engine.Game.
@@ -91,9 +97,26 @@ type Game struct {
 	saved   bool // the world is the one in the save file
 	started bool // play has begun, so there is something worth saving
 
+	survival bool // the world is played in survival, and not in creative
+	items    inventory
+	drops    []drop
+	look     *render.Drops
+	lying    []render.Lying // the drops as they are drawn, kept between frames
+
+	// The player's body, in survival.
+	health, food, air float64
+	hunger, mend      float64 // seconds since food last went down, and since the body last mended
+	peak              float64 // the highest the player has been since last on the ground
+	flash             float64 // seconds the view still shows red, for a hurt
+
 	selected int       // the slot of the hotbar in use
 	target   world.Hit // the block the player aims at, if aimed is set
 	aimed    bool
+	digAt    [3]int  // the block being dug, in survival
+	digging  float64 // for how long it has been dug
+
+	hand   world.Stack // what is held while things are moved in the bag
+	cursor int         // the slot of the bag the keys are on
 
 	cols, rows     int        // the size of the frame in cells, once glonk has said
 	pointing       bool       // the pointer aims, and not the middle of the view
@@ -112,7 +135,7 @@ func New(opts Options) (*Game, error) {
 		return nil, err
 	}
 	g := &Game{
-		opts: opts, set: set, rend: render.New(set), moss: render.NewMossbacks(set),
+		opts: opts, set: set, rend: render.New(set), moss: render.NewMossbacks(set), look: render.NewDrops(set),
 		exact: true, box: mesh.Cube(1),
 	}
 	if err := g.load(); err != nil {
@@ -135,9 +158,10 @@ func (g *Game) load() error {
 			g.clouds = render.NewClouds(g.world.Seed)
 			g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
 			g.herd = newHerd(g.world, g.player.Pos) // they are not in the save yet
-			g.selected = min(max(s.Slot, 0), len(hotbar)-1)
+			g.selected = min(max(s.Slot, 0), hotbarSlots-1)
 			g.days = s.Days
 			g.saved = true
+			g.loadPlayer(s)
 			return nil
 		case !errors.Is(err, fs.ErrNotExist):
 			return err
@@ -154,14 +178,65 @@ func (g *Game) Save() error {
 	if g.opts.SavePath == "" || !g.started {
 		return nil
 	}
-	return g.world.Save(g.opts.SavePath, world.Meta{
+	mode := world.Creative
+	if g.survival {
+		mode = world.Survival
+	}
+	m := world.Meta{
 		Pos:    g.player.Pos,
 		Yaw:    g.player.Yaw,
 		Pitch:  g.player.Pitch,
 		Flying: g.player.Flying,
 		Slot:   g.selected,
 		Days:   g.days,
-	})
+		Mode:   mode,
+		Items:  g.items[:],
+		Health: g.health,
+		Food:   g.food,
+		Air:    g.air,
+	}
+	for _, d := range g.drops {
+		m.Drops = append(m.Drops, d.Drop)
+	}
+	return g.world.Save(g.opts.SavePath, m)
+}
+
+// loadPlayer takes what the player carries and how its body is from a save. A save from
+// before there were modes is creative, with the hotbar a creative world starts with, and
+// a player saved with no health left wakes as from a faint.
+func (g *Game) loadPlayer(s world.Meta) {
+	g.survival = s.Mode == world.Survival
+	g.items = inventory{}
+	copy(g.items[:], s.Items)
+	if s.Items == nil && !g.survival {
+		g.items = creativeStart()
+	}
+	g.health, g.food, g.air = min(s.Health, maxHealth), min(max(s.Food, 0), maxFood), min(max(s.Air, 0), maxAir)
+	g.peak = g.player.Pos.Y
+	g.drops = g.drops[:0]
+	for _, d := range s.Drops {
+		g.drops = append(g.drops, drop{Drop: d})
+	}
+	if !g.survival {
+		g.renew()
+		return
+	}
+	g.player.Flying = false
+	if g.health <= 0 {
+		g.wake()
+	}
+}
+
+// begin makes the world behind the title one played in survival, with nothing carried,
+// or in creative, with the hotbar full.
+func (g *Game) begin(survival bool) {
+	g.survival = survival
+	g.items = creativeStart()
+	if survival {
+		g.items = inventory{}
+	}
+	g.player.Flying = false
+	g.renew()
 }
 
 // newWorld makes a world and stands the player in it.
@@ -177,6 +252,8 @@ func (g *Game) newWorld() {
 	g.player = Player{Pos: g.world.Spawn()}
 	g.herd = newHerd(g.world, g.player.Pos)
 	g.selected, g.aimed, g.saved, g.days = 0, false, false, 0
+	g.drops = nil
+	g.begin(false)
 }
 
 // show changes what the game is showing, and gives the menu the lines of that screen.
@@ -191,8 +268,12 @@ func (g *Game) show(s screen) {
 		}
 	case confirming:
 		g.menu.Items = []string{itemKeep, itemReplace}
+	case choosing:
+		g.menu.Items = []string{itemSurvival, itemCreative}
 	case paused:
 		g.menu.Items = []string{itemResume, itemSave}
+	case fainted:
+		g.menu.Items = []string{itemWake}
 	case playing:
 		g.started = true
 	}
@@ -234,25 +315,42 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			g.show(paused)
 			return nil
 		}
+		if keyDown(in.Started, 'i') {
+			g.openBag()
+			return nil
+		}
 		g.days += dt / dayLength
 		if keyDown(in.Started, 't') {
 			g.days += quarterDay
 		}
-		g.player.Step(g.world, readControls(in), dt)
+		c := readControls(in)
+		c.toggleFly = c.toggleFly && !g.survival // only in creative can the player fly
+		g.player.Step(g.world, c, dt)
 		g.herd.step(g.world, g.player.Pos, dt)
+		g.flash = max(g.flash-dt, 0)
+		if g.survival {
+			if g.live(dt); g.screen != playing {
+				return nil // the player fainted
+			}
+		}
+		g.stepDrops(dt)
 		g.build(in, dt)
 		return nil
 	}
+	if g.screen == inBag {
+		g.useBag(in, escape)
+		return nil
+	}
 
-	// A menu: the title's, its question, or the pause menu's.
-	if g.screen != paused {
+	// A menu: the title's, its questions, the pause menu's, or the one to wake from.
+	if g.screen != paused && g.screen != fainted {
 		g.spin += 0.12 * dt
 	}
 	if escape {
 		switch g.screen {
 		case onTitle:
 			return engine.ErrQuit
-		case confirming:
+		case confirming, choosing:
 			g.show(onTitle)
 		case paused:
 			g.show(playing)
@@ -270,12 +368,20 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		if g.saved {
 			g.show(confirming) // a new world would take the place of the saved one
 		} else {
-			g.show(playing)
+			g.show(choosing)
 		}
 	case itemKeep:
 		g.show(onTitle)
 	case itemReplace:
-		g.newWorld()
+		g.show(choosing)
+	case itemSurvival, itemCreative:
+		if g.saved {
+			g.newWorld() // the world behind the title is the saved one
+		}
+		g.begin(g.menu.Items[choice] == itemSurvival)
+		g.show(playing)
+	case itemWake:
+		g.wake()
 		g.show(playing)
 	case itemQuit, itemSave:
 		// The world is saved by whoever runs the game, once Run has returned: that
@@ -295,6 +401,18 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera) {
 		g.poses = append(g.poses, pose)
 	}
 	g.moss.Draw(c, cam, g.poses, g.sky)
+
+	g.lying = g.lying[:0]
+	for _, d := range g.drops {
+		if d.Pos.Sub(cam.Position).Length() > render.ViewDistance {
+			continue
+		}
+		g.lying = append(g.lying, render.Lying{
+			Item: d.Item, Pos: d.Pos, Size: dropSize, Age: d.Age,
+			Light: g.sky.Brightness(g.lightAt(d.Pos.Add(geometry.Vector3{Y: dropSize / 2}))),
+		})
+	}
+	g.look.Draw(c, cam, g.lying, g.sky)
 	g.clouds.Draw(c, cam, g.sky)
 }
 
@@ -316,7 +434,8 @@ func (g *Game) camera() mesh.Camera {
 func (g *Game) Draw(fb *engine.FrameBuffer) {
 	c := fb.Canvas()
 	g.sky.Set(timeOfDay(g.days))
-	if g.screen == onTitle || g.screen == confirming {
+	g.rend.Crack = render.Crack{}
+	if g.screen == onTitle || g.screen == confirming || g.screen == choosing {
 		// The world from a little above where the player will stand, turning slowly.
 		cam := g.player.Camera()
 		cam.Position.Y += 4
@@ -331,9 +450,15 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	// The blocks first, by rays, and then what glonk draws into the same canvas: the
 	// depth the rays stored hides it where a block is nearer.
 	cam := g.camera()
+	if g.digging > 0 && g.aimed {
+		g.rend.Crack = render.Crack{
+			X: g.target.X, Y: g.target.Y, Z: g.target.Z,
+			Part: g.digging / max(g.target.Block.Info().Dig, minDig),
+		}
+	}
 	g.rend.Draw(c, g.world, cam, g.sky)
 	g.drawThings(c, cam)
-	if g.aimed {
+	if g.aimed && (g.screen == playing || g.screen == paused) {
 		// The outline lies on the faces of the block, which the rays have drawn with
 		// their depth, so glonk draws it whole there and hides it behind what is nearer.
 		g.box.Transform.Position = geometry.Vector3{
@@ -341,10 +466,25 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		}
 		g.box.DrawOnSurfacePixels(c, cam, hudPick.Foreground)
 	}
-	if g.screen == paused {
+	if g.flash > 0 {
+		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(200, 20, 20), 0.4*g.flash/hurtFlash)
+	}
+	switch g.screen {
+	case paused, inBag:
 		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(0, 0, 0), 0.5) // the world dims behind the menu
+	case fainted:
+		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(60, 0, 0), 0.6)
 	}
 	c.Compose()
+	switch g.screen {
+	case inBag:
+		g.drawBag(fb, c)
+		return
+	case fainted:
+		w := menuWidth
+		g.drawMenu(fb, "you fainted", (fb.Width()-w)/2, max(fb.Height()/2-2, 0), w, 0)
+		return
+	}
 	g.drawHUD(fb, c)
 	if g.screen == paused {
 		g.drawPause(fb)

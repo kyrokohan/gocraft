@@ -69,15 +69,40 @@ func TestTheTitleIsDrawnInPixelsOverTheWorld(t *testing.T) {
 	}
 }
 
-func TestEnterOnNewWorldStartsPlay(t *testing.T) {
-	g := newGame(t)
+// startNew picks New world on the title, which has no saved world on it, and then
+// Survival or Creative.
+func startNew(t *testing.T, g *Game, survival bool) {
+	t.Helper()
+	keys := [][]engine.Key{{engine.KeyEnter}, {engine.KeyEnter}}
+	if !survival {
+		keys[1] = []engine.Key{engine.KeyDown, engine.KeyEnter}
+	}
+	for _, k := range keys {
+		if err := press(g, k...); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
+func TestANewWorldAsksHowItIsPlayedAndThenStartsPlay(t *testing.T) {
+	g := newGame(t)
 	if err := press(g, engine.KeyEnter); err != nil {
 		t.Fatal(err)
 	}
+	text, _ := drawn(t, g)
+	if g.screen != choosing || !strings.Contains(text, itemSurvival) || !strings.Contains(text, itemCreative) {
+		t.Fatalf("screen %d, wanted the question of how to play:\n%s", g.screen, text)
+	}
+	if press(g, engine.KeyEscape); g.screen != onTitle {
+		t.Errorf("Escape on the question went to screen %d, wanted the title", g.screen)
+	}
 
-	if g.screen != playing {
-		t.Errorf("screen %d, wanted play", g.screen)
+	for _, survival := range []bool{true, false} {
+		g := newGame(t)
+		startNew(t, g, survival)
+		if g.screen != playing || g.survival != survival {
+			t.Errorf("screen %d in survival %v, wanted play in survival %v", g.screen, g.survival, survival)
+		}
 	}
 }
 

@@ -8,14 +8,12 @@ import (
 	"github.com/kyrokohan/gocraft/internal/world"
 )
 
-// hotbar is the kinds of block the player can place, on the keys 1 to 9.
-var hotbar = [9]world.Block{
-	world.Grass, world.Dirt, world.Stone, world.Sand, world.Log,
-	world.Torch, world.Planks, world.Brick, world.Glass,
-}
-
 // reach is how far away the player can break and place blocks.
 const reach = 5.0
+
+// minDig is the least time digging takes in survival, even for a plant: long enough
+// that a press of the button that turns out to be the start of a drag breaks nothing.
+const minDig = 0.1
 
 // A held mouse button acts again after clickDelay, and then every clickRepeat, as a held
 // key does by the OS's own repeat.
@@ -60,7 +58,7 @@ func (g *Game) point(in *engine.Input) (slot int) {
 	if g.mouseY < y0 || g.mouseX < x0 || g.mouseX >= x0+barWidth {
 		return -1
 	}
-	return min((g.mouseX-x0)/slotPitch, len(hotbar)-1)
+	return min((g.mouseX-x0)/slotPitch, hotbarSlots-1)
 }
 
 // aim finds the block the player aims at, if one is in reach: the one under the
@@ -151,39 +149,65 @@ func (g *Game) held(in *engine.Input, b engine.MouseButton, dt float64) bool {
 	return true
 }
 
-// build handles the keys and the mouse that pick, break and place blocks. A held key
-// repeats, so holding Q digs on and holding E builds on, and so does a held button.
+// dig goes on breaking the block aimed at while the player digs, in survival, and
+// reports whether it breaks in this frame. Moving on to another block starts again.
+func (g *Game) dig(digging bool, dt float64) bool {
+	at := [3]int{g.target.X, g.target.Y, g.target.Z}
+	if !digging || !g.aimed || at != g.digAt {
+		g.digAt, g.digging = at, 0
+	}
+	if !digging || !g.aimed {
+		return false
+	}
+	g.digging += dt
+	if g.digging < max(g.target.Block.Info().Dig, minDig) {
+		return false
+	}
+	g.digging = 0
+	g.dug = true // a held button that has broken a block digs on wherever the pointer goes
+	return true
+}
+
+// build handles the keys and the mouse that pick, break and place blocks. In creative a
+// block breaks at once, and a held key or button repeats, so holding Q digs on. In
+// survival a block breaks once it has been dug for its time, and leaves what it is
+// made of. Holding E, or the right button, builds on.
 func (g *Game) build(in *engine.Input, dt float64) {
-	for i := range hotbar {
+	for i := range hotbarSlots {
 		if in.Pressed(engine.Key('1' + rune(i))) {
 			g.selected = i
 		}
 	}
 	if in.Pressed(engine.KeyTab) {
-		g.selected = (g.selected + 1) % len(hotbar)
+		g.selected = (g.selected + 1) % hotbarSlots
 	}
 	if _, steps := in.Wheel(); steps != 0 {
-		n := len(hotbar)
-		g.selected = ((g.selected+steps)%n + n) % n
+		g.selected = ((g.selected+steps)%hotbarSlots + hotbarSlots) % hotbarSlots
 	}
 
 	fromX, fromY := g.mouseX, g.mouseY
 	slot := g.point(in)
-	breaks := g.drag(in, dt, fromX, fromY)
+	clicked := g.drag(in, dt, fromX, fromY)
 	places := g.held(in, engine.MouseRight, dt)
 	if slot >= 0 {
 		// The pointer is on the hotbar: a click picks the slot, and no block behind the
 		// bar is aimed at.
-		if breaks || places {
+		if clicked || places {
 			g.selected = slot
 		}
-		g.aimed = false
+		g.aimed, g.digging = false, 0
 		return
 	}
-	breaks = breaks || keyDown(in.Pressed, 'q')
 	places = places || keyDown(in.Pressed, 'e')
+	if places && g.eat() {
+		return
+	}
 
 	g.aim()
+	breaks := clicked || keyDown(in.Pressed, 'q')
+	if g.survival {
+		breaks = g.dig(keyDown(in.IsDown, 'q') || in.MouseDown(engine.MouseLeft) && !g.dragging, dt)
+	}
 	if !g.aimed {
 		return
 	}
@@ -194,24 +218,33 @@ func (g *Game) build(in *engine.Input, dt float64) {
 			return
 		}
 		g.world.Set(t.X, t.Y, t.Z, world.Air)
-		if g.world.At(t.X, t.Y+1, t.Z).Info().Plant {
+		g.leave(t.X, t.Y, t.Z, t.Block)
+		if above := g.world.At(t.X, t.Y+1, t.Z); above.Info().Plant {
 			g.world.Set(t.X, t.Y+1, t.Z, world.Air) // a plant goes with the ground it stood on
+			g.leave(t.X, t.Y+1, t.Z, above)
 		}
 	case places:
+		b, ok := g.items[g.selected].Item.Block()
+		if !ok {
+			return // an empty slot, or a thing that is not a block
+		}
 		// A block goes against the face aimed at, or in the place of a plant aimed at.
 		x, y, z := t.X, t.Y, t.Z
 		if !t.Block.Info().Plant {
 			nx, ny, nz := t.Face.Normal()
 			x, y, z = x+nx, y+ny, z+nz
 		}
-		if b := g.world.At(x, y, z); (b != world.Air && b != world.Water && !b.Info().Plant) || g.player.overlaps(x, y, z) {
+		if in := g.world.At(x, y, z); (in != world.Air && in != world.Water && !in.Info().Plant) || g.player.overlaps(x, y, z) {
 			return
 		}
 		// A plant, or a torch, stands on solid ground, and not in water.
-		if hotbar[g.selected].Info().Plant && (g.world.At(x, y, z) == world.Water || !g.world.At(x, y-1, z).Info().Solid) {
+		if b.Info().Plant && (g.world.At(x, y, z) == world.Water || !g.world.At(x, y-1, z).Info().Solid) {
 			return
 		}
-		g.world.Set(x, y, z, hotbar[g.selected])
+		g.world.Set(x, y, z, b)
+		if g.survival {
+			g.items.takeOne(g.selected)
+		}
 	default:
 		return
 	}

@@ -3,10 +3,13 @@ package game
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	"glonk.dev/engine"
 	"glonk.dev/widget"
+
+	"github.com/kyrokohan/gocraft/internal/world"
 )
 
 // The look of everything drawn over the world: light text and frames on a dark ground,
@@ -25,7 +28,7 @@ var (
 const (
 	slotSize     = 6
 	slotPitch    = slotSize + 1                       // from one slot to the next, with the line between
-	barWidth     = len(hotbar)*slotPitch + 1          // with the frame
+	barWidth     = hotbarSlots*slotPitch + 1          // with the frame
 	barHeight    = slotSize/2 + 2                     // with the frame
 	titleUnit    = 4                                  // pixels of the title picture to each little block of its letters
 	menuWidth    = 22                                 // cells, with the frame
@@ -38,10 +41,11 @@ const (
 var help = []string{
 	"W A S D   walk         Arrows, drag    look",
 	"Space     jump, up     X       down",
-	"F         fly on, off  Esc     this menu",
+	"F         fly (creative)  Esc  this menu",
 	"F3        frame info   T       6 hours on",
-	"Q, click  break        E, right click  place",
-	"1 to 9    pick block   Tab, wheel      next block",
+	"Q, click  break        E, right click  place, eat",
+	"1 to 9    pick slot    Tab, wheel      next slot",
+	"I         your things",
 }
 
 // barOrigin returns the top left cell of the hotbar in a frame of a size in cells: along
@@ -88,37 +92,94 @@ func (g *Game) drawHUD(fb *engine.FrameBuffer, c *engine.Canvas) {
 	}
 
 	x0, y0 := barOrigin(fb.Width(), fb.Height())
-	widget.Panel{Style: hudFrame, Fill: hudFill}.Draw(fb, x0, y0, barWidth, barHeight)
-	for i := range hotbar {
-		x := x0 + i*slotPitch
-		if i > 0 {
-			line := hudFrame
-			line.Character = '│'
-			for row := 1; row < barHeight-1; row++ {
-				fb.Set(x, y0+row, line)
-			}
-		}
+	g.drawRow(fb, c, x0, y0, g.items[:hotbarSlots])
+	for i := range hotbarSlots {
 		number := hudFrame
 		number.Character = rune('1' + i)
-		fb.Set(x+slotPitch/2, y0, number)
+		fb.Set(x0+i*slotPitch+slotPitch/2, y0, number)
 	}
 
-	// The slot in use has a bright frame of its own, and its name over the bar.
+	// The slot in use has a bright frame of its own, and the name of what it holds over
+	// the bar.
 	x := x0 + g.selected*slotPitch
 	widget.Panel{Style: hudPick}.Draw(fb, x, y0, slotPitch+1, barHeight)
 	number := hudPick
 	number.Character = rune('1' + g.selected)
 	fb.Set(x+slotPitch/2, y0, number)
-	name := " " + hotbar[g.selected].Info().Name + " "
-	widget.Label{Text: name, Align: widget.Center, Style: hudText}.Draw(fb, x0, y0-1, barWidth)
-
-	// The pictures are pixels put down over the cells of the panel. The world's
-	// pixels under the bar are rubbed out first, or they would be put down with them.
-	c.FillRect(x0, 2*y0, barWidth, 2*barHeight, engine.Color{})
-	for i, b := range hotbar {
-		g.set.Icons[b.Info().Top].DrawScaled(c, x0+1+i*slotPitch, 2*(y0+1), slotSize, slotSize)
+	if name := g.items[g.selected].Item.Name(); name != "" {
+		widget.Label{Text: " " + name + " ", Align: widget.Center, Style: hudText}.Draw(fb, x0, y0-1, barWidth)
 	}
-	c.ComposeRect(x0, 2*y0, barWidth, 2*barHeight)
+	if g.survival {
+		g.drawBody(fb, x0, y0-2)
+	}
+}
+
+// drawRow draws slots side by side with the top left corner at (x, y): a frame round
+// them with a line between each, and a picture of what each holds, with how many of it
+// there are in survival. It comes after Canvas.Compose, as the HUD does.
+func (g *Game) drawRow(fb *engine.FrameBuffer, c *engine.Canvas, x, y int, row []world.Stack) {
+	w := len(row)*slotPitch + 1
+	widget.Panel{Style: hudFrame, Fill: hudFill}.Draw(fb, x, y, w, barHeight)
+	line := hudFrame
+	line.Character = '│'
+	for i := 1; i < len(row); i++ {
+		for r := 1; r < barHeight-1; r++ {
+			fb.Set(x+i*slotPitch, y+r, line)
+		}
+	}
+
+	// The pictures are pixels put down over the cells of the panel. The world's pixels
+	// under the row are rubbed out first, or they would be put down with them.
+	c.FillRect(x, 2*y, w, 2*barHeight, engine.Color{})
+	for i, s := range row {
+		if s.Count > 0 {
+			g.set.Icons[s.Item.Icon()].DrawScaled(c, x+1+i*slotPitch, 2*(y+1), slotSize, slotSize)
+		}
+	}
+	c.ComposeRect(x, 2*y, w, 2*barHeight)
+
+	if !g.survival {
+		return // in creative there are as many as are wanted
+	}
+	for i, s := range row {
+		if s.Count > 1 {
+			n := strconv.Itoa(s.Count)
+			widget.Label{Text: n, Style: hudText}.Draw(fb, x+(i+1)*slotPitch-len(n), y+barHeight-2, len(n))
+		}
+	}
+}
+
+// The colors of the player's health, food and air.
+var (
+	healthColor = engine.RGB(226, 56, 64)
+	foodColor   = engine.RGB(222, 150, 62)
+	airColor    = engine.RGB(110, 182, 240)
+)
+
+// meterWidth is how many cells a meter of the body takes: a point to a cell for health
+// and food.
+const meterWidth = 20
+
+// drawBody draws the player's health at the left over the hotbar, the row y, and its
+// food at the right, with its air over the food while it is short of breath.
+func (g *Game) drawBody(fb *engine.FrameBuffer, x0, y int) {
+	meter := func(x, y int, symbol rune, value float64, color engine.Color) {
+		r, gr, b := color.RGB()
+		dim := engine.RGB(r/4, gr/4, b/4)
+		fb.Set(x, y, engine.Cell{Character: symbol, Foreground: color, Background: hudGround})
+		fb.Set(x+1, y, hudFill)
+		widget.Bar{
+			Value: value,
+			Full:  engine.Cell{Character: '▄', Foreground: color, Background: hudGround},
+			Empty: engine.Cell{Character: '▄', Foreground: dim, Background: hudGround},
+		}.Draw(fb, x+2, y, meterWidth)
+	}
+	right := x0 + barWidth - meterWidth - 2
+	meter(x0, y, '♥', g.health/maxHealth, healthColor)
+	meter(right, y, '●', g.food/maxFood, foodColor)
+	if g.air < maxAir {
+		meter(right, y-1, '○', g.air/maxAir, airColor)
+	}
 }
 
 // drawNumbers draws the frame numbers glonk reports, in a panel at the left from the
@@ -163,13 +224,26 @@ func (g *Game) drawTitle(fb *engine.FrameBuffer, c *engine.Canvas) {
 	c.Compose()
 
 	question, width := "", menuWidth
-	if g.screen == confirming {
+	switch g.screen {
+	case confirming:
 		question = "replace your saved world?"
+	case choosing:
+		question = "how will this world be played?"
+	}
+	if question != "" {
 		width = engine.TextWidth(question) + 8
 	}
 	y := min((top+h)/2+2, fb.Height()-len(g.menu.Items)-3)
 	under := g.drawMenu(fb, question, (fb.Width()-width)/2, y, width, 0)
 	widget.Label{Text: hint, Align: widget.Center, Style: hudText}.Draw(fb, 0, under+1, fb.Width())
+	if g.screen == choosing {
+		for i, line := range []string{
+			" Survival: find what you need, dig it, and stay alive ",
+			" Creative: every block without end, and nothing hurts ",
+		} {
+			widget.Label{Text: line, Align: widget.Center, Style: hudFrame}.Draw(fb, 0, under+3+i, fb.Width())
+		}
+	}
 	if g.opts.OldSave != "" && !g.saved {
 		// The one world of the game's first version. It is kept, and cannot be played.
 		note := " the world saved by an older gocraft is kept, but this version cannot play it "
