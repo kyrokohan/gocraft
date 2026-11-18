@@ -108,6 +108,9 @@ var painters = [tile.Count]painter{
 	tile.DryBush:       dryBush,
 	tile.Mushroom:      mushroom,
 	tile.Torch:         torch,
+
+	tile.Berries: berries,
+	tile.Cracks:  cracks,
 }
 
 func grassTop(x, y int) (rgb, bool) {
@@ -565,6 +568,67 @@ func torch(x, y int) (rgb, bool) {
 		return rgb{246, 138, 44}, true
 	}
 	return rgb{}, false
+}
+
+func berries(x, y int) (rgb, bool) {
+	// A bunch of round berries hanging from a twig with a leaf.
+	switch {
+	case y <= 3 && x == 8, y == 4 && (x == 7 || x == 9):
+		return rgb{108, 82, 52}, true // the twig
+	case y >= 1 && y <= 3 && x >= 9 && x <= 11 && !(y == 1 && x == 11):
+		return grain(rgb{72, 138, 64}, 0.1, x, y, 104), true // the leaf
+	}
+	// The pixel belongs to the nearest berry, whose dark edge keeps it from the next.
+	d, dx, dy := math.Inf(1), 0.0, 0.0
+	for _, b := range [][2]float64{{6, 8}, {10.5, 8}, {8.5, 12}, {4, 12.5}, {12.5, 12.5}} {
+		if ex, ey := float64(x)+0.5-b[0], float64(y)+0.5-b[1]; ex*ex+ey*ey < d {
+			d, dx, dy = ex*ex+ey*ey, ex, ey
+		}
+	}
+	switch {
+	case d < 0.8 && dx < 0 && dy < 0:
+		return rgb{246, 170, 190}, true // where the light catches it
+	case d < 2.2:
+		return grain(rgb{186, 40, 80}, 0.08, x, y, 105), true
+	case d < 4.4:
+		return rgb{100, 18, 46}, true
+	}
+	return rgb{}, false
+}
+
+// crackSteps is how many steps out from the middle each pixel of the cracks is: lines
+// that wander out from the middle and fork. 0 is no crack.
+var crackSteps = func() (steps [size][size]int) {
+	var walk func(x, y, angle float64, step, seed int)
+	walk = func(x, y, angle float64, step, seed int) {
+		for ; step < 14; step++ {
+			px, py := int(math.Floor(x)), int(math.Floor(y))
+			if px < 0 || py < 0 || px >= size || py >= size {
+				return
+			}
+			if steps[py][px] == 0 {
+				steps[py][px] = step
+			}
+			angle += (hash(step, seed, 106) - 0.5) * 1.2
+			if step == 5 && hash(seed, 0, 107) < 0.7 {
+				walk(x, y, angle+0.9, step+1, seed+10) // a fork
+			}
+			x, y = x+math.Cos(angle), y+math.Sin(angle)
+		}
+	}
+	for i := range 5 {
+		walk(7.5, 7.5, float64(i)*2*math.Pi/5+hash(i, 1, 108), 1, i)
+	}
+	return steps
+}()
+
+func cracks(x, y int) (rgb, bool) {
+	if crackSteps[y][x] == 0 {
+		return rgb{}, false
+	}
+	// The red says how far a block must be broken for the pixel to show: the middle
+	// first, the ends last. The renderer draws it dark whatever its color.
+	return rgb{float64(crackSteps[y][x]) * 255 / 14, 0, 0}, true
 }
 
 // drawBlocks draws the strip: every tile side by side, in the order of package tile.

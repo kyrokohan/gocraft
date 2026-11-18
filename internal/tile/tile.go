@@ -52,6 +52,13 @@ const (
 	Mushroom
 	Torch
 
+	// Pictures that are on no block.
+
+	Berries
+	// Cracks is laid over a block as it is broken. How red a pixel of it is says how far
+	// the breaking must have gone for that pixel to show.
+	Cracks
+
 	// Count is the number of tiles in the strip.
 	Count
 )
