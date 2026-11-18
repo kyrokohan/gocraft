@@ -2,9 +2,7 @@
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
 
-Walk a world with no end, made from a seed: seas and shores, plains in flower, forest, desert, snowy tundra and bare crags, with caves and ores under them, drifting clouds over them and mossbacks grazing on the grass. The sun crosses the sky and sets, the stars come out, and the caves are dark until you bring a torch: in survival, the gloam gathers in the dark and comes for you. Play it in survival, where you dig what you need, carry it, eat and stay alive, or in creative, with every block and nothing to fear. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art is original and drawn by code in this repo.
-
-> Sound is still to come. See [Not in yet](#not-in-yet).
+Walk a world with no end, made from a seed: seas and shores, plains in flower, forest, desert, snowy tundra and bare crags, with caves and ores under them, drifting clouds over them and mossbacks grazing on the grass. The sun crosses the sky and sets, the stars come out, and the caves are dark until you bring a torch: in survival, the gloam gathers in the dark and comes for you. Play it in survival, where you dig what you need, carry it, eat and stay alive, or in creative, with every block and nothing to fear. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art and the sounds are original, and made by code in this repo.
 
 ## Run
 
@@ -102,10 +100,11 @@ The world is saved when you choose **Save and leave**, which goes back to the li
 Two things draw into one frame, and glonk holds them together.
 
 - **The blocks are rays.** Every pixel of glonk's half-block `Canvas` sends a ray through the grid of blocks and takes the color of the tile it lands on. That is quick, it lets a far block be drawn from a smaller copy of its tile so that it does not flicker, and it does water exactly: you see the bottom through it. A plant is two pictures that cross in its cell, and a bedroll one picture lying flat in its cell; the rays meet those too. The rays are the ones `Camera.RayPixels` gives, they end at the camera's `Far`, they fade by `Fog.Apply`, and they store glonk's depth with `Canvas.SetDepth`.
-- **The things are glonk meshes.** The clouds are see-through slabs (`Material.Opacity`), a mossback is six boxes with a picture on their faces (`Material.Texture`), the gloam is six more whose eyes are lit in full and which are seen through as it fades,, and a thing on the ground is a small turning cube with its block's tiles. glonk lights them, fades them by the same fog, and hides them behind any block that is nearer, through the depth the rays stored. The outline round the block you aim at is a cube's edges drawn with `DrawOnSurfacePixels`, and the cracks on a block you dig are drawn by the rays, from a picture of cracks that grow out from the middle.
+- **Soft shadows where blocks meet.** A face is darker toward the solid blocks beside the cell in front of it, and darkest in a corner shut on both sides. The shade is worked out at the four corners of a face, once for all the pixels on it, and blended across it; it fades out between 24 and 32 blocks away, where it can no longer be seen.
+- **The things are glonk meshes.** The clouds are see-through slabs (`Material.Opacity`), a mossback is six boxes with a picture on their faces (`Material.Texture`), the gloam is six more whose eyes are lit in full and which are seen through as it fades, a thing on the ground is a small turning cube with its block's tiles, and the bits that fly from a block you break are tiny cubes of the same. glonk lights them, fades them by the same fog, and hides them behind any block that is nearer, through the depth the rays stored. The outline round the block you aim at is a cube's edges drawn with `DrawOnSurfacePixels`, and the cracks on a block you dig are drawn by the rays, from a picture of cracks that grow out from the middle. What you hold is drawn last, with a camera of its own, low on the right: a block as a small block, and a tool as its picture on a plate whose holes are `Material.Texture` holes. It is drawn so near that its depth is less than any block's can be, so it never sinks into a wall.
 - **Light is worked out once, not per pixel.** Each cell holds a level from 0 to 15 of light from the sky and one of light from torches and glowing crystal, and a face is drawn as bright as the cell in front of it. The hour then says how bright and what color each level looks: white by day, warm at sunset, dim blue by night, and always warm by a torch. The creatures are lit by the cell they stand in, and the clouds by the hour.
 
-On one core of an Apple M5 Pro, at 240 by 134 pixels, the blocks take 2.5 to 4 ms, the clouds 0.3 ms and twelve mossbacks 0.1 ms; a whole frame with the HUD 5 ms.
+On one core of an Apple M5 Pro, at 240 by 134 pixels, the blocks take 2.5 to 4 ms, the clouds 0.3 ms and twelve mossbacks 0.1 ms; a whole frame with the HUD 5 ms. The soft shadows add under 0.2 ms. At 400 by 110 cells a frame takes 13 ms, well inside the 33 ms of a frame at 30 a second, so the rays run on one core.
 
 ## A world with no end
 
@@ -175,6 +174,7 @@ gocraft uses glonk v0.12.0, and oto v3.5.1 for sound.
 ## Not in yet
 
 - Flowing water, and shadows cast to the side by the sun: its light falls straight down.
+- Soft shadows from leaves and glass: only blocks that let no light through cast them.
 - Torches on walls: a torch stands on the ground, as a plant does.
 - More kinds of creature, and anything a gloam leaves when it is undone.
 - The I screen needs a terminal about 25 rows tall in creative, and 21 rows tall and 90 columns wide in survival; a kiln needs 25 rows, and a crate 29.

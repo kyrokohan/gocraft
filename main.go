@@ -1,4 +1,4 @@
-// Command gocraft is a block-building sandbox that runs in the terminal.
+// Command gocraft is a block-building game that runs in the terminal.
 package main
 
 import (
