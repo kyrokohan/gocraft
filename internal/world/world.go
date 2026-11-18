@@ -2,6 +2,7 @@ package world
 
 import (
 	"math"
+	"slices"
 
 	"glonk.dev/geometry"
 )
@@ -302,21 +303,20 @@ func (w *World) source(k key) (chunk []Block, held bool) {
 	return w.scratch, held
 }
 
-// Spawn returns where a new player stands: on dry ground with room above, as near the
-// origin of the world as there is any among the chunks that are loaded. The point is at
-// the player's feet.
+// Spawn returns where a new player stands: on grass with room above if there is any
+// near the origin of the world, and failing that on any dry ground, among the chunks
+// that are loaded. The point is at the player's feet.
 func (w *World) Spawn() geometry.Vector3 {
 	reach := (LoadRadius - 1) * ChunkSize
-	for ring := range reach {
-		for z := -ring; z <= ring; z++ {
-			for x := -ring; x <= ring; x++ {
-				if max(abs(x), abs(z)) != ring {
-					continue
-				}
-				y := w.Ground(x, z)
-				switch w.At(x, y, z) {
-				case Grass, Sand, Snow, Stone:
-					if y+2 < Height {
+	for _, grounds := range [][]Block{{Grass}, {Sand, Snow, Stone, Gravel}} {
+		for ring := range reach {
+			for z := -ring; z <= ring; z++ {
+				for x := -ring; x <= ring; x++ {
+					if max(abs(x), abs(z)) != ring {
+						continue // only the ring at this distance: the inside was looked at before
+					}
+					y := w.Ground(x, z)
+					if slices.Contains(grounds, w.At(x, y, z)) && y+2 < Height && w.At(x, y+2, z) == Air {
 						return geometry.Vector3{X: float64(x) + 0.5, Y: float64(y + 1), Z: float64(z) + 0.5}
 					}
 				}

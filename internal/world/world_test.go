@@ -112,43 +112,88 @@ func TestAChunkDoesNotDependOnItsNeighbors(t *testing.T) {
 	}
 }
 
-func TestTreesAreWholeAcrossChunkEdges(t *testing.T) {
-	w := Generate(5)
-
-	// Every leaf is within reach of a log: a tree cut off at the edge of a chunk would
-	// leave leaves with no trunk, or a trunk with half its leaves.
-	leaves, orphans := 0, 0
-	span := (LoadRadius - 1) * ChunkSize
-	for z := -span; z < span; z++ {
-		for x := -span; x < span; x++ {
-			for y := SeaLevel; y < Height; y++ {
-				if w.At(x, y, z) != Leaves {
+// find returns a column of a kind of country in the world of a seed, well inside it:
+// with the same country a little way off on every side.
+func find(t *testing.T, seed int64, want Biome) (x, z int) {
+	t.Helper()
+	for reach := 0; reach < 6000; reach += 48 {
+		for z := -reach; z <= reach; z += 48 {
+			for x := -reach; x <= reach; x += 48 {
+				if max(abs(x), abs(z)) != reach {
 					continue
 				}
-				leaves++
-				near := false
-				for dz := -2; dz <= 2 && !near; dz++ {
-					for dx := -2; dx <= 2 && !near; dx++ {
-						for dy := -3; dy <= 2 && !near; dy++ {
-							near = w.At(x+dx, y+dy, z+dz) == Log
-						}
-					}
+				inside := true
+				for _, d := range [][2]int{{0, 0}, {24, 0}, {-24, 0}, {0, 24}, {0, -24}} {
+					inside = inside && BiomeAt(seed, x+d[0], z+d[1]) == want
 				}
-				if !near {
-					orphans++
+				if inside {
+					return x, z
 				}
 			}
 		}
 	}
-	if leaves == 0 || orphans != 0 {
-		t.Errorf("%d leaves, %d of them with no trunk in reach", leaves, orphans)
+	t.Fatalf("seed %d has no country of kind %d within 6,000 blocks", seed, want)
+	return 0, 0
+}
+
+// counted returns how many of each kind of block the loaded part of a world holds.
+func counted(w *World, x, z int) map[Block]int {
+	count := map[Block]int{}
+	span := LoadRadius * ChunkSize
+	for dz := -span; dz < span; dz++ {
+		for dx := -span; dx < span; dx++ {
+			for y := 1; y < Height; y++ {
+				count[w.At(x+dx, y, z+dz)]++
+			}
+		}
+	}
+	return count
+}
+
+func TestTreesAreWholeAcrossChunkEdges(t *testing.T) {
+	trunkOf := map[Block]Block{Leaves: Log, PaleLeaves: PaleLog, PineNeedles: PineLog}
+
+	for _, country := range []Biome{Forest, Tundra} {
+		x0, z0 := find(t, 5, country)
+		w := Generate(5)
+		w.Follow(float64(x0), float64(z0))
+		w.LoadAll()
+
+		// Every leaf is within reach of a log of its own tree: a tree cut off at the
+		// edge of a chunk would leave leaves with no trunk.
+		leaves, orphans := 0, 0
+		span := (LoadRadius - 1) * ChunkSize
+		for z := z0 - span; z < z0+span; z++ {
+			for x := x0 - span; x < x0+span; x++ {
+				for y := SeaLevel; y < Height; y++ {
+					trunk, isLeaf := trunkOf[w.At(x, y, z)]
+					if !isLeaf {
+						continue
+					}
+					leaves++
+					near := false
+					for dz := -2; dz <= 2 && !near; dz++ {
+						for dx := -2; dx <= 2 && !near; dx++ {
+							for dy := -3; dy <= 2 && !near; dy++ {
+								near = w.At(x+dx, y+dy, z+dz) == trunk
+							}
+						}
+					}
+					if !near {
+						orphans++
+					}
+				}
+			}
+		}
+		if leaves < 200 || orphans != 0 {
+			t.Errorf("country %d: %d leaves, %d of them with no trunk in reach", country, leaves, orphans)
+		}
 	}
 }
 
-func TestGeneratedWorldHasGroundWaterAndTrees(t *testing.T) {
+func TestTheBottomIsDeepstoneAndTheTopIsAir(t *testing.T) {
 	w := Generate(1)
 
-	count := map[Block]int{}
 	span := LoadRadius * ChunkSize
 	for z := -span; z < span; z++ {
 		for x := -span; x < span; x++ {
@@ -162,17 +207,101 @@ func TestGeneratedWorldHasGroundWaterAndTrees(t *testing.T) {
 				t.Fatalf("the top layer at %d,%d is not air", x, z)
 			}
 			for y := 1; y < Height; y++ {
-				count[w.At(x, y, z)]++
+				if w.At(x, y, z) == Deepstone {
+					t.Fatalf("deepstone above the bottom layer at %d,%d,%d", x, y, z)
+				}
 			}
 		}
 	}
-	for _, b := range []Block{Grass, Dirt, Stone, Sand, Water, Log, Leaves} {
-		if count[b] == 0 {
-			t.Errorf("the world has no %v", b.Info().Name)
+}
+
+func TestEveryKindOfCountryHasItsOwnGroundAndGrowth(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		country Biome
+		holds   []Block
+		lacks   []Block
+	}{
+		{"sea", Sea, []Block{Water, Sand}, nil},
+		{"plains", Plains, []Block{Grass, Dirt, TallGrass}, []Block{Cactus, Sandstone}},
+		{"forest", Forest, []Block{Grass, Log, Leaves, PaleLog, PaleLeaves, Bush}, []Block{Cactus}},
+		{"desert", Desert, []Block{Sand, Sandstone, Cactus}, []Block{Log, PineLog}},
+		{"tundra", Tundra, []Block{Snow, PineLog, PineNeedles}, []Block{Cactus}},
+		{"crags", Crags, []Block{Stone}, nil},
+	} {
+		x, z := find(t, 7, tc.country)
+		w := Generate(7)
+		w.Follow(float64(x), float64(z))
+		w.LoadAll()
+
+		// Only the columns of this country: others may reach into what is loaded.
+		count := map[Block]int{}
+		span := LoadRadius * ChunkSize
+		for dz := -span; dz < span; dz++ {
+			for dx := -span; dx < span; dx++ {
+				if BiomeAt(7, x+dx, z+dz) != tc.country {
+					continue
+				}
+				for y := 1; y < Height; y++ {
+					count[w.At(x+dx, y, z+dz)]++
+				}
+			}
+		}
+		for _, b := range tc.holds {
+			if count[b] == 0 {
+				t.Errorf("the %s round %d,%d has no %s", tc.name, x, z, b.Info().Name)
+			}
+		}
+		for _, b := range tc.lacks {
+			if count[b] != 0 {
+				t.Errorf("the %s round %d,%d has %d of %s", tc.name, x, z, count[b], b.Info().Name)
+			}
 		}
 	}
-	if count[Deepstone] != 0 {
-		t.Errorf("deepstone above the bottom layer: %d blocks", count[Deepstone])
+}
+
+func TestTheWorldIsAMixOfEveryKindOfCountry(t *testing.T) {
+	for seed := int64(1); seed <= 3; seed++ {
+		share := map[Biome]float64{}
+		n := 0.0
+		for z := -6000; z < 6000; z += 61 {
+			for x := -6000; x < 6000; x += 61 {
+				share[BiomeAt(seed, x, z)]++
+				n++
+			}
+		}
+		for b := Sea; b <= Crags; b++ {
+			if part := share[b] / n; part < 0.01 || part > 0.6 {
+				t.Errorf("seed %d: country %d is %.1f%% of the world, wanted between 1 and 60", seed, b, part*100)
+			}
+		}
+		if sea := share[Sea] / n; sea < 0.12 || sea > 0.5 {
+			t.Errorf("seed %d: %.0f%% of the world is sea, wanted between 12 and 50", seed, sea*100)
+		}
+	}
+}
+
+func TestReedsStandAtTheWatersEdgeAndIceLiesOnColdWater(t *testing.T) {
+	x, z := find(t, 7, Sea)
+	w := Generate(7)
+	w.Follow(float64(x), float64(z))
+	w.LoadAll()
+
+	span := LoadRadius * ChunkSize
+	for dz := -span + 1; dz < span-1; dz++ {
+		for dx := -span + 1; dx < span-1; dx++ {
+			cx, cz := x+dx, z+dz
+			if w.At(cx, SeaLevel+2, cz) == Reed {
+				wet := w.At(cx+1, SeaLevel, cz) == Water || w.At(cx-1, SeaLevel, cz) == Water ||
+					w.At(cx, SeaLevel, cz+1) == Water || w.At(cx, SeaLevel, cz-1) == Water
+				if !wet || w.At(cx, SeaLevel+1, cz) != Sand {
+					t.Fatalf("a reed at %d,%d does not stand on sand beside water", cx, cz)
+				}
+			}
+			if w.At(cx, SeaLevel, cz) == Ice && w.At(cx, SeaLevel-1, cz) != Water && w.At(cx, SeaLevel-1, cz).Info().Plant {
+				t.Fatalf("ice at %d,%d lies on %v", cx, cz, w.At(cx, SeaLevel-1, cz))
+			}
+		}
 	}
 }
 
@@ -186,7 +315,8 @@ func TestSpawnStandsOnDryGroundWithRoomAbove(t *testing.T) {
 		if !w.At(x, y-1, z).Info().Solid {
 			t.Errorf("seed %d: spawn at %v does not stand on solid ground", seed, p)
 		}
-		if w.At(x, y, z) != Air || w.At(x, y+1, z) != Air {
+		// A plant at its feet is no obstacle; its head needs air.
+		if feet := w.At(x, y, z); (feet != Air && !feet.Info().Plant) || w.At(x, y+1, z) != Air {
 			t.Errorf("seed %d: spawn at %v has no room for the player", seed, p)
 		}
 	}
@@ -204,7 +334,7 @@ func TestAFarPlaceHoldsItsOwnGround(t *testing.T) {
 
 		for _, d := range [][2]int{{0, 0}, {-90, 40}, {95, -95}, {-1, -1}} {
 			x, z := int(to[0])+d[0], int(to[1])+d[1]
-			top := groundTop(x, z, s)
+			top := landAt(x, z, s).top
 			want := top
 			if top < SeaLevel {
 				want = SeaLevel // water lies over low ground
