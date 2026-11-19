@@ -192,9 +192,12 @@ func (g *Game) beastAt(p geometry.Vector3) (int, bool) {
 			continue
 		}
 		width, height := render.Size(c.kind, c.young)
-		lo, hi := boxOf(c.Pos, width*aimWider, height)
-		if p.X >= lo[0] && p.X <= hi[0] && p.Y >= lo[1] && p.Y <= hi[1] && p.Z >= lo[2] && p.Z <= hi[2] {
-			return i, true
+		boxes, n := c.body()
+		for _, at := range boxes[:n] {
+			lo, hi := boxOf(at, width*aimWider, height)
+			if p.X >= lo[0] && p.X <= hi[0] && p.Y >= lo[1] && p.Y <= hi[1] && p.Z >= lo[2] && p.Z <= hi[2] {
+				return i, true
+			}
 		}
 	}
 	return 0, false

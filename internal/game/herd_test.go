@@ -99,7 +99,7 @@ func TestAHerdKeepsTogether(t *testing.T) {
 		f.step(w, far, frame)
 	}
 
-	middle := f.middles()[1]
+	middle := f.middles(false)[1]
 	for i, c := range f.all {
 		if d := math.Hypot(c.Pos.X-middle.X, c.Pos.Z-middle.Z); d > 2.5*herdReach {
 			t.Errorf("after a minute bugler %d is %.1f from the middle of its herd, wanted it kept within %.0f", i, d, 2.5*herdReach)

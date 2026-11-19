@@ -40,8 +40,11 @@ func (g *Game) aimCreature(origin, dir geometry.Vector3, limit float64) (p prey,
 			continue // it cannot be hit again as it falls
 		}
 		width, height := render.Size(c.kind, c.young)
-		if t, hit := rayBox(origin, dir, c.Pos, width*aimWider, height); hit && t < best {
-			best, p, ok = t, prey{i: i}, true
+		boxes, n := c.body()
+		for _, at := range boxes[:n] {
+			if t, hit := rayBox(origin, dir, at, width*aimWider, height); hit && t < best {
+				best, p, ok = t, prey{i: i}, true
+			}
 		}
 	}
 	return p, ok
