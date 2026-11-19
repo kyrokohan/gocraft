@@ -304,6 +304,44 @@ func makeSound(n sound.Name) []float64 {
 			s[i] += 0.5 * f.at(noise(i, 996)) * swell(float64(i)/rate, 0.02, 0.25)
 		}
 		return peakTo(s, 0.7)
+	case sound.Bellow:
+		// A deep note from a great chest that swells, roughens and drops: a shieldbrow
+		// that has seen what it does not like.
+		pitch := func(t float64) float64 { return 74 + 26*math.Sin(math.Pi*min(t/0.5, 1)) - 22*max(t-0.6, 0) }
+		loud := func(t float64) float64 {
+			return math.Pow(math.Sin(math.Pi*min(t/1.1, 1)), 0.6) * (0.8 + 0.2*math.Sin(2*math.Pi*17*t))
+		}
+		return peakTo(voiced(1.1, pitch, loud, 360, 780), 0.8)
+	case sound.Grunt:
+		// Two low short breaths through the nose: a great beast at its feed.
+		pitch := func(t float64) float64 { return 66 - 14*math.Mod(t, 0.34)/0.3 }
+		loud := func(t float64) float64 {
+			part := math.Mod(t, 0.34) / 0.3
+			return math.Pow(math.Sin(math.Pi*min(part, 1)), 1.5)
+		}
+		return peakTo(voiced(0.64, pitch, loud, 280, 640), 0.5)
+	case sound.Rattle:
+		// Dry plates shaken one on another, quicker and quicker, over a hiss of breath.
+		s := make([]float64, samples(0.8))
+		hiss := newHighpass(1800)
+		for i := range s {
+			s[i] = 0.25 * hiss.at(noise(i, 993)) * swell(float64(i)/rate, 0.15, 0.6)
+		}
+		at := 0.0
+		for k := range 11 {
+			knock := make([]float64, samples(0.03))
+			f := newBand(700+500*hash(k, 0, 994), 4)
+			for i := range knock {
+				x := 0.0
+				if i == 0 {
+					x = 1
+				}
+				knock[i] = f.at(x) * swell(float64(i)/rate, 0, 0.008)
+			}
+			add(s, knock, 3, samples(at))
+			at += 0.11 - 0.006*float64(k)
+		}
+		return peakTo(s, 0.6)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))
