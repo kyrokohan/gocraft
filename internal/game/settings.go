@@ -26,6 +26,9 @@ type Settings struct {
 
 	// Volume is how loud the sounds are, from 0, none, to 100, as they were made.
 	Volume int `json:"volume"`
+
+	// View is which view the world is seen in: viewEyes or viewBehind. V changes it.
+	View string `json:"view"`
 }
 
 // The values each setting can take, and the ones a player starts with.
@@ -35,7 +38,7 @@ var (
 	fieldsOfView  = []int{50, 60, 70, 80, 90}
 	volumes       = []int{0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
 
-	defaultSettings = Settings{MouseSpeed: 1.5, ViewDistance: 64, FieldOfView: 60, Volume: 70}
+	defaultSettings = Settings{MouseSpeed: 1.5, ViewDistance: 64, FieldOfView: 60, Volume: 70, View: viewEyes}
 )
 
 // nearest returns the value of a list nearest v.
@@ -59,6 +62,9 @@ func (s Settings) fit() Settings {
 	s.ViewDistance = nearest(viewDistances, s.ViewDistance)
 	s.FieldOfView = nearest(fieldsOfView, s.FieldOfView)
 	s.Volume = nearest(volumes, s.Volume)
+	if s.View != viewBehind {
+		s.View = viewEyes
+	}
 	return s
 }
 

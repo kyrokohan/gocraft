@@ -4,11 +4,11 @@
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
 
-**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, and the beasts, the tools and the cave person have not. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
+**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old and you are a cave person in it. The beasts and the tools have not turned yet. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
 
-![The skeleton of a great beast on red rock, among umbrella pines and gold fan-leaf trees, drawn in terminal cells](docs/shot.png)
+![A cave person with a pick, seen from behind, before the skeleton of a great beast, drawn in terminal cells](docs/shot.png)
 
-Walk a world with no end, made from a seed, in lands older than grass: a prairie of ferns and horsetails, a jungle of tree ferns, a highland of umbrella pines, gold fan-leaf trees and redwoods, and red badlands that rise in mesas, where the skeletons of great beasts lie. Round them are seas and shores, snowy tundra and bare crags, with caves and ores under them, drifting clouds over them and mossbacks grazing on the moss. The sun crosses the sky and sets, the stars come out, and the caves are dark until you bring a torch: in survival, the gloam gathers in the dark and comes for you. Play it in survival, where you dig what you need, carry it, eat and stay alive, or in creative, with every block and nothing to fear. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art and the sounds are original, and made by code in this repo.
+Walk a world with no end, made from a seed, in lands older than grass: a prairie of ferns and horsetails, a jungle of tree ferns, a highland of umbrella pines, gold fan-leaf trees and redwoods, and red badlands that rise in mesas, where the skeletons of great beasts lie. Round them are seas and shores, snowy tundra and bare crags, with caves and ores under them, drifting clouds over them and mossbacks grazing on the moss. The sun crosses the sky and sets, the stars come out, and the caves are dark until you bring a torch: in survival, the gloam gathers in the dark and comes for you. You are a cave person, seen through your own eyes or from behind your shoulder. Play it in survival, where you dig what you need, carry it, eat and stay alive, or in creative, with every block and nothing to fear. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art and the sounds are original, and made by code in this repo.
 
 ## Install and run
 
@@ -34,6 +34,9 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 | Space | jump; swim up; rise when flying |
 | X | sink when flying |
 | F | flying on and off, in creative |
+| C | crouch, and stand again: slow, low and quiet |
+| V | the view: through your eyes, or from behind your shoulder |
+| L | the next of six looks for your body |
 | Q / E | break / place the block aimed at (hold to go on); hit / shear a creature aimed at; E with food in hand eats it; E on a crate or a kiln opens it, and on a bedroll lies down |
 | 1 to 9, Tab | pick a slot of the hotbar; the next one |
 | I | your things: move them between the hotbar and the pack, and make things from them (in creative: every block) |
@@ -81,7 +84,7 @@ The title lists your worlds, the last played first, with how each is played and 
 
 The world is saved when you choose **Save and leave**, which goes back to the list, and also on **Quit**, Ctrl-C or when the window closes.
 
-- A world is a folder of `skyspear/worlds` in your config folder (`~/Library/Application Support` on macOS, `~/.config` on Linux), named as you named the world; `-worlds` names another folder of worlds. It holds `world.json` (the seed, the mode, the day and the hour, where you were, what you carry, how your body is, what lies on the ground, what the crates and the kilns hold, and your bedroll) and one small file for each chunk you changed. The rest of the world is made again from the seed.
+- A world is a folder of `skyspear/worlds` in your config folder (`~/Library/Application Support` on macOS, `~/.config` on Linux), named as you named the world; `-worlds` names another folder of worlds. It holds `world.json` (the seed, the mode, the day and the hour, where you were, what you carry, how your body is, what lies on the ground, what the crates and the kilns hold, your bedroll, and the look you wear) and one small file for each chunk you changed. The rest of the world is made again from the seed.
 - Every file is written beside the old one and then put in its place, so a write that fails leaves the old file.
 - A world whose `world.json` cannot be read is listed as such and does not open, so it is never written over. It can still be deleted.
 - `-world folder` plays the one world in that folder, with no list, as the game did before: the title offers **Continue**, **New world** asks before it takes the place of the saved world, and a `world.json` there that cannot be read stops the game with an error.
@@ -93,7 +96,7 @@ The world is saved when you choose **Save and leave**, which goes back to the li
 
 ## Settings
 
-**Settings**, on the title and the pause menu, has the mouse speed (how far a drag turns the view), the view distance (32, 48 or 64 blocks: less is a little faster), the field of view (50° to 90°) and the volume (0% to 100%). Left and Right, or a click, change a line. They are kept in `skyspear/settings.json` in your config folder, apart from any world.
+**Settings**, on the title and the pause menu, has the mouse speed (how far a drag turns the view), the view distance (32, 48 or 64 blocks: less is a little faster), the field of view (50° to 90°) and the volume (0% to 100%). Left and Right, or a click, change a line. They are kept in `skyspear/settings.json` in your config folder, apart from any world, and so is the view you last chose with V.
 
 ## Flags
 
@@ -113,6 +116,7 @@ Two things draw into one frame, and glonk holds them together.
 - **The blocks are rays.** Every pixel of glonk's half-block `Canvas` sends a ray through the grid of blocks and takes the color of the tile it lands on. That is quick, it lets a far block be drawn from a smaller copy of its tile so that it does not flicker, and it does water exactly: you see the bottom through it. A plant is two pictures that cross in its cell, and a bedroll one picture lying flat in its cell; the rays meet those too. The rays are the ones `Camera.RayPixels` gives, they end at the camera's `Far`, they fade by `Fog.Apply`, and they store glonk's depth with `Canvas.SetDepth`.
 - **Soft shadows where blocks meet.** A face is darker toward the solid blocks beside the cell in front of it, and darkest in a corner shut on both sides. The shade is worked out at the four corners of a face, once for all the pixels on it, and blended across it; it fades out between 24 and 32 blocks away, where it can no longer be seen.
 - **The things are glonk meshes.** The clouds are see-through slabs (`Material.Opacity`), a mossback is six boxes with a picture on their faces (`Material.Texture`), the gloam is six more whose eyes are lit in full and which are seen through as it fades, a thing on the ground is a small turning cube with its block's tiles, and the bits that fly from a block you break are tiny cubes of the same. glonk lights them, fades them by the same fog, and hides them behind any block that is nearer, through the depth the rays stored. The outline round the block you aim at is a cube's edges drawn with `DrawOnSurfacePixels`, and the cracks on a block you dig are drawn by the rays, from a picture of cracks that grow out from the middle. What you hold is drawn last, with a camera of its own, low on the right: a block as a small block, and a tool as its picture on a plate whose holes are `Material.Texture` holes. It is drawn so near that its depth is less than any block's can be, so it never sinks into a wall.
+- **Your body is glonk meshes too, and the camera steps back to see it.** A cave person is six boxes with a picture on their faces: a head that tips with your view, a trunk, and arms and legs that swing as you walk. From behind, the camera sits four blocks back from a point at your right shoulder, along the way you look, so your body does not hide what you aim at. A ray from that point stops the camera short of the first solid block, so it never looks through a wall, and with less than a block of room behind you the eyes see instead. What you aim at is what the crosshair or the pointer shows: the camera's ray, begun where it passes you, so nothing behind your back is aimed at and your reach stays your body's.
 - **Light is worked out once, not per pixel.** Each cell holds a level from 0 to 15 of light from the sky and one of light from torches and glowing crystal, and a face is drawn as bright as the cell in front of it. The hour then says how bright and what color each level looks: white by day, warm at sunset, dim blue by night, and always warm by a torch. The creatures are lit by the cell they stand in, and the clouds by the hour.
 
 On one core of an Apple M5 Pro, at 240 by 134 pixels, the blocks take 2.5 to 4 ms, the clouds 0.3 ms and twelve mossbacks 0.1 ms; a whole frame with the HUD 5 ms. The soft shadows add under 0.2 ms. At 400 by 110 cells a frame takes 13 ms, well inside the 33 ms of a frame at 30 a second, so the rays run on one core.
@@ -158,7 +162,7 @@ afplay internal/assets/sound/step-wood.wav    # listen to one, on a Mac
 
 ## Pictures
 
-`internal/assets/img` holds the four pictures the game uses: a strip of 85 tiles (the blocks', the cracks', and the pictures of the things that are not blocks: tools, blades, bars, food and the rest), the title, the mossback's six tiles and the gloam's three. All are drawn by `cmd/genassets` from a fixed hash, so they come out the same every time:
+`internal/assets/img` holds the five pictures the game uses: a strip of 85 tiles (the blocks', the cracks', and the pictures of the things that are not blocks: tools, blades, bars, food and the rest), the title, the mossback's six tiles, the gloam's three, and the cave person's seven in each of six looks. All are drawn by `cmd/genassets` from a fixed hash, so they come out the same every time:
 
 ```
 make assets                                   # draw them again
@@ -179,8 +183,8 @@ The race detector needs cgo. Where there is no C compiler, run `make check RACE=
 | Package | Purpose |
 |---|---|
 | `internal/world` | the blocks round the player in a sliding window and their light, the land a seed makes, rays through the grid, items, saved worlds |
-| `internal/render` | the blocks drawn by rays into a glonk `Canvas`, the sky at each hour, and the clouds, creatures and things on the ground drawn into it as glonk meshes |
-| `internal/game` | the game glonk runs: the player and its body, the creatures, digging and building, what is carried and what is made from it, the mouse, the HUD, the bag, the list of worlds, the settings, the title and pause menus, and what makes a sound when |
+| `internal/render` | the blocks drawn by rays into a glonk `Canvas`, the sky at each hour, and the clouds, creatures, cave people and things on the ground drawn into it as glonk meshes |
+| `internal/game` | the game glonk runs: the player and its body, the view from behind it, the creatures, digging and building, what is carried and what is made from it, the mouse, the HUD, the bag, the list of worlds, the settings, the title and pause menus, and what makes a sound when |
 | `internal/sound` | the names of the sounds, the mixer that places each in the world, and the speaker that plays it with oto |
 | `internal/assets` | the pictures and the sounds, read once at start-up, each block tile in five sizes |
 | `internal/tile` | the names of the tiles in the strip |
@@ -197,6 +201,8 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - The I screen needs a terminal about 25 rows tall in creative, and 21 rows tall and 90 columns wide in survival; a kiln needs 25 rows, and a crate 29.
 - A crate or a kiln does not open in creative, where every block is at hand.
 - A view that follows the mouse without a button held.
+- A view of your body from the front, and its own way of standing when it swims or flies.
+- Hiding from anything when you crouch: nothing looks for you yet.
 - Music, and sounds that echo in a cave or are muffled behind a wall.
 - Renaming a world, or making a copy of one.
 

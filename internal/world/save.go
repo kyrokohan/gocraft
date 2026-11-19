@@ -69,6 +69,10 @@ type Meta struct {
 
 	// Bed is the bedroll the player last lay on, which it wakes at; nil for none.
 	Bed *Cell `json:"bed,omitempty"`
+
+	// Look is which of the looks the player's body wears, from 0. A save from before
+	// there was a body has none, and wears the first.
+	Look int `json:"look,omitempty"`
 }
 
 // Cell is the place of a block in the world.
