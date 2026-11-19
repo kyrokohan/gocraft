@@ -4,11 +4,11 @@
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
 
-**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
+**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, and the beasts, the tools and the cave person have not. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
 
-![A snowy shore with pines, a lake and a mossback, drawn in terminal cells](docs/shot.png)
+![The skeleton of a great beast on red rock, among umbrella pines and gold fan-leaf trees, drawn in terminal cells](docs/shot.png)
 
-Walk a world with no end, made from a seed: seas and shores, plains in flower, forest, desert, snowy tundra and bare crags, with caves and ores under them, drifting clouds over them and mossbacks grazing on the grass. The sun crosses the sky and sets, the stars come out, and the caves are dark until you bring a torch: in survival, the gloam gathers in the dark and comes for you. Play it in survival, where you dig what you need, carry it, eat and stay alive, or in creative, with every block and nothing to fear. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art and the sounds are original, and made by code in this repo.
+Walk a world with no end, made from a seed, in lands older than grass: a prairie of ferns and horsetails, a jungle of tree ferns, a highland of umbrella pines, gold fan-leaf trees and redwoods, and red badlands that rise in mesas, where the skeletons of great beasts lie. Round them are seas and shores, snowy tundra and bare crags, with caves and ores under them, drifting clouds over them and mossbacks grazing on the moss. The sun crosses the sky and sets, the stars come out, and the caves are dark until you bring a torch: in survival, the gloam gathers in the dark and comes for you. Play it in survival, where you dig what you need, carry it, eat and stay alive, or in creative, with every block and nothing to fear. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art and the sounds are original, and made by code in this repo.
 
 ## Install and run
 
@@ -60,7 +60,7 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 
 **New world** asks how the world is played, and the world keeps that.
 
-- **Survival.** You start with nothing. A block takes time to dig, from a fifth of a second for leaves to two seconds for stone with a pick and more for ore, and cracks show as you dig. Let go, or look away, and it starts again. A broken block drops as a small block of itself (stone as cobble, grass as dirt, a bush as berries; leaves and grass tufts crumble away), which you pick up by walking near. You carry 9 slots on the hotbar and 27 in the pack, 64 of a kind to a slot, and placing a block uses one up.
+- **Survival.** You start with nothing. A block takes time to dig, from a fifth of a second for leaves to two seconds for stone with a pick and more for ore, and cracks show as you dig. Let go, or look away, and it starts again. A broken block drops as a small block of itself (stone as cobble, mossy earth as dirt, a bush as berries; leaves and ferns crumble away), which you pick up by walking near. You carry 9 slots on the hotbar and 27 in the pack, 64 of a kind to a slot, and placing a block uses one up.
 - **Your body.** Health, food and air show over the hotbar. A fall of more than three blocks hurts, a point for each block more, but not into water. Under water your air lasts 15 seconds, then you drown, slowly. Food goes down a point every 30 seconds; while it is 18 or more of 20 you heal, and at none hunger hurts, though it cannot kill. Berries from bushes, fruit from now and then a leaf, and berry loaves and moss cakes from a kiln are food.
 - **Making things.** The I screen lists what you can make, beside your slots: Right from the last column goes into the list, and Enter or a click makes one. A line is dim while you lack something for it, and what a line needs shows under the slots. By hand you make planks from a log, sticks from planks, a workbench from planks and torches from a stick and coal. Stand within four blocks of a workbench to make tools, blades, a kiln, a crate (8 planks) and a bedroll (6 moss and 3 planks).
 - **A kiln cooks.** E on a kiln opens its three slots over yours: what to cook, its fuel, and what it has made. Copper or iron ore cooks to a bar, sand to glass, clay to brick, three berries to a loaf and three moss to a moss cake, six seconds a piece. A stick burns for half a piece, planks for one and a half, a log for four and coal for eight. An arrow fills as a piece cooks, and a fire under it goes down as the fuel burns. A kiln goes on cooking when you leave it, wherever it is.
@@ -72,7 +72,6 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 - **Fainting.** At no health you faint, and wake at your bedroll or where a new player starts, whole again and with everything you carried.
 - **Creative.** Every block on the I screen, as many as you want, broken at once and dropping nothing. Nothing hurts and you can fly.
 - These numbers are first guesses, to be tuned.
-- A world saved before there were modes opens in creative.
 
 - A day lasts ten minutes of play, and the clock stands still in a pause. A new world starts in the morning.
 
@@ -82,14 +81,15 @@ The title lists your worlds, the last played first, with how each is played and 
 
 The world is saved when you choose **Save and leave**, which goes back to the list, and also on **Quit**, Ctrl-C or when the window closes.
 
-- A world is a folder of `skyspear/worlds` in your config folder (`~/Library/Application Support` on macOS, `~/.config` on Linux), named as you named the world; `-worlds` names another folder of worlds. A world saved before there was a list is there as **world**. It holds `world.json` (the seed, the mode, the day and the hour, where you were, what you carry, how your body is, what lies on the ground, what the crates and the kilns hold, and your bedroll) and one small file for each chunk you changed. The rest of the world is made again from the seed.
+- A world is a folder of `skyspear/worlds` in your config folder (`~/Library/Application Support` on macOS, `~/.config` on Linux), named as you named the world; `-worlds` names another folder of worlds. It holds `world.json` (the seed, the mode, the day and the hour, where you were, what you carry, how your body is, what lies on the ground, what the crates and the kilns hold, and your bedroll) and one small file for each chunk you changed. The rest of the world is made again from the seed.
 - Every file is written beside the old one and then put in its place, so a write that fails leaves the old file.
 - A world whose `world.json` cannot be read is listed as such and does not open, so it is never written over. It can still be deleted.
 - `-world folder` plays the one world in that folder, with no list, as the game did before: the title offers **Continue**, **New world** asks before it takes the place of the saved world, and a `world.json` there that cannot be read stops the game with an error.
 - A chunk file that cannot be read does not stop the game. The chunk is made again from the seed, a line on screen says so, and the file is never written over, so what you build in that chunk is not kept.
-- **Worlds made under the old name** are still in `gocraft/worlds` in your config folder, untouched. `skyspear -worlds` with that folder lists them.
+- **A world saved before the land turned old** (by `v0.2.0` or earlier) is listed as from an older version and does not open: some of its blocks are now other things. It is left untouched, and the game that made it still installs from its tag.
+- **Worlds made under the old name** are still in `gocraft/worlds` in your config folder, untouched. `skyspear -worlds` with that folder lists them, as from an older version.
 - **The one world of the first version** (`gocraft/world.sav`) cannot be played by this one. It is left where it is, untouched.
-- The mossbacks are saved, where they stood and with their moss shorn or grown. A world saved before they were finds a new herd round you.
+- The mossbacks are saved, where they stood and with their moss shorn or grown.
 
 ## Settings
 
@@ -121,9 +121,15 @@ On one core of an Apple M5 Pro, at 240 by 134 pixels, the blocks take 2.5 to 4 m
 
 The rays look up millions of blocks a frame, so a block has to be one index into one list. The world is therefore not a map of pieces: only the part round you is held, in a window of 256 by 256 columns that slides with you. A block at `x, z` lives at `x & 255, z & 255`, so the list wraps round and nothing is copied when the window moves.
 
-The world is made a chunk at a time, 16 by 16 columns and 128 high, each from the seed and its place alone. So a chunk is the same whenever it is made, a tree on the line between two chunks is built half by each, and only the chunks you changed need saving. A chunk takes 0.2 ms to make and they come in two a frame, the nearest first, which keeps ahead of flying flat out.
+The world is made a chunk at a time, 16 by 16 columns and 128 high, each from the seed and its place alone. So a chunk is the same whenever it is made, a tree on the line between two chunks is built half by each, and only the chunks you changed need saving. A chunk takes 0.2 ms to make and they come in two a frame, the nearest first, which keeps ahead of flying flat out. The widest tree, a redwood, reaches five blocks from its foot, so a chunk looks that far outside itself for trees.
 
-Four slow noises say how high the land stands, how rough it is, how warm and how wet, and from those each column is sea, shore, plains, forest, desert, tundra or crags. Caves and ores come from noise in three dimensions, worked out on a coarse grid that is the same for the whole world.
+Four slow noises say how high the land stands, how rough it is, how warm and how wet, and from those each column is sea, shore, prairie, jungle, highland, badlands, tundra or crags. Caves and ores come from noise in three dimensions, worked out on a coarse grid that is the same for the whole world.
+
+A thing bigger than a chunk cannot be built by one. So the ground is also cut into squares of 160 blocks, and the seed gives each square one landmark or none, well inside it. A chunk asks only about the squares it lies in and builds its part from the seed alone. The first landmark is a great skeleton: a skull, ribs that stand as arches you can walk under, and a tail. Most lie in the badlands and a few on the prairie.
+
+![A jungle of tree ferns under tall trees, with flowers](docs/jungle.png)
+
+![Redwoods, umbrella pines and gold fan-leaf trees in the highland](docs/highland.png)
 
 ## Light
 
@@ -152,7 +158,7 @@ afplay internal/assets/sound/step-wood.wav    # listen to one, on a Mac
 
 ## Pictures
 
-`internal/assets/img` holds the four pictures the game uses: a strip of 74 tiles (the blocks', the cracks', and the pictures of the things that are not blocks: tools, blades, bars, food and the rest), the title, the mossback's six tiles and the gloam's three. All are drawn by `cmd/genassets` from a fixed hash, so they come out the same every time:
+`internal/assets/img` holds the four pictures the game uses: a strip of 85 tiles (the blocks', the cracks', and the pictures of the things that are not blocks: tools, blades, bars, food and the rest), the title, the mossback's six tiles and the gloam's three. All are drawn by `cmd/genassets` from a fixed hash, so they come out the same every time:
 
 ```
 make assets                                   # draw them again
