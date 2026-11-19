@@ -196,8 +196,8 @@ func TestABrokenWorldFileIsAnErrorAndNeverAPanic(t *testing.T) {
 		"not json":       "hello, this is not a world",
 		"cut short":      text[:len(text)/2],
 		"another kind":   `[1, 2, 3]`,
-		"old version":    strings.Replace(text, `"version": 2`, `"version": 1`, 1),
-		"no version":     strings.Replace(text, `"version": 2,`, ``, 1),
+		"old version":    strings.Replace(text, `"version": 3`, `"version": 1`, 1),
+		"no version":     strings.Replace(text, `"version": 3,`, ``, 1),
 		"player nowhere": strings.Replace(text, `"X": 702.25`, `"X": 1e999`, 1),
 		"player too far": strings.Replace(text, `"X": 702.25`, `"X": 1e15`, 1),
 		"a word for yaw": strings.Replace(text, `"yaw": 1.5`, `"yaw": "left"`, 1),
@@ -224,6 +224,44 @@ func TestABrokenWorldFileIsAnErrorAndNeverAPanic(t *testing.T) {
 
 		if _, _, err := Open(dir); err == nil {
 			t.Errorf("%s: opened without an error", name)
+		}
+	}
+}
+
+// A world saved by an older version of the game is whole, and the game cannot play it.
+// That is told apart from a world that is damaged, so the title can say which.
+func TestAWorldOfAnOlderVersionIsToldApartFromADamagedOne(t *testing.T) {
+	dir := t.TempDir()
+	w, meta := played(t)
+	if err := w.Save(dir, meta); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, metaName)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, c := range map[string]struct {
+		content string
+		older   bool
+	}{
+		"version 2":  {strings.Replace(string(data), `"version": 3`, `"version": 2`, 1), true},
+		"no version": {strings.Replace(string(data), `"version": 3,`, ``, 1), true},
+		"version 99": {strings.Replace(string(data), `"version": 3`, `"version": 99`, 1), false},
+		"damaged":    {"{", false},
+	} {
+		if c.content == string(data) {
+			t.Fatalf("%s: the test did not change the file", name)
+		}
+		if err := os.WriteFile(path, []byte(c.content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Peek(dir); err == nil || errors.Is(err, ErrOlder) != c.older {
+			t.Errorf("%s: Peek said %v, wanted an error that is of an older version: %v", name, err, c.older)
+		}
+		if _, _, err := Open(dir); err == nil || errors.Is(err, ErrOlder) != c.older {
+			t.Errorf("%s: Open said %v, wanted an error that is of an older version: %v", name, err, c.older)
 		}
 	}
 }
