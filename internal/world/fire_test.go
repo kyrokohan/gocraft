@@ -295,3 +295,15 @@ func BenchmarkCarry(b *testing.B) {
 		i++
 	}
 }
+
+func TestAPebbleIsCarriedInStacksAndASlingWears(t *testing.T) {
+	if !Pebble.Known() || Pebble.StackSize() != StackSize || Pebble.Uses() != 0 || Pebble.Damage() != 1 {
+		t.Errorf("a pebble: known %v, %d to a slot, %d uses, hits for %v", Pebble.Known(), Pebble.StackSize(), Pebble.Uses(), Pebble.Damage())
+	}
+	if Sling.Uses() == 0 || Sling.StackSize() != 1 || Sling.Name() != "sling" {
+		t.Errorf("a sling: %q, %d uses, %d to a slot: wanted it to wear, one to a slot", Sling.Name(), Sling.Uses(), Sling.StackSize())
+	}
+	if Pebble != SoftPot+1 || Sling != Pebble+1 || itemEnd != Sling+1 {
+		t.Errorf("the numbers moved: pebble %d, sling %d, after soft pot %d", Pebble, Sling, SoftPot)
+	}
+}

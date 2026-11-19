@@ -54,6 +54,7 @@ var help = []string{
 	"1 to 9    pick slot    Tab, wheel      next slot",
 	"I         your things  V       view from behind",
 	"C         crouch       L       next look",
+	"R         throw a spear, or sling a pebble",
 }
 
 // barOrigin returns the top left cell of the hotbar in a frame of a size in cells: along

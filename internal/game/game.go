@@ -157,9 +157,17 @@ type Game struct {
 	aimed    bool
 	prey     prey // the creature the player aims at, if preyed is set, and then no block is
 	preyed   bool
-	hitWait  float64 // until the player can hit again
-	digAt    [3]int  // the block being dug, in survival
-	digging  float64 // for how long it has been dug
+	hitWait  float64 // until the player can hit, or throw, again
+
+	// Where the player aims from and along, as of the last frame, what has been thrown
+	// and is in flight or sticks where it landed, and those things as they are drawn,
+	// kept between frames.
+	from, along geometry.Vector3
+	missiles    []missile
+	thrown      []render.Flying
+
+	digAt   [3]int  // the block being dug, in survival
+	digging float64 // for how long it has been dug
 
 	// Fire: the hearth a fire drill is being turned in and for how long it has been, how
 	// many seconds the torch in hand has burned, and until the fires near smoke again.
@@ -265,7 +273,7 @@ func (g *Game) use(w *world.World, s world.Meta) {
 	g.clouds = render.NewClouds(g.world.Seed)
 	g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
 	g.fauna = faunaFrom(g.world, s, g.player.Pos)
-	g.bits = nil
+	g.bits, g.missiles = nil, nil
 	g.selected = min(max(s.Slot, 0), hotbarSlots-1)
 	g.days = s.Days
 	g.saved = true
@@ -301,6 +309,11 @@ func (g *Game) Save() error {
 	}
 	for _, d := range g.drops {
 		m.Drops = append(m.Drops, d.Drop)
+	}
+	for _, t := range g.missiles {
+		if t.leaves {
+			m.Drops = append(m.Drops, world.Drop{Stack: t.stack, Pos: t.pos}) // in flight or stuck, it is kept as a thing lying there
+		}
 	}
 	m.Beasts = g.fauna.saved()
 	m.Pots, m.Hearths = g.savedStores()
@@ -361,7 +374,7 @@ func (g *Game) newWorld(seed int64) {
 	g.player = Player{Pos: g.world.Spawn()}
 	g.fauna = newFauna(g.world, g.player.Pos)
 	g.selected, g.aimed, g.saved, g.days, g.torch = 0, false, false, 0, 0
-	g.drops, g.bits = nil, nil
+	g.drops, g.bits, g.missiles = nil, nil, nil
 	g.loadStores(world.Meta{})
 	g.begin(false)
 }
@@ -469,6 +482,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			}
 		}
 		g.stepDrops(dt)
+		g.stepMissiles(dt)
 		g.smoke(dt)
 		g.stepBits(dt)
 		g.stepHearths(dt)
@@ -644,6 +658,7 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera, body bool) {
 		})
 	}
 	g.look.Draw(c, cam, g.lying, g.sky)
+	g.look.DrawFlying(c, cam, g.flying(), g.sky)
 	g.look.DrawBits(c, cam, g.drawnBits(), g.sky)
 
 	g.clouds.Draw(c, cam, g.sky)

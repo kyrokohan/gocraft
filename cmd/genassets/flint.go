@@ -214,3 +214,39 @@ func spear(x, y int) (rgb, bool) {
 	}
 	return grain(c, 0.08, x, y, 568), true
 }
+
+// pebble is a few small round stones, as a hand holds them to throw.
+func pebble(x, y int) (rgb, bool) {
+	for i, at := range [][3]float64{{5, 6, 2.6}, {10.5, 8, 2.9}, {6.5, 11.5, 2.3}} {
+		dx, dy := float64(x)+0.5-at[0], float64(y)+0.5-at[1]
+		switch d := math.Sqrt(dx*dx+dy*dy) / at[2]; {
+		case d > 1:
+		case dx < 0 && dy < 0 && d < 0.6:
+			return grain(rgb{176, 174, 172}, 0.05, x, y, 622+i), true // where it catches the light
+		case d > 0.72 && dx+dy > 0:
+			return grain(rgb{92, 90, 92}, 0.05, x, y, 622+i), true
+		default:
+			return grain(rgb{136, 134, 134}.scale(0.9+0.2*hash(i, 0, 625)), 0.06, x, y, 622+i), true
+		}
+	}
+	return rgb{}, false
+}
+
+// sling is a pouch of hide with a cord at each end, one with a loop for a finger.
+func sling(x, y int) (rgb, bool) {
+	cordColor := rgb{196, 168, 110}
+	dx, dy := (float64(x)-7.5)/3.6, (float64(y)-11)/2.4
+	switch {
+	case dx*dx+dy*dy <= 1:
+		c := rgb{140, 98, 62}
+		if dy > 0.3 {
+			c = c.scale(0.76) // the pouch hangs, and is in its own shade below
+		}
+		return grain(c, 0.07, x, y, 626), true
+	case y <= 10 && y >= 3 && (x == 4+(10-y)/4 || x == 11-(10-y)/4):
+		return grain(cordColor, 0.06, x, y, 627), true // the two cords, drawn together above
+	case y >= 1 && y <= 2 && x >= 5 && x <= 7 && !(y == 2 && x == 6):
+		return grain(cordColor, 0.06, x, y, 627), true // the loop
+	}
+	return rgb{}, false
+}

@@ -80,6 +80,7 @@ func (g *Game) aim() {
 	// A spear reaches a beast from farther than a hand reaches a block, so the ray goes
 	// as far as that, and a block beyond the hand's reach is only in the way.
 	far := reach + g.items[g.selected].Item.Reach()
+	g.from, g.along = origin, direction // what is thrown goes the same way
 	g.target, g.aimed = g.world.Target(origin, direction, far)
 
 	// A creature in front of the block, or in reach where there is none, is aimed at in
@@ -248,6 +249,9 @@ func (g *Game) build(in *engine.Input, dt float64) {
 	g.hitWait = max(g.hitWait-dt, 0)
 
 	g.aim()
+	if keyDown(in.IsDown, 'r') && g.hitWait == 0 && g.throw() {
+		return
+	}
 	if g.preyed {
 		// A creature is aimed at, and no block: Q or a click hits it, again while held,
 		// and E or a right click shears it. Food in hand is eaten as anywhere else.
