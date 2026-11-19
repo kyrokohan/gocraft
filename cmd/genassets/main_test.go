@@ -67,11 +67,12 @@ func TestOnlyLeavesGlassPlantsAndPicturesOnNoBlockHaveHoles(t *testing.T) {
 		}
 		seeThrough := slices.Contains([]tile.ID{
 			tile.Leaves, tile.Glass, tile.PineNeedles, tile.PaleLeaves, tile.Fronds, tile.FanLeaves, tile.TallFern, tile.PalmCrown,
-			tile.Fern, tile.RedFlower, tile.YellowFlower, tile.Bush, tile.Horsetail, tile.DryBush, tile.Mushroom, tile.Torch, tile.Bedroll,
+			tile.Fern, tile.RedFlower, tile.YellowFlower, tile.Bush, tile.Horsetail, tile.DryBush, tile.Mushroom, tile.Torch, tile.FurBed,
 			tile.Berries, tile.Cracks, tile.Stick, tile.Coal, tile.CopperBar, tile.IronBar, tile.CrystalShard, tile.Fruit, tile.BerryLoaf,
 			tile.WoodPick, tile.WoodAxe, tile.WoodShovel, tile.StonePick, tile.StoneAxe, tile.StoneShovel,
 			tile.CopperPick, tile.CopperAxe, tile.CopperShovel, tile.IronPick, tile.IronAxe, tile.IronShovel,
 			tile.WoodBlade, tile.StoneBlade, tile.CopperBlade, tile.IronBlade, tile.Moss, tile.MossCake, tile.Meat,
+			tile.Fiber, tile.Cord, tile.Flint, tile.Hide, tile.HandAxe, tile.FlintPick, tile.FlintKnife, tile.DiggingStick, tile.Club, tile.Spear,
 		}, tile.ID(id))
 		if seeThrough && holes == 0 {
 			t.Errorf("tile %d should have holes and has none", id)

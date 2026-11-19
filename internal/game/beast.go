@@ -95,7 +95,7 @@ type breed struct {
 	// mossy earth.
 	lands []world.Biome
 
-	meat int // pieces of raw meat it leaves
+	meat, hide int // pieces of raw meat, and hides, it leaves
 
 	// call is the sound it makes to itself, about once in callEvery seconds, and cry
 	// the one it makes when it is hit or takes alarm. carries is how far off they are
@@ -115,7 +115,7 @@ var breeds = [render.Kinds]breed{
 	},
 	render.Bugler: {
 		walk: 1.6, run: 6.5, gait: 2.6,
-		health: 16, bump: 3, meat: 3,
+		health: 16, bump: 3, meat: 3, hide: 1,
 		temper: herder, group: [2]int{5, 8}, most: 16, young: 0.3, wary: 9,
 		lands: []world.Biome{world.Prairie, world.Highland},
 		call:  sound.Horn, cry: sound.Alarm, callEvery: 70, carries: 3 * sound.Hearing,
@@ -129,7 +129,7 @@ var breeds = [render.Kinds]breed{
 	},
 	render.Quickclaw: {
 		walk: 2.0, run: 4.8, gait: 4.2,
-		health: 10, bite: 3, meat: 1,
+		health: 10, bite: 3, meat: 1, hide: 1,
 		temper: hunter, group: [2]int{2, 3}, most: 3, night: true, sees: 20, hears: 14,
 		call: sound.Growl, cry: sound.Screech, callEvery: 9,
 	},
@@ -168,8 +168,9 @@ type beast struct {
 	regrow float64          // how long a mossback's moss still takes to grow back, or 0 if it has it
 	bumped float64          // until it can hurt the player again by running into it
 
-	dead bool    // it has no health left
-	fall float64 // from 0, as it dies, to 1, gone
+	dead   bool    // it has no health left
+	fall   float64 // from 0, as it dies, to 1, gone
+	carved bool    // a knife killed it, so it leaves more
 
 	fed   int     // how many meals it has had from the player's hand
 	tame  bool    // it trusts the player, and follows
@@ -773,11 +774,20 @@ func (g *Game) stepBeasts(dt float64) {
 		g.sayFrom(s.kind, s.name, s.at, 0.9)
 	}
 	for _, c := range f.fallen {
-		for range breeds[c.kind].meat {
+		// A kill carved with a knife leaves one more piece of meat, and always a hide.
+		meat, hides := breeds[c.kind].meat, breeds[c.kind].hide
+		if c.carved {
+			meat, hides = meat+1, max(hides, 1)
+		}
+		for i := range meat + hides {
+			item := world.Meat
+			if i >= meat {
+				item = world.Hide
+			}
 			at := c.Pos.Add(geometry.Vector3{
 				X: (g.scatter.Float64() - 0.5) * 2 * meatSpread, Y: 0.3, Z: (g.scatter.Float64() - 0.5) * 2 * meatSpread,
 			})
-			g.drops = append(g.drops, drop{Drop: world.Drop{Stack: world.Stack{Item: world.Meat, Count: 1}, Pos: at}})
+			g.drops = append(g.drops, drop{Drop: world.Drop{Stack: world.Stack{Item: item, Count: 1}, Pos: at}})
 		}
 	}
 	if !g.survival {

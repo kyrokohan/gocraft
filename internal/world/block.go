@@ -28,7 +28,7 @@ const (
 	Sandstone
 	Cobble
 	CoalOre
-	CopperOre
+	FlintSeam
 	IronOre
 	CrystalOre
 	PineLog
@@ -46,10 +46,10 @@ const (
 	Mushroom
 
 	Torch
-	Workbench
+	KnappingStone
 	Kiln
 	Crate
-	Bedroll
+	FurBed
 
 	TallFern
 	PalmCrown
@@ -106,12 +106,12 @@ var infos = [256]Info{
 	Air:       {Name: "air"},
 	Turf:      byShovel(solid("mossy earth", tile.TurfTop, tile.TurfSide, tile.Dirt), 0.6),
 	Dirt:      byShovel(cube("dirt", tile.Dirt), 0.5),
-	Stone:     byPick(cube("stone", tile.Stone), 2, TierWood),
+	Stone:     byPick(cube("stone", tile.Stone), 5, 0), // by hand it breaks to rubble, slowly
 	Sand:      byShovel(cube("sand", tile.Sand), 0.5),
 	Log:       byAxe(solid("log", tile.LogTop, tile.LogSide, tile.LogTop), 1.5),
 	Leaves:    dig(leaves("leaves", tile.Leaves), 0.2),
 	Planks:    byAxe(cube("planks", tile.Planks), 1.2),
-	Brick:     byPick(cube("brick", tile.Brick), 2, TierWood),
+	Brick:     byPick(cube("brick", tile.Brick), 2, 0),
 	Glass:     byPick(Info{Name: "glass", Top: tile.Glass, Side: tile.Glass, Bottom: tile.Glass, Solid: true}, 0.3, 0),
 	Water:     {Name: "water", Top: tile.Water, Side: tile.Water, Bottom: tile.Water, Shade: 1},
 	Snow:      byShovel(cube("snow", tile.Snow), 0.3),
@@ -120,11 +120,11 @@ var infos = [256]Info{
 	Gravel:      byShovel(cube("gravel", tile.Gravel), 0.6),
 	Clay:        byShovel(cube("clay", tile.Clay), 0.6),
 	Sandstone:   byPick(solid("sandstone", tile.SandstoneTop, tile.SandstoneSide, tile.SandstoneTop), 1.2, TierWood),
-	Cobble:      byPick(cube("cobble", tile.Cobble), 2, TierWood),
-	CoalOre:     byPick(cube("coal ore", tile.CoalOre), 2.5, TierWood),
-	CopperOre:   byPick(cube("copper ore", tile.CopperOre), 3, TierStone),
-	IronOre:     byPick(cube("iron ore", tile.IronOre), 3, TierStone),
-	CrystalOre:  byPick(glowing(cube("crystal ore", tile.CrystalOre), 8), 3.5, TierCopper),
+	Cobble:      byPick(cube("cobble", tile.Cobble), 3, 0),
+	CoalOre:     byPick(cube("coal ore", tile.CoalOre), 2.5, TierFlint),
+	FlintSeam:   byPick(cube("flint seam", tile.FlintSeam), 3, 0),
+	IronOre:     byPick(cube("iron ore", tile.IronOre), 3, TierFlint),
+	CrystalOre:  byPick(glowing(cube("crystal ore", tile.CrystalOre), 8), 3.5, TierObsidian),
 	PineLog:     byAxe(solid("pine log", tile.PineLogTop, tile.PineLogSide, tile.PineLogTop), 1.5),
 	PineNeedles: dig(leaves("pine needles", tile.PineNeedles), 0.2),
 	PaleLog:     byAxe(solid("pale log", tile.PaleLogTop, tile.PaleLogSide, tile.PaleLogTop), 1.5),
@@ -144,12 +144,12 @@ var infos = [256]Info{
 	Torch: glowing(plant("torch", tile.Torch), 14),
 
 	// Standing near a workbench or a kiln lets the player make more.
-	Workbench: byAxe(solid("workbench", tile.WorkbenchTop, tile.WorkbenchSide, tile.Planks), 1.5),
-	Kiln:      byPick(solid("kiln", tile.KilnTop, tile.KilnSide, tile.Cobble), 2.5, TierWood),
+	KnappingStone: byPick(solid("knapping stone", tile.KnappingTop, tile.KnappingSide, tile.Stone), 2, 0),
+	Kiln:          byPick(solid("kiln", tile.KilnTop, tile.KilnSide, tile.Cobble), 2.5, 0),
 
 	// A crate keeps things, and a bedroll is where the player sleeps and wakes.
-	Crate:   byAxe(solid("crate", tile.CrateTop, tile.CrateSide, tile.CrateTop), 1.2),
-	Bedroll: dig(Info{Name: "bedroll", Top: tile.Bedroll, Side: tile.Bedroll, Bottom: tile.Bedroll, Mat: true}, 0.3),
+	Crate:  byAxe(solid("crate", tile.CrateTop, tile.CrateSide, tile.CrateTop), 1.2),
+	FurBed: dig(Info{Name: "fur bed", Top: tile.FurBed, Side: tile.FurBed, Bottom: tile.FurBed, Mat: true}, 0.3),
 
 	// What grows in the old lands. A tall fern fills its cell, and a stump palm's crown
 	// stands on its trunk as a plant does on the ground.

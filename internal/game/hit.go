@@ -77,7 +77,11 @@ func (g *Game) strike(p prey) {
 	g.hitWait, g.swing = hitWait, swingTime
 	from := g.player.Pos
 	c := &g.fauna.all[p.i]
-	c.hit(from, g.items[g.selected].Item.Damage())
+	held := g.items[g.selected].Item
+	if c.hit(from, held.Damage()) {
+		c.carved = held.Carves()
+	}
+	c.push = c.push.Scale(held.Knock()) // a club sends it farther
 	g.voice(c, breeds[c.kind].cry, 1)
 	if b := &breeds[c.kind]; b.temper == hunter {
 		// A hunter does not run from a hit, unless it is badly hurt and alone.

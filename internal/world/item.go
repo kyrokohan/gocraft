@@ -42,6 +42,18 @@ const (
 
 	Meat // raw, from a beast that died
 
+	// The things of the stone age.
+	Fiber // from a fern
+	Cord  // twisted from fiber
+	Flint
+	Hide
+	HandAxe
+	FlintPick
+	FlintKnife
+	DiggingStick
+	Club
+	Spear
+
 	itemEnd
 )
 
@@ -60,12 +72,13 @@ const (
 	Blade       // nothing: it is for hitting
 )
 
-// The tiers of tools, from the first to the best, as Item.Tool gives them. A block that
-// needs a tool needs one of its tier or better.
+// The tiers of tools, from the first to the best, as Item.Tool gives them: what they are
+// made of. A block that needs a tool needs one of its tier or better. Obsidian is on
+// the fire mountain only, and iron only falls from the sky.
 const (
 	TierWood = 1 + iota
-	TierStone
-	TierCopper
+	TierFlint
+	TierObsidian
 	TierIron
 )
 
@@ -83,6 +96,15 @@ type thing struct {
 	food int // how much eating one gives back, out of MaxFood
 	tool Tool
 	tier int
+
+	// What a tool or a weapon has of its own, where it is not what its tier gives: how
+	// many uses it lasts, how hard it hits, how much farther than a hand it reaches a
+	// beast, how many times as far it knocks one back, and whether it carves a kill.
+	uses   int
+	hits   float64
+	reach  float64
+	knock  float64
+	carves bool
 }
 
 var things = [itemEnd - 256]thing{
@@ -98,24 +120,37 @@ var things = [itemEnd - 256]thing{
 	WoodPick - 256:     {name: "wood pick", icon: tile.WoodPick, tool: Pick, tier: TierWood},
 	WoodAxe - 256:      {name: "wood axe", icon: tile.WoodAxe, tool: Axe, tier: TierWood},
 	WoodShovel - 256:   {name: "wood shovel", icon: tile.WoodShovel, tool: Shovel, tier: TierWood},
-	StonePick - 256:    {name: "stone pick", icon: tile.StonePick, tool: Pick, tier: TierStone},
-	StoneAxe - 256:     {name: "stone axe", icon: tile.StoneAxe, tool: Axe, tier: TierStone},
-	StoneShovel - 256:  {name: "stone shovel", icon: tile.StoneShovel, tool: Shovel, tier: TierStone},
-	CopperPick - 256:   {name: "copper pick", icon: tile.CopperPick, tool: Pick, tier: TierCopper},
-	CopperAxe - 256:    {name: "copper axe", icon: tile.CopperAxe, tool: Axe, tier: TierCopper},
-	CopperShovel - 256: {name: "copper shovel", icon: tile.CopperShovel, tool: Shovel, tier: TierCopper},
+	StonePick - 256:    {name: "stone pick", icon: tile.StonePick, tool: Pick, tier: TierFlint},
+	StoneAxe - 256:     {name: "stone axe", icon: tile.StoneAxe, tool: Axe, tier: TierFlint},
+	StoneShovel - 256:  {name: "stone shovel", icon: tile.StoneShovel, tool: Shovel, tier: TierFlint},
+	CopperPick - 256:   {name: "copper pick", icon: tile.CopperPick, tool: Pick, tier: TierObsidian},
+	CopperAxe - 256:    {name: "copper axe", icon: tile.CopperAxe, tool: Axe, tier: TierObsidian},
+	CopperShovel - 256: {name: "copper shovel", icon: tile.CopperShovel, tool: Shovel, tier: TierObsidian},
 	IronPick - 256:     {name: "iron pick", icon: tile.IronPick, tool: Pick, tier: TierIron},
 	IronAxe - 256:      {name: "iron axe", icon: tile.IronAxe, tool: Axe, tier: TierIron},
 	IronShovel - 256:   {name: "iron shovel", icon: tile.IronShovel, tool: Shovel, tier: TierIron},
 
 	WoodBlade - 256:   {name: "wood blade", icon: tile.WoodBlade, tool: Blade, tier: TierWood},
-	StoneBlade - 256:  {name: "stone blade", icon: tile.StoneBlade, tool: Blade, tier: TierStone},
-	CopperBlade - 256: {name: "copper blade", icon: tile.CopperBlade, tool: Blade, tier: TierCopper},
+	StoneBlade - 256:  {name: "stone blade", icon: tile.StoneBlade, tool: Blade, tier: TierFlint},
+	CopperBlade - 256: {name: "copper blade", icon: tile.CopperBlade, tool: Blade, tier: TierObsidian},
 	IronBlade - 256:   {name: "iron blade", icon: tile.IronBlade, tool: Blade, tier: TierIron},
 	Moss - 256:        {name: "moss", icon: tile.Moss},
 	MossCake - 256:    {name: "moss cake", icon: tile.MossCake, food: 8},
 
 	Meat - 256: {name: "raw meat", icon: tile.Meat, food: 5},
+
+	Fiber - 256: {name: "fiber", icon: tile.Fiber},
+	Cord - 256:  {name: "cord", icon: tile.Cord},
+	Flint - 256: {name: "flint", icon: tile.Flint},
+	Hide - 256:  {name: "hide", icon: tile.Hide},
+
+	// Flint held in the hand wears sooner than flint bound to a handle.
+	HandAxe - 256:      {name: "hand axe", icon: tile.HandAxe, tool: Axe, tier: TierFlint, uses: 60},
+	FlintPick - 256:    {name: "flint pick", icon: tile.FlintPick, tool: Pick, tier: TierFlint},
+	FlintKnife - 256:   {name: "flint knife", icon: tile.FlintKnife, tool: Blade, tier: TierFlint, carves: true},
+	DiggingStick - 256: {name: "digging stick", icon: tile.DiggingStick, tool: Shovel, tier: TierWood},
+	Club - 256:         {name: "club", icon: tile.Club, tool: Blade, tier: TierWood, hits: 4, knock: 1.8},
+	Spear - 256:        {name: "spear", icon: tile.Spear, tool: Blade, tier: TierWood, hits: 3, reach: 1},
 }
 
 // MaxFood is how full the player can be.
@@ -182,8 +217,30 @@ func (i Item) Tool() (Tool, int) {
 // Uses is how many blocks a tool breaks before it is worn out, and 0 for an item that
 // is not a tool.
 func (i Item) Uses() int {
+	if uses := i.thing().uses; uses > 0 {
+		return uses
+	}
 	_, tier := i.Tool()
 	return toolUses[tier]
+}
+
+// Reach is how much farther than a hand the item reaches a beast, in blocks.
+func (i Item) Reach() float64 {
+	return i.thing().reach
+}
+
+// Knock is how many times as far as a hand a hit with the item knocks a beast back.
+func (i Item) Knock() float64 {
+	if knock := i.thing().knock; knock > 0 {
+		return knock
+	}
+	return 1
+}
+
+// Carves reports whether a kill made with the item is carved: a knife's is, and leaves
+// more.
+func (i Item) Carves() bool {
+	return i.thing().carves
 }
 
 // bladeDamage is how hard a blade of each tier hits, in points of health.
@@ -192,6 +249,9 @@ var bladeDamage = [...]float64{1, 3, 4, 5, 6}
 // Damage is how hard a hit with the item in hand is, in points of a creature's health:
 // 1 for a hand or a thing that is not a tool, 2 for a tool, and a blade's by its tier.
 func (i Item) Damage() float64 {
+	if hits := i.thing().hits; hits > 0 {
+		return hits
+	}
 	switch kind, tier := i.Tool(); kind {
 	case NoTool:
 		return 1
@@ -229,8 +289,14 @@ func (b Block) DigWith(hand Item) (seconds float64, yields bool) {
 // itself, and nothing for leaves and grass that crumble away.
 func (b Block) Drop() (Item, int) {
 	switch b {
-	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fronds, FanLeaves, Fern, TallFern, PalmCrown, DryBush:
+	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fronds, FanLeaves, PalmCrown, DryBush:
 		return NoItem, 0
+	case Fern:
+		return Fiber, 1
+	case TallFern:
+		return Fiber, 2
+	case FlintSeam:
+		return Flint, 1
 	case Turf:
 		return Dirt.Item(), 1 // the turf does not come away
 	case Stone:
@@ -245,20 +311,26 @@ func (b Block) Drop() (Item, int) {
 	return b.Item(), 1
 }
 
-// fruitChance is the part of the leaves that hold a fruit.
-const fruitChance = 0.1
+// fruitChance is the part of the leaves that hold a fruit, and flintChance the part of
+// the gravel that holds a flint.
+const (
+	fruitChance = 0.1
+	flintChance = 0.12
+)
 
-// DropAt is Drop for the block in a cell. Leaves now and then hold a fruit: which ones
-// is a hash of the cell, so that it does not change.
+// DropAt is Drop for the block in a cell. Leaves now and then hold a fruit, and gravel
+// a flint: which ones is a hash of the cell, so that it does not change.
 func (b Block) DropAt(x, y, z int) (Item, int) {
-	if b == Leaves || b == PineNeedles || b == PaleLeaves || b == FanLeaves {
-		h := uint32(x)*0x9E3779B1 ^ uint32(y)*0x85EBCA77 ^ uint32(z)*0xC2B2AE3D
-		h ^= h >> 15
-		h *= 0x2C1B3C6D
-		h ^= h >> 13
-		if float64(h)/(1<<32) < fruitChance {
-			return Fruit, 1
-		}
+	h := uint32(x)*0x9E3779B1 ^ uint32(y)*0x85EBCA77 ^ uint32(z)*0xC2B2AE3D
+	h ^= h >> 15
+	h *= 0x2C1B3C6D
+	h ^= h >> 13
+	chance := float64(h) / (1 << 32)
+	switch {
+	case (b == Leaves || b == PineNeedles || b == PaleLeaves || b == FanLeaves) && chance < fruitChance:
+		return Fruit, 1
+	case b == Gravel && chance < flintChance:
+		return Flint, 1
 	}
 	return b.Drop()
 }

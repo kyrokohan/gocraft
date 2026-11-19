@@ -46,7 +46,7 @@ func (g *Game) lieDown(c world.Cell) {
 	}
 }
 
-// bedPlace returns where the player wakes at its bedroll, if it has one that is still
+// bedPlace returns where the player wakes at its furBed, if it has one that is still
 // there with room over it to stand: the world is brought in round it first. A bedroll
 // that is gone is forgotten.
 func (g *Game) bedPlace() (geometry.Vector3, bool) {
@@ -56,7 +56,7 @@ func (g *Game) bedPlace() (geometry.Vector3, bool) {
 	b := *g.bed
 	g.world.Follow(float64(b.X), float64(b.Z))
 	g.world.LoadAll()
-	if g.world.At(b.X, b.Y, b.Z) != world.Bedroll || solid(g.world, b.X, b.Y+1, b.Z) {
+	if g.world.At(b.X, b.Y, b.Z) != world.FurBed || solid(g.world, b.X, b.Y+1, b.Z) {
 		g.bed = nil
 		g.tell("your bedroll is gone, so you woke where you first began")
 		return geometry.Vector3{}, false

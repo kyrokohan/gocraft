@@ -454,7 +454,7 @@ func TestGroundIsUnderThePlantsAndTheMats(t *testing.T) {
 		t.Errorf("an empty column has ground at %d, wanted -1", got)
 	}
 	w.Set(4, 5, 4, Stone)
-	w.Set(4, 6, 4, Bedroll)
+	w.Set(4, 6, 4, FurBed)
 	if got := w.Ground(4, 4); got != 5 {
 		t.Errorf("the ground under a bedroll is %d, wanted 5", got)
 	}
@@ -557,7 +557,9 @@ func TestEveryOreIsInTheStoneAtItsOwnDepth(t *testing.T) {
 				switch b := w.At(x, y, z); b {
 				case Stone:
 					stone++
-				case CoalOre, CopperOre, IronOre, CrystalOre:
+				case IronOre:
+					t.Fatalf("iron ore in the ground at %d,%d,%d: iron only falls from the sky", x, y, z)
+				case CoalOre, FlintSeam, CrystalOre:
 					count[b]++
 					if y > top {
 						t.Fatalf("%s above the ground at %d,%d,%d", b.Info().Name, x, y, z)
@@ -565,15 +567,12 @@ func TestEveryOreIsInTheStoneAtItsOwnDepth(t *testing.T) {
 					if b == CrystalOre && y >= 20 {
 						t.Fatalf("crystal ore as high as layer %d", y)
 					}
-					if b == IronOre && y >= 44 {
-						t.Fatalf("iron ore as high as layer %d", y)
-					}
 				}
 			}
 		}
 	}
 	ores := 0
-	for _, b := range []Block{CoalOre, CopperOre, IronOre, CrystalOre} {
+	for _, b := range []Block{CoalOre, FlintSeam, CrystalOre} {
 		if count[b] == 0 {
 			t.Errorf("there is no %s", b.Info().Name)
 		}

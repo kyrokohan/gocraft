@@ -40,7 +40,7 @@ func materialOf(b world.Block) sound.Material {
 		return sound.Earth
 	case world.Sand, world.Gravel:
 		return sound.Sand
-	case world.Log, world.PineLog, world.PaleLog, world.Planks, world.Workbench, world.Crate, world.StumpPalm,
+	case world.Log, world.PineLog, world.PaleLog, world.Planks, world.Crate, world.StumpPalm,
 		world.FernTrunk, world.RedwoodLog:
 		return sound.Wood
 	case world.Leaves, world.PineNeedles, world.PaleLeaves, world.Fronds, world.FanLeaves:

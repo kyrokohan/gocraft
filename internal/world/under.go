@@ -221,7 +221,8 @@ func (u *under) hole(lx, y, lz int, l land) bool {
 
 // ore returns the ore that lies at a block of stone in the chunk, or Stone if there
 // is none. Ores lie in lumps. What a lump is made of depends on how deep it is: coal
-// and copper high up, iron lower, and crystal only near the bottom of the world.
+// and flint high up, more flint lower, and crystal only near the bottom of the world.
+// There is no iron in the ground: it only falls from the sky.
 func (u *under) ore(x, y, z, lx, lz int, seed uint32) Block {
 	if u.may[y/underStep][lz/underStep][lx/underStep]&mayLode == 0 || u.at(lode, lx, y, lz) < lodeLevel {
 		return Stone
@@ -235,18 +236,15 @@ func (u *under) ore(x, y, z, lx, lz int, seed uint32) Block {
 		case kind < 0.4:
 			return CrystalOre
 		case kind < 0.8:
-			return IronOre
+			return FlintSeam
 		}
 	case y < 42:
-		switch {
-		case kind < 0.4:
-			return IronOre
-		case kind < 0.7:
-			return CopperOre
+		if kind < 0.6 {
+			return FlintSeam
 		}
 	default:
-		if kind < 0.3 {
-			return CopperOre
+		if kind < 0.4 {
+			return FlintSeam
 		}
 	}
 	return CoalOre

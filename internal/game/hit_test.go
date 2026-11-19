@@ -133,17 +133,18 @@ func TestAnIronBladeKillsAQuickclawInTwoHits(t *testing.T) {
 	}
 }
 
-func TestABladeIsMadeAndMossCooksToACake(t *testing.T) {
+func TestAKnifeIsMadeAndMossCooksToACake(t *testing.T) {
 	g := inSurvival(t)
-	g.world.Set(22, 6, 22, world.Workbench)
-	g.items[0] = world.Stack{Item: world.Cobble.Item(), Count: 2}
+	g.world.Set(22, 6, 22, world.KnappingStone)
+	g.items[0] = world.Stack{Item: world.Flint, Count: 1}
 	g.items[1] = world.Stack{Item: world.Stick, Count: 1}
+	g.items[2] = world.Stack{Item: world.Cord, Count: 1}
 
-	if r, ok := recipeFor(g, world.StoneBlade); !ok || !g.craft(r) {
-		t.Fatal("a stone blade could not be made")
+	if r, ok := recipeFor(g, world.FlintKnife); !ok || !g.craft(r) {
+		t.Fatal("a flint knife could not be made")
 	}
-	if g.items[0] != (world.Stack{Item: world.StoneBlade, Count: 1}) {
-		t.Errorf("made %+v", g.items[:2])
+	if g.items[0] != (world.Stack{Item: world.FlintKnife, Count: 1}) {
+		t.Errorf("made %+v", g.items[:3])
 	}
 
 	k := &world.KilnStore{In: world.Stack{Item: world.Moss, Count: 3}, Fuel: world.Stack{Item: world.Coal, Count: 1}}

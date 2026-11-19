@@ -31,7 +31,7 @@ const (
 	SandstoneSide
 	Cobble
 	CoalOre
-	CopperOre
+	FlintSeam
 	IronOre
 	CrystalOre
 	PineLogSide
@@ -51,13 +51,13 @@ const (
 	DryBush
 	Mushroom
 	Torch
-	WorkbenchTop
-	WorkbenchSide
+	KnappingTop
+	KnappingSide
 	KilnTop
 	KilnSide
 	CrateTop
 	CrateSide
-	Bedroll
+	FurBed
 
 	TallFern
 	PalmCrown
@@ -103,6 +103,16 @@ const (
 	Moss
 	MossCake
 	Meat
+	Fiber
+	Cord
+	Flint
+	Hide
+	HandAxe
+	FlintPick
+	FlintKnife
+	DiggingStick
+	Club
+	Spear
 
 	// Count is the number of tiles in the strip.
 	Count
