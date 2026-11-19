@@ -2,21 +2,23 @@ package game
 
 import (
 	"cmp"
-	"fmt"
+	"math"
 	"slices"
 
 	"glonk.dev/engine"
 	"glonk.dev/geometry"
 	"glonk.dev/widget"
 
+	"github.com/kyrokohan/skyspear/internal/sound"
 	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // A pot and a hearth are stores: blocks with slots of their own, which E opens in the bag
-// above the player's things, in survival. A pot keeps what is put in it. A hearth cooks
-// what is put in it, a piece at a time, as long as it has fuel: an ore to a bar, sand to
-// glass, clay to brick, berries to a loaf and moss to a cake. Every hearth cooks wherever it
-// is while the world is played, with nobody to watch it.
+// above the player's things, in survival. A pot keeps what is put in it. A hearth burns
+// what it is fed, once it has been lit, and cooks what is put in it while it burns, a
+// piece at a time: meat, the seeds of a stump palm, the tip of a spear, and clay to a
+// brick or, shaped first, to a pot. Every hearth burns wherever it is while the world is
+// played, with nobody to watch it.
 
 // cookTime is how many seconds a hearth takes to cook one piece.
 const cookTime = 6.0
@@ -29,24 +31,25 @@ type cook struct {
 }
 
 var cooks = []cook{
-	{world.Sand.Item(), 1, world.Glass.Item()},
+	{world.Meat, 1, world.CookedMeat},
+	{world.PalmSeeds, 1, world.RoastSeeds},
+	{world.Spear, 1, world.HardSpear},
+	{world.SoftPot, 1, world.ClayPot.Item()},
 	{world.Clay.Item(), 1, world.Brick.Item()},
-	{world.Berries, 3, world.BerryLoaf},
-	{world.Moss, 3, world.MossCake},
 }
 
 // burnTime is how many seconds a piece of an item burns in a hearth: 0 for what is not
 // fuel.
 func burnTime(item world.Item) float64 {
-	switch item {
-	case world.Stick:
-		return cookTime / 2
-	case world.Planks.Item():
-		return 1.5 * cookTime
-	case world.Log.Item(), world.PineLog.Item(), world.PaleLog.Item():
-		return 4 * cookTime
-	case world.Coal:
-		return 8 * cookTime
+	switch {
+	case item == world.Stick:
+		return 15
+	case item == world.Planks.Item():
+		return 30
+	case slices.Contains(logs, item):
+		return 80
+	case item == world.Coal:
+		return 160
 	}
 	return 0
 }
@@ -69,29 +72,37 @@ func cookIn(k *world.HearthStore) (cook, bool) {
 	return cook{}, false
 }
 
-// stepHearth moves a hearth on by dt seconds. While there is something it can cook, it burns
-// a piece of fuel after another, and what it has cooked stays cooked when the fuel runs
-// out; taking away what it was cooking starts the next one afresh.
+// kindle sets fire to the next piece of a hearth's fuel, and reports whether there was
+// one. It is how a hearth is lit, and how one that burns goes on burning.
+func kindle(k *world.HearthStore) bool {
+	seconds := burnTime(k.Fuel.Item)
+	if k.Fuel.Count == 0 || seconds == 0 {
+		return false
+	}
+	k.Burn, k.Burns = seconds, seconds
+	takeFrom(&k.Fuel, 1)
+	return true
+}
+
+// stepHearth moves a hearth on by dt seconds. A cold one stays cold until it is lit. One
+// that burns goes on, a piece of fuel after another, whether or not there is anything to
+// cook, and goes out when the fuel is gone. What it has cooked stays cooked, and what
+// was half cooked when it went out is no further on when it is lit again; taking away
+// what it was cooking starts the next one afresh.
 func stepHearth(k *world.HearthStore, dt float64) {
-	for dt > 0 {
+	for dt > 0 && k.Burn > 0 {
 		step := min(dt, 0.25) // so that a long step lights the next piece of fuel in time
 		dt -= step
-		c, ok := cookIn(k)
-		if !ok {
+		if c, ok := cookIn(k); !ok {
 			k.Cooked = 0
+		} else if k.Cooked += step; k.Cooked >= cookTime {
+			k.Cooked = 0
+			takeFrom(&k.In, c.n)
+			k.Out = world.Stack{Item: c.makes, Count: k.Out.Count + 1}
 		}
-		if k.Burn == 0 && ok && burnTime(k.Fuel.Item) > 0 {
-			k.Burn, k.Burns = burnTime(k.Fuel.Item), burnTime(k.Fuel.Item)
-			takeFrom(&k.Fuel, 1)
+		if k.Burn = max(k.Burn-step, 0); k.Burn == 0 {
+			kindle(k)
 		}
-		if k.Burn > 0 && ok {
-			if k.Cooked += step; k.Cooked >= cookTime {
-				k.Cooked = 0
-				takeFrom(&k.In, c.n)
-				k.Out = world.Stack{Item: c.makes, Count: k.Out.Count + 1}
-			}
-		}
-		k.Burn = max(k.Burn-step, 0)
 	}
 }
 
@@ -102,11 +113,77 @@ func takeFrom(s *world.Stack, n int) {
 	}
 }
 
-// stepHearths moves every hearth on by dt seconds.
+// stepHearths moves every hearth on by dt seconds, and has the block of each be the one
+// that burns while it does, so that it gives its light.
 func (g *Game) stepHearths(dt float64) {
-	for _, k := range g.hearths {
+	for c, k := range g.hearths {
 		stepHearth(k, dt)
+		want := world.Hearth
+		if k.Burn > 0 {
+			want = world.HearthLit
+		}
+		if b := g.world.At(c.X, c.Y, c.Z); b != want && isHearth(b) {
+			g.world.Set(c.X, c.Y, c.Z, want)
+		}
 	}
+}
+
+// isHearth reports whether a block is a hearth, cold or burning.
+func isHearth(b world.Block) bool {
+	return b == world.Hearth || b == world.HearthLit
+}
+
+// burns reports whether a block is a fire that a torch can be lit at.
+func burns(b world.Block) bool {
+	return b == world.Fire || b == world.HearthLit || b == world.Torch
+}
+
+// light lights the cold hearth at a cell, if it has anything to burn, and reports
+// whether it did.
+func (g *Game) light(c world.Cell) bool {
+	if k := g.hearth(c); k.Burn > 0 || !kindle(k) {
+		return false
+	}
+	g.ears.Play(sound.Crackle, cellMid(c.X, c.Y, c.Z), 0.9)
+	g.swing = swingTime
+	g.tell("the hearth is lit")
+	return true
+}
+
+// drillTime is how many seconds a fire drill is turned to light a hearth.
+const drillTime = 6.0
+
+// drill turns the fire drill in hand in the cold hearth aimed at for dt seconds, while E
+// is held, and lights the hearth once it has been turned for drillTime without a rest.
+// It reports whether the drill is turning, and then E does nothing else. A hearth with
+// nothing to burn is not drilled: E opens it, to feed it.
+func (g *Game) drill(holding bool, dt float64) bool {
+	c := world.Cell{X: g.target.X, Y: g.target.Y, Z: g.target.Z}
+	turning := holding && g.aimed && g.survival && g.target.Block == world.Hearth &&
+		g.items[g.selected].Item == world.FireDrill && burnTime(g.hearth(c).Fuel.Item) > 0
+	if !turning || c != g.drillAt {
+		g.drillAt, g.drilling = c, 0 // a rest, or another hearth: it starts again from nothing
+	}
+	if !turning {
+		return false
+	}
+	if g.drilling == 0 {
+		g.tell("turning the fire drill")
+	}
+	mid := cellMid(c.X, c.Y, c.Z)
+	if math.Floor(g.drilling/digStroke) != math.Floor((g.drilling+dt)/digStroke) || g.drilling == 0 {
+		g.ears.Play(sound.Dig(sound.Wood), mid, 0.6)
+		g.swing = swingTime
+		if g.drilling > drillTime/2 {
+			g.puff(mid.Add(geometry.Vector3{Y: 0.6}), 0.12, 1.2) // it begins to smoke
+		}
+	}
+	if g.drilling += dt; g.drilling >= drillTime {
+		g.drilling = 0
+		g.light(c)
+		g.wearOut()
+	}
+	return true
 }
 
 // pot returns the store of the pot at a cell, which is empty if nothing was ever put
@@ -232,7 +309,9 @@ func (g *Game) savedStores() (pots []world.PotStore, hearths []world.HearthStore
 		}
 	}
 	for _, k := range g.hearths {
-		if k.In.Count > 0 || k.Fuel.Count > 0 || k.Out.Count > 0 || k.Burn > 0 {
+		// One whose block is out of the window may still show as burning there, and is
+		// kept so that it is put right when it is seen again.
+		if k.In.Count > 0 || k.Fuel.Count > 0 || k.Out.Count > 0 || k.Burn > 0 || !g.world.Loaded(k.X, k.Z) {
 			hearths = append(hearths, *k)
 		}
 	}
@@ -251,15 +330,25 @@ func compareCells(a, b world.Cell) int {
 }
 
 // useBlock does what E does to a block aimed at, when that is not to build against it:
-// it opens a pot or a hearth, in survival, and lies down on a bedroll. It reports whether
-// it did.
+// it lies down on a fur bed, lights the unlit torches in hand at a fire, lights a cold
+// hearth that has fuel with the torch in hand, and opens a pot or a hearth, the last
+// three in survival. It reports whether it did.
 func (g *Game) useBlock(t world.Hit) bool {
 	c := world.Cell{X: t.X, Y: t.Y, Z: t.Z}
+	held := &g.items[g.selected]
 	switch {
 	case t.Block == world.FurBed:
 		g.lieDown(c)
-	case (t.Block == world.ClayPot || t.Block == world.Hearth) && g.survival:
-		g.openStore(t.Block, c)
+	case burns(t.Block) && held.Item == world.UnlitTorch:
+		held.Item = world.Torch.Item() // every one of them in the hand
+		g.ears.Play(sound.Crackle, cellMid(c.X, c.Y, c.Z), 0.8)
+		g.swing = swingTime
+		g.tell("the torch is lit")
+	case t.Block == world.Hearth && held.Item == world.Torch.Item() && g.survival && g.light(c):
+	case isHearth(t.Block) && g.survival:
+		g.openStore(world.Hearth, c)
+	case t.Block == world.ClayPot && g.survival:
+		g.openStore(world.ClayPot, c)
 	default:
 		return false
 	}
@@ -300,19 +389,17 @@ func (g *Game) drawHearth(fb *engine.FrameBuffer, c *engine.Canvas, x, y int, k 
 	}
 	bar(y+3, fire, '▲', '·')
 
-	lines := [3]string{"cooks ore, sand, clay,", "berries and moss", "burns wood or coal"}
+	lines := [3]string{"cooks meat, seeds,", "clay, pots, spears", "cold: drill or torch"}
 	if made, ok := cookIn(k); ok {
 		lines[0], lines[1] = "makes "+made.makes.Name(), ""
 	} else if k.In.Count > 0 && cooksFrom(k.In.Item) {
 		lines[0], lines[1] = "take out what it made", "to make more"
-		for _, ck := range cooks {
-			if ck.from == k.In.Item && k.In.Count < ck.n {
-				lines[0], lines[1] = fmt.Sprintf("needs %d %s", ck.n, ck.from.Name()), ""
-			}
-		}
 	}
-	if k.Burn > 0 {
+	switch {
+	case k.Burn > 0:
 		lines[2] = "burning"
+	case burnTime(k.Fuel.Item) == 0:
+		lines[2] = "put in wood or coal"
 	}
 	tx := x + (hearthOut+1)*slotPitch + 2
 	for i, line := range lines {

@@ -161,6 +161,13 @@ type Game struct {
 	digAt    [3]int  // the block being dug, in survival
 	digging  float64 // for how long it has been dug
 
+	// Fire: the hearth a fire drill is being turned in and for how long it has been, how
+	// many seconds the torch in hand has burned, and until the fires near smoke again.
+	drillAt  world.Cell
+	drilling float64
+	torch    float64
+	smoking  float64
+
 	// The pots and the hearths of the world, by their cells, the one open in the bag, if
 	// any, and the bedroll the player wakes at.
 	pots    map[world.Cell]*world.PotStore
@@ -290,6 +297,7 @@ func (g *Game) Save() error {
 		Food:   g.food,
 		Air:    g.air,
 		Look:   g.worn,
+		Torch:  g.torch,
 	}
 	for _, d := range g.drops {
 		m.Drops = append(m.Drops, d.Drop)
@@ -312,6 +320,7 @@ func (g *Game) loadPlayer(s world.Meta) {
 	}
 	g.health, g.food, g.air = min(s.Health, maxHealth), min(max(s.Food, 0), maxFood), min(max(s.Air, 0), maxAir)
 	g.worn = min(max(s.Look, 0), assets.PersonLooks-1)
+	g.torch = s.Torch
 	g.peak = g.player.Pos.Y
 	g.drops = g.drops[:0]
 	for _, d := range s.Drops {
@@ -351,7 +360,7 @@ func (g *Game) newWorld(seed int64) {
 	g.clouds = render.NewClouds(seed)
 	g.player = Player{Pos: g.world.Spawn()}
 	g.fauna = newFauna(g.world, g.player.Pos)
-	g.selected, g.aimed, g.saved, g.days = 0, false, false, 0
+	g.selected, g.aimed, g.saved, g.days, g.torch = 0, false, false, 0, 0
 	g.drops, g.bits = nil, nil
 	g.loadStores(world.Meta{})
 	g.begin(false)
@@ -460,10 +469,12 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			}
 		}
 		g.stepDrops(dt)
+		g.smoke(dt)
 		g.stepBits(dt)
 		g.stepHearths(dt)
 		g.noticeLeft = max(g.noticeLeft-dt, 0)
 		g.build(in, dt)
+		g.carry(dt)
 		return nil
 	}
 	if g.screen == inBag {

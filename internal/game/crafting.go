@@ -14,7 +14,7 @@ import (
 
 // Things are made from what the player carries, by a list of what can be made: a few
 // things by hand, and more standing near a knapping stone. There are no patterns to lay out.
-// What is cooked, a hearth makes in its own slots (stores.go).
+// What is cooked, hardened or baked, a hearth makes in its own slots (stores.go).
 
 // station is where a recipe is made.
 type station uint8
@@ -67,14 +67,19 @@ var recipes = func() []recipe {
 		{world.DiggingStick, 1, []need{of(world.Stick, 2)}, byHand},
 		{world.Club, 1, []need{anyLog}, byHand},
 		{world.Spear, 1, []need{of(world.Stick, 3)}, byHand},
-		{world.Torch.Item(), 4, []need{of(world.Stick, 1), of(world.Coal, 1)}, byHand},
 		{world.FurBed.Item(), 1, []need{of(world.Hide, 3), of(world.Moss, 6)}, byHand},
+
+		// Fire: a ring of stones to keep it in, a drill to make it with, and torches to
+		// carry it. A pot is shaped of clay and then baked in a hearth.
+		{world.Hearth.Item(), 1, []need{of(cobble, 8)}, byHand},
+		{world.FireDrill, 1, []need{of(world.Stick, 1), anyLog, of(world.Cord, 1)}, byHand},
+		{world.UnlitTorch, 2, []need{of(world.Stick, 1), of(world.Resin, 1)}, byHand},
+		{world.SoftPot, 1, []need{of(world.Clay.Item(), 4)}, byHand},
 
 		// Flint alone makes a hand axe. A pick and a knife are bound to a handle with cord.
 		{world.HandAxe, 1, []need{of(world.Flint, 2)}, atBench},
 		{world.FlintKnife, 1, []need{of(world.Flint, 1), of(world.Stick, 1), of(world.Cord, 1)}, atBench},
 		{world.FlintPick, 1, []need{of(world.Flint, 3), of(world.Stick, 2), of(world.Cord, 1)}, atBench},
-		{world.Hearth.Item(), 1, []need{of(cobble, 8)}, atBench},
 	}
 }()
 

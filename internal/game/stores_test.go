@@ -11,61 +11,6 @@ import (
 	"github.com/kyrokohan/skyspear/internal/world"
 )
 
-func TestAHearthCooksAPieceAtATimeWhileItHasFuel(t *testing.T) {
-	k := &world.HearthStore{
-		In:   world.Stack{Item: world.Clay.Item(), Count: 3},
-		Fuel: world.Stack{Item: world.Planks.Item(), Count: 1}, // a piece and a half
-	}
-
-	stepHearth(k, cookTime-0.1)
-	if k.Out.Count != 0 || k.Fuel.Count != 0 || k.Burn == 0 {
-		t.Fatalf("before a piece is cooked: made %+v, fuel %+v burning %v", k.Out, k.Fuel, k.Burn)
-	}
-	stepHearth(k, 6)
-	if k.Out != (world.Stack{Item: world.Brick.Item(), Count: 1}) || k.In.Count != 2 {
-		t.Fatalf("after the planks burned: made %+v from %+v, wanted one brick", k.Out, k.In)
-	}
-	if k.Burn != 0 || !near(k.Cooked, 1.5*cookTime-cookTime) {
-		t.Fatalf("the fire has %v left and the next piece %v cooked: wanted no fire, and half a piece kept", k.Burn, k.Cooked)
-	}
-	stepHearth(k, 60)
-	if k.Out.Count != 1 {
-		t.Fatalf("with no fuel, it made %+v", k.Out)
-	}
-
-	k.Fuel = world.Stack{Item: world.Coal, Count: 1}
-	stepHearth(k, cookTime/2+0.1)
-	if k.Out.Count != 2 {
-		t.Fatalf("coal did not finish the half-cooked piece: made %+v", k.Out)
-	}
-	stepHearth(k, 10)
-	if k.Out.Count != 3 || k.In.Count != 0 || k.Cooked != 0 || k.Burn == 0 {
-		t.Errorf("made %+v from what is left, %+v, with the fire at %v: wanted all of it cooked and the coal still burning", k.Out, k.In, k.Burn)
-	}
-	stepHearth(k, 60)
-	if k.Burn != 0 {
-		t.Errorf("the fire is at %v a minute on, wanted the coal burned out", k.Burn)
-	}
-}
-
-func TestAHearthWaitsForEnoughAndForRoom(t *testing.T) {
-	k := &world.HearthStore{
-		In:   world.Stack{Item: world.Berries, Count: 2},
-		Fuel: world.Stack{Item: world.Coal, Count: 3},
-	}
-	stepHearth(k, 30)
-	if k.Out.Count != 0 || k.Fuel.Count != 3 {
-		t.Errorf("from 2 berries it made %+v and burned %d coal: a loaf needs 3, and nothing should burn", k.Out, 3-k.Fuel.Count)
-	}
-
-	k.In = world.Stack{Item: world.Sand.Item(), Count: 5}
-	k.Out = world.Stack{Item: world.Brick.Item(), Count: 1}
-	stepHearth(k, 30)
-	if k.Out.Item != world.Brick.Item() || k.In.Count != 5 {
-		t.Errorf("with brick where the glass goes, it made %+v", k.Out)
-	}
-}
-
 func TestAHearthTakesOnlyWhatItCooksAndBurns(t *testing.T) {
 	g := inSurvival(t)
 	at := world.Cell{X: 22, Y: 6, Z: 22}
@@ -73,24 +18,26 @@ func TestAHearthTakesOnlyWhatItCooksAndBurns(t *testing.T) {
 	g.openStore(world.Hearth, at)
 	k := g.hearth(at)
 
-	g.hand = world.Stack{Item: world.Berries, Count: 5}
+	g.hand = world.Stack{Item: world.Meat, Count: 5}
 	if g.pickCell(0, hearthFuel); k.Fuel.Count != 0 {
-		t.Errorf("berries went in as fuel")
+		t.Errorf("meat went in as fuel")
 	}
-	if g.pickCell(0, hearthIn); k.In != (world.Stack{Item: world.Berries, Count: 5}) || g.hand.Count != 0 {
-		t.Errorf("berries to cook: the hearth holds %+v and the hand %+v", k.In, g.hand)
+	if g.pickCell(0, hearthIn); k.In != (world.Stack{Item: world.Meat, Count: 5}) || g.hand.Count != 0 {
+		t.Errorf("meat to cook: the hearth holds %+v and the hand %+v", k.In, g.hand)
 	}
-	g.hand = world.Stack{Item: world.Dirt.Item(), Count: 1}
-	if g.pickCell(0, hearthIn); k.In.Item != world.Berries {
-		t.Errorf("dirt went in to cook, which nothing is cooked from")
+	for _, not := range []world.Item{world.Dirt.Item(), world.Berries, world.Sand.Item()} {
+		g.hand = world.Stack{Item: not, Count: 1}
+		if g.pickCell(0, hearthIn); k.In.Item != world.Meat {
+			t.Errorf("%s went in to cook, which nothing is cooked from", not.Name())
+		}
 	}
 	g.hand = world.Stack{Item: world.PineLog.Item(), Count: 2}
 	if g.pickCell(0, hearthFuel); k.Fuel.Count != 2 {
 		t.Errorf("a log did not go in as fuel: %+v", k.Fuel)
 	}
 
-	k.Out = world.Stack{Item: world.BerryLoaf, Count: 2}
-	g.hand = world.Stack{Item: world.BerryLoaf, Count: 1}
+	k.Out = world.Stack{Item: world.CookedMeat, Count: 2}
+	g.hand = world.Stack{Item: world.CookedMeat, Count: 1}
 	if g.pickCell(0, hearthOut); g.hand.Count != 3 || k.Out.Count != 0 {
 		t.Errorf("taking what it made: the hand holds %+v and the hearth %+v", g.hand, k.Out)
 	}
@@ -99,7 +46,7 @@ func TestAHearthTakesOnlyWhatItCooksAndBurns(t *testing.T) {
 	}
 
 	text, _ := drawn(t, g)
-	for _, want := range []string{"hearth", "your things", "makes berry loaf", "burns wood or coal"} {
+	for _, want := range []string{"hearth", "your things", "makes cooked meat", "cold: drill or torch"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the hearth does not show %q:\n%s", want, text)
 		}

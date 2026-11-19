@@ -3,8 +3,6 @@ package game
 import (
 	"math"
 
-	"glonk.dev/geometry"
-
 	"github.com/kyrokohan/skyspear/internal/sound"
 	"github.com/kyrokohan/skyspear/internal/world"
 )
@@ -23,10 +21,11 @@ const (
 	mendTime   = 4.0  // seconds between a point healed, or lost to hunger
 	mendFood   = 18.0 // food at or above which the player heals
 	hurtFlash  = 0.3  // seconds the view shows red when the player is hurt
+	fireHurt   = 2.0  // points a second, standing in a fire
 )
 
 // live runs the player's body in survival for dt seconds, after the player has moved:
-// falls and drowning hurt, food goes down, and a full stomach heals.
+// falls, drowning and fire hurt, food goes down, and a full stomach heals.
 func (g *Game) live(dt float64) {
 	p := &g.player
 	switch {
@@ -49,6 +48,13 @@ func (g *Game) live(dt float64) {
 		}
 	} else {
 		g.air = min(g.air+breathBack*dt, maxAir)
+	}
+
+	x, y, z := int(math.Floor(p.Pos.X)), int(math.Floor(p.Pos.Y)), int(math.Floor(p.Pos.Z))
+	if g.world.At(x, y, z) == world.Fire || g.world.At(x, y+1, z) == world.Fire {
+		if g.hurt(fireHurt * dt); g.screen != playing {
+			return // the player fainted
+		}
 	}
 
 	for g.hunger += dt; g.hunger >= hungerTime; g.hunger -= hungerTime {
@@ -101,7 +107,7 @@ func (g *Game) wake() {
 }
 
 // eat eats one of what is in the slot in use, if it is food and the player has room for
-// it, and reports whether it did.
+// it, and reports whether it did. What is poison feeds a little and hurts more.
 func (g *Game) eat() bool {
 	s := g.items[g.selected]
 	if !g.survival || s.Item.Food() == 0 || g.food >= maxFood {
@@ -111,17 +117,23 @@ func (g *Game) eat() bool {
 	g.ears.PlayNear(sound.Eat, 0.8)
 	g.swing = swingTime
 	g.items.takeOne(g.selected)
+	if poison := s.Item.Poison(); poison > 0 {
+		g.tell("the " + s.Item.Name() + " made you sick: roast them first")
+		g.hurt(poison)
+	}
 	return true
 }
 
 // leave puts down what a block broken in survival leaves, in the middle of its cell.
 func (g *Game) leave(x, y, z int, b world.Block) {
-	item, n := b.DropAt(x, y, z)
-	if !g.survival || n == 0 {
+	if !g.survival {
 		return
 	}
-	g.drops = append(g.drops, drop{Drop: world.Drop{
-		Stack: world.Stack{Item: item, Count: n},
-		Pos:   geometry.Vector3{X: float64(x) + 0.5, Y: float64(y) + 0.5 - dropSize/2, Z: float64(z) + 0.5},
-	}})
+	item, n := b.DropAt(x, y, z)
+	also, m := b.AlsoAt(x, y, z)
+	for _, s := range [2]world.Stack{{Item: item, Count: n}, {Item: also, Count: m}} {
+		if s.Count > 0 {
+			g.drops = append(g.drops, drop{Drop: world.Drop{Stack: s, Pos: cellMiddle(world.Cell{X: x, Y: y, Z: z})}})
+		}
+	}
 }
