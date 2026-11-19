@@ -225,9 +225,9 @@ func (b Block) DigWith(hand Item) (seconds float64, yields bool) {
 // itself, and nothing for leaves and grass that crumble away.
 func (b Block) Drop() (Item, int) {
 	switch b {
-	case Air, Water, Leaves, PineNeedles, PaleLeaves, TallGrass, DryBush:
+	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fern, DryBush:
 		return NoItem, 0
-	case Grass:
+	case Turf:
 		return Dirt.Item(), 1 // the turf does not come away
 	case Stone:
 		return Cobble.Item(), 1 // it breaks to rubble

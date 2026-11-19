@@ -230,9 +230,9 @@ func TestNothingIsOutlinedWhenNothingIsAimedAt(t *testing.T) {
 
 func TestAPlantDoesNotStopThePlayerAndCanBePicked(t *testing.T) {
 	g := lookingDown(t)
-	g.world.Set(20, 6, 21, world.TallGrass) // on the block the player aims at
+	g.world.Set(20, 6, 21, world.Fern) // on the block the player aims at
 	hold(t, g, 1)
-	if !g.aimed || g.target.Block != world.TallGrass {
+	if !g.aimed || g.target.Block != world.Fern {
 		t.Fatalf("aimed %v at %+v, wanted the plant", g.aimed, g.target)
 	}
 
@@ -242,7 +242,7 @@ func TestAPlantDoesNotStopThePlayerAndCanBePicked(t *testing.T) {
 	}
 
 	g = lookingDown(t)
-	g.world.Set(20, 6, 21, world.TallGrass)
+	g.world.Set(20, 6, 21, world.Fern)
 	hold(t, g, 1, 'q')
 	if got := g.world.At(20, 6, 21); got != world.Air {
 		t.Errorf("after Q the plant is %v, wanted it picked", got.Info().Name)

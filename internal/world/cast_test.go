@@ -32,12 +32,12 @@ func TestRayAlongAnAxisHitsTheNearFace(t *testing.T) {
 
 func TestRayFromAboveHitsTheTopFace(t *testing.T) {
 	w := New()
-	w.Set(3, 4, 3, Grass)
+	w.Set(3, 4, 3, Turf)
 
 	hit, ok := first(w, vec(3.25, 9, 3.75), vec(0, -2, 0), 100)
 
 	// The direction is 2 long, so 4 blocks down is 2 along the ray.
-	want := Hit{X: 3, Y: 4, Z: 3, Face: FaceYPos, T: 2, Block: Grass}
+	want := Hit{X: 3, Y: 4, Z: 3, Face: FaceYPos, T: 2, Block: Turf}
 	if !ok || hit != want {
 		t.Errorf("got %+v %v, wanted %+v", hit, ok, want)
 	}

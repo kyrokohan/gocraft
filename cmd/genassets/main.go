@@ -72,8 +72,8 @@ func grain(base rgb, amount float64, x, y, seed int) rgb {
 type painter func(x, y int) (c rgb, ok bool)
 
 var painters = [tile.Count]painter{
-	tile.GrassTop:  grassTop,
-	tile.GrassSide: grassSide,
+	tile.TurfTop:   turfTop,
+	tile.TurfSide:  turfSide,
 	tile.Dirt:      dirt,
 	tile.Stone:     stone,
 	tile.Sand:      sand,
@@ -102,14 +102,14 @@ var painters = [tile.Count]painter{
 	tile.PaleLogSide:   paleLogSide,
 	tile.PaleLogTop:    paleLogTop,
 	tile.PaleLeaves:    paleLeaves,
-	tile.CactusSide:    cactusSide,
-	tile.CactusTop:     cactusTop,
+	tile.StumpPalmSide: stumpPalmSide,
+	tile.StumpPalmTop:  stumpPalmTop,
 	tile.Ice:           ice,
-	tile.TallGrass:     tallGrass,
+	tile.Fern:          frond(&fernPic, rgb{50, 104, 50}, rgb{88, 154, 66}, 92),
 	tile.RedFlower:     flower(rgb{214, 58, 52}, rgb{244, 208, 72}),
 	tile.YellowFlower:  flower(rgb{244, 206, 60}, rgb{226, 132, 44}),
 	tile.Bush:          bush,
-	tile.Reed:          reed,
+	tile.Horsetail:     horsetail,
 	tile.DryBush:       dryBush,
 	tile.Mushroom:      mushroom,
 	tile.Torch:         torch,
@@ -152,13 +152,16 @@ var painters = [tile.Count]painter{
 	tile.MossCake:     mossCake,
 }
 
-func grassTop(x, y int) (rgb, bool) {
-	c := grain(rgb{86, 160, 70}, 0.10, x, y, 1)
-	switch h := hash(x, y, 2); {
-	case h < 0.10:
-		c = c.scale(1.2) // a blade catching the light
-	case h > 0.90:
-		c = c.scale(0.8)
+func turfTop(x, y int) (rgb, bool) {
+	// Cushions of moss, with a dead frond lying on them here and there. There is no
+	// grass in the old lands.
+	c := rgb{72, 126, 60}.scale(0.84 + 0.34*blotch(x, y, 4, 1))
+	c = grain(c, 0.07, x, y, 2)
+	switch h := hash(x, y, 300); {
+	case h < 0.045:
+		return grain(rgb{116, 92, 60}, 0.08, x, y, 301), true
+	case h > 0.92:
+		c = c.scale(1.22) // a tip catching the light
 	}
 	return c, true
 }
@@ -174,12 +177,12 @@ func dirt(x, y int) (rgb, bool) {
 	return c, true
 }
 
-func grassSide(x, y int) (rgb, bool) {
-	depth := 3 + int(hash(x, 0, 5)*3) // the turf hangs 3 to 5 pixels down
+func turfSide(x, y int) (rgb, bool) {
+	depth := 3 + int(hash(x, 0, 5)*3) // the moss hangs 3 to 5 pixels down
 	if y >= depth {
 		return dirt(x, y)
 	}
-	c, _ := grassTop(x, y)
+	c, _ := turfTop(x, y)
 	if y == depth-1 {
 		c = c.scale(0.78)
 	}
@@ -532,20 +535,24 @@ func paleLeaves(x, y int) (rgb, bool) {
 	return c, true
 }
 
-func cactusSide(x, y int) (rgb, bool) {
-	c := rgb{76, 142, 78}
-	if x%4 == 0 {
-		c = c.scale(0.74) // a furrow between two ribs
+func stumpPalmSide(x, y int) (rgb, bool) {
+	// The trunk is armored with the feet of old leaves, in diamonds.
+	c := rgb{126, 96, 62}
+	switch up, down := (x+y)%8, (x-y+size)%8; {
+	case up == 0 || down == 0:
+		c = c.scale(0.6) // the line between two of them
+	case up >= 3 && up <= 5 && down >= 3 && down <= 5:
+		c = c.scale(1.18) // the middle of a diamond
 	}
-	if x%4 == 2 && hash(x, y, 85) < 0.22 {
-		return rgb{226, 226, 190}, true // a spine
-	}
-	return grain(c, 0.05, x, y, 86), true
+	return grain(c, 0.07, x, y, 85), true
 }
 
-func cactusTop(x, y int) (rgb, bool) {
+func stumpPalmTop(x, y int) (rgb, bool) {
 	d := max(math.Abs(float64(x)-7.5), math.Abs(float64(y)-7.5))
-	c := rgb{76, 142, 78}.scale(1.25 - 0.05*d)
+	if d > 5.6 {
+		return grain(rgb{104, 78, 50}, 0.08, x, y, 86), true // the armor, seen end on
+	}
+	c := rgb{206, 186, 132}.scale(1.1 - 0.04*d) // soft pith
 	return grain(c, 0.05, x, y, 87), true
 }
 
@@ -560,13 +567,65 @@ func ice(x, y int) (rgb, bool) {
 // The plants are drawn as they stand: the bottom row of the tile is the ground. Most of
 // a plant's tile is holes.
 
-func tallGrass(x, y int) (rgb, bool) {
-	height := 5 + int(hash(x, 0, 90)*9) // each column is a blade of its own height
-	if hash(x, 1, 91) < 0.3 || size-1-y >= height {
-		return rgb{}, false
+// A fern's picture is a few fronds that arch from one foot, in the middle of the bottom
+// row. Each frond is a rib with leaflets along it.
+const (
+	noFrond = iota
+	frondRib
+	frondLeaf
+)
+
+// fronds returns the picture of a fern whose fronds end at tips.
+func fronds(tips [][2]float64) (pic [size][size]uint8) {
+	const footX, footY = 7.5, 15.5
+	inside := func(x, y int) bool { return x >= 0 && x < size && y >= 0 && y < size }
+	for _, tip := range tips {
+		// The rib leaves the foot going up, and leans out toward its tip.
+		bendX, bendY := footX+(tip[0]-footX)*0.25, tip[1]-1
+		for i := range 49 {
+			t := float64(i) / 48
+			a, b, c := (1-t)*(1-t), 2*(1-t)*t, t*t
+			x, y := int(a*footX+b*bendX+c*tip[0]), int(a*footY+b*bendY+c*tip[1])
+			if !inside(x, y) {
+				continue
+			}
+			pic[y][x] = frondRib
+			if t < 0.3 {
+				continue // the stalk is bare near the foot
+			}
+			// Leaflets stand off the rib on both sides: above and below it where it
+			// runs level, left and right of it where it climbs.
+			run := 2*(1-t)*(bendX-footX) + 2*t*(tip[0]-bendX)
+			rise := 2*(1-t)*(bendY-footY) + 2*t*(tip[1]-bendY)
+			for _, side := range [2]int{-1, 1} {
+				lx, ly := x, y+side
+				if math.Abs(rise) > math.Abs(run) {
+					lx, ly = x+side, y
+				}
+				if inside(lx, ly) && pic[ly][lx] == noFrond && (lx+ly)%2 == 0 {
+					pic[ly][lx] = frondLeaf
+				}
+			}
+		}
 	}
-	c := rgb{84, 150, 62}.scale(0.8 + 0.5*float64(size-1-y)/float64(size)) // lighter toward the tip
-	return grain(c, 0.08, x, y, 92), true
+	return pic
+}
+
+var fernPic = fronds([][2]float64{{1, 10}, {3.5, 6.5}, {6.5, 5}, {9.5, 5}, {12.5, 6.5}, {15, 10}})
+
+// frond returns the painter of a fern's picture in two greens, lighter toward the tips.
+func frond(pic *[size][size]uint8, rib, leaf rgb, seed int) painter {
+	return func(x, y int) (rgb, bool) {
+		c := leaf
+		switch pic[y][x] {
+		case noFrond:
+			return rgb{}, false
+		case frondRib:
+			c = rib
+		}
+		c = c.scale(0.82 + 0.4*float64(size-1-y)/float64(size))
+		return grain(c, 0.07, x, y, seed), true
+	}
 }
 
 // flower returns the painter of a flower with petals of one color round a middle of
@@ -607,17 +666,19 @@ func bush(x, y int) (rgb, bool) {
 	return grain(rgb{52, 110, 56}, 0.14, x, y, 96), true
 }
 
-func reed(x, y int) (rgb, bool) {
-	// A few stalks of different heights, each with a brown head.
-	for i, stalk := range []int{2, 6, 9, 13} {
-		top := 1 + int(hash(i, 0, 97)*5)
-		if x != stalk || y < top {
-			continue
+func horsetail(x, y int) (rgb, bool) {
+	// Three jointed stalks that run the height of the tile, so that one horsetail
+	// stands on another. At each joint a ring of thin leaves points up and out.
+	for _, stalk := range []int{3, 8, 13} {
+		joint := (y + stalk) % 4 // each stalk has its joints at its own heights
+		switch d := abs(x - stalk); {
+		case d == 0 && joint == 0:
+			return rgb{58, 84, 52}, true
+		case d == 0:
+			return grain(rgb{112, 162, 86}, 0.06, x, y, 98), true
+		case d == 1 && joint == 3, d == 2 && joint == 2:
+			return rgb{136, 182, 96}, true // a leaf of the ring
 		}
-		if y < top+3 {
-			return rgb{122, 86, 52}, true
-		}
-		return grain(rgb{128, 164, 84}, 0.06, x, y, 98), true
 	}
 	return rgb{}, false
 }
@@ -1065,7 +1126,7 @@ const (
 // titleTiles is what each letter of the title is built from: SKY out of cold tiles,
 // SPEAR out of earth.
 var titleTiles = [len(titleText)]tile.ID{
-	tile.Ice, tile.Snow, tile.Stone, tile.SandstoneSide, tile.Sand, tile.Dirt, tile.LogSide, tile.GrassTop,
+	tile.Ice, tile.Snow, tile.Stone, tile.SandstoneSide, tile.Sand, tile.Dirt, tile.LogSide, tile.TurfTop,
 }
 
 // drawTitle draws the name of the game in letters built from little blocks, each letter

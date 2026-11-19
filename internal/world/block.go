@@ -10,7 +10,7 @@ type Block uint8
 
 const (
 	Air Block = iota
-	Grass
+	Turf
 	Dirt
 	Stone
 	Sand
@@ -35,13 +35,13 @@ const (
 	PineNeedles
 	PaleLog
 	PaleLeaves
-	Cactus
+	StumpPalm
 	Ice
-	TallGrass
+	Fern
 	RedFlower
 	YellowFlower
 	Bush
-	Reed
+	Horsetail
 	DryBush
 	Mushroom
 
@@ -95,7 +95,7 @@ type Info struct {
 
 var infos = [256]Info{
 	Air:       {Name: "air"},
-	Grass:     byShovel(solid("grass", tile.GrassTop, tile.GrassSide, tile.Dirt), 0.6),
+	Turf:      byShovel(solid("mossy earth", tile.TurfTop, tile.TurfSide, tile.Dirt), 0.6),
 	Dirt:      byShovel(cube("dirt", tile.Dirt), 0.5),
 	Stone:     byPick(cube("stone", tile.Stone), 2, TierWood),
 	Sand:      byShovel(cube("sand", tile.Sand), 0.5),
@@ -120,14 +120,14 @@ var infos = [256]Info{
 	PineNeedles: dig(leaves("pine needles", tile.PineNeedles), 0.2),
 	PaleLog:     byAxe(solid("pale log", tile.PaleLogTop, tile.PaleLogSide, tile.PaleLogTop), 1.5),
 	PaleLeaves:  dig(leaves("pale leaves", tile.PaleLeaves), 0.2),
-	Cactus:      byAxe(solid("cactus", tile.CactusTop, tile.CactusSide, tile.CactusTop), 0.4),
+	StumpPalm:   byAxe(solid("stump palm", tile.StumpPalmTop, tile.StumpPalmSide, tile.StumpPalmTop), 0.4),
 	Ice:         byPick(cube("ice", tile.Ice), 0.5, 0),
 
-	TallGrass:    plant("tall grass", tile.TallGrass),
+	Fern:         plant("fern", tile.Fern),
 	RedFlower:    plant("red flower", tile.RedFlower),
 	YellowFlower: plant("yellow flower", tile.YellowFlower),
 	Bush:         plant("bush", tile.Bush),
-	Reed:         plant("reed", tile.Reed),
+	Horsetail:    plant("horsetail", tile.Horsetail),
 	DryBush:      plant("dry bush", tile.DryBush),
 	Mushroom:     plant("mushroom", tile.Mushroom),
 

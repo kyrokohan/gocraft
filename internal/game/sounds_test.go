@@ -32,11 +32,11 @@ func heard(g *Game) map[sound.Name]int {
 
 func TestABlockSoundsAsWhatItIsMadeOf(t *testing.T) {
 	for b, want := range map[world.Block]sound.Material{
-		world.Grass: sound.Earth, world.Clay: sound.Earth,
+		world.Turf: sound.Earth, world.Clay: sound.Earth,
 		world.Stone: sound.Stone, world.CoalOre: sound.Stone, world.Brick: sound.Stone, world.Kiln: sound.Stone,
 		world.Gravel: sound.Sand, world.Sand: sound.Sand,
 		world.PineLog: sound.Wood, world.Crate: sound.Wood, world.Workbench: sound.Wood,
-		world.PineNeedles: sound.Plant, world.TallGrass: sound.Plant, world.Torch: sound.Plant, world.Bedroll: sound.Plant,
+		world.PineNeedles: sound.Plant, world.Fern: sound.Plant, world.Torch: sound.Plant, world.Bedroll: sound.Plant,
 		world.Ice: sound.Glass, world.Glass: sound.Glass,
 		world.Snow: sound.Snow,
 	} {

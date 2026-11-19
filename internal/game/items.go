@@ -18,7 +18,7 @@ type inventory [slots]world.Stack
 
 // hotbar is what a creative world starts with on the hotbar.
 var hotbar = [hotbarSlots]world.Block{
-	world.Grass, world.Dirt, world.Stone, world.Sand, world.Log,
+	world.Turf, world.Dirt, world.Stone, world.Sand, world.Log,
 	world.Torch, world.Planks, world.Brick, world.Glass,
 }
 

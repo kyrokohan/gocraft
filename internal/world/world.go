@@ -348,7 +348,7 @@ func (w *World) source(k key) (chunk []Block, held bool) {
 // that are loaded. The point is at the player's feet.
 func (w *World) Spawn() geometry.Vector3 {
 	reach := (LoadRadius - 1) * ChunkSize
-	for _, grounds := range [][]Block{{Grass}, {Sand, Snow, Stone, Gravel}} {
+	for _, grounds := range [][]Block{{Turf}, {Sand, Snow, Stone, Gravel}} {
 		for ring := range reach {
 			for z := -ring; z <= ring; z++ {
 				for x := -ring; x <= ring; x++ {

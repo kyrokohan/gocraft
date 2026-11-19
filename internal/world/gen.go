@@ -202,7 +202,7 @@ func (t terrain) build() {
 // column builds the ground of one column, and the water over it.
 func (t terrain) column(x, z int, l land) {
 	// What the top block is, what the few blocks under it are, and how many of those.
-	surface, under, deep := Grass, Dirt, 3
+	surface, under, deep := Turf, Dirt, 3
 	switch l.biome {
 	case Sea:
 		surface, under = Sand, Sand
@@ -264,7 +264,7 @@ func (t terrain) grow(x, z int, l land) {
 	case Plains:
 		switch {
 		case chance < 0.16:
-			b = TallGrass
+			b = Fern
 		case chance < 0.19:
 			// Flowers of one color grow together.
 			b = RedFlower
@@ -275,7 +275,7 @@ func (t terrain) grow(x, z int, l land) {
 	case Forest:
 		switch {
 		case chance < 0.07:
-			b = TallGrass
+			b = Fern
 		case chance < 0.095:
 			b = Bush
 		case chance < 0.1:
@@ -293,7 +293,7 @@ func (t terrain) grow(x, z int, l land) {
 		// Reeds stand at the water's edge: on sand a step above the water, beside a
 		// column that is under it.
 		if chance < 0.3 && l.top == SeaLevel+1 && t.byWater(x, z) {
-			b = Reed
+			b = Horsetail
 		}
 	}
 	if b != Air {
@@ -344,7 +344,7 @@ func (t terrain) plant(x, z int, l land, chance, kind float64) {
 	case Desert:
 		if chance < 0.1 {
 			for i := range 1 + int(kind*3) {
-				t.put(x, y+i, z, Cactus, false)
+				t.put(x, y+i, z, StumpPalm, false)
 			}
 		}
 	}

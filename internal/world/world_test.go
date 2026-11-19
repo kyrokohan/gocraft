@@ -220,10 +220,10 @@ func TestEveryKindOfCountryHasItsOwnGroundAndGrowth(t *testing.T) {
 		lacks   []Block
 	}{
 		{"sea", Sea, []Block{Water, Sand}, nil},
-		{"plains", Plains, []Block{Grass, Dirt, TallGrass}, []Block{Cactus, Sandstone}},
-		{"forest", Forest, []Block{Grass, Log, Leaves, PaleLog, PaleLeaves, Bush}, []Block{Cactus}},
-		{"desert", Desert, []Block{Sand, Sandstone, Cactus}, []Block{Log, PineLog}},
-		{"tundra", Tundra, []Block{Snow, PineLog, PineNeedles}, []Block{Cactus}},
+		{"plains", Plains, []Block{Turf, Dirt, Fern}, []Block{StumpPalm, Sandstone}},
+		{"forest", Forest, []Block{Turf, Log, Leaves, PaleLog, PaleLeaves, Bush}, []Block{StumpPalm}},
+		{"desert", Desert, []Block{Sand, Sandstone, StumpPalm}, []Block{Log, PineLog}},
+		{"tundra", Tundra, []Block{Snow, PineLog, PineNeedles}, []Block{StumpPalm}},
 		{"crags", Crags, []Block{Stone}, nil},
 	} {
 		w, x, z := loadedAt(t, 7, tc.country)
@@ -275,18 +275,18 @@ func TestTheWorldIsAMixOfEveryKindOfCountry(t *testing.T) {
 	}
 }
 
-func TestReedsStandAtTheWatersEdgeAndIceLiesOnColdWater(t *testing.T) {
+func TestHorsetailsStandAtTheWatersEdgeAndIceLiesOnColdWater(t *testing.T) {
 	w, x, z := loadedAt(t, 7, Sea)
 
 	span := LoadRadius * ChunkSize
 	for dz := -span + 1; dz < span-1; dz++ {
 		for dx := -span + 1; dx < span-1; dx++ {
 			cx, cz := x+dx, z+dz
-			if w.At(cx, SeaLevel+2, cz) == Reed {
+			if w.At(cx, SeaLevel+2, cz) == Horsetail {
 				wet := w.At(cx+1, SeaLevel, cz) == Water || w.At(cx-1, SeaLevel, cz) == Water ||
 					w.At(cx, SeaLevel, cz+1) == Water || w.At(cx, SeaLevel, cz-1) == Water
 				if !wet || w.At(cx, SeaLevel+1, cz) != Sand {
-					t.Fatalf("a reed at %d,%d does not stand on sand beside water", cx, cz)
+					t.Fatalf("a horsetail at %d,%d does not stand on sand beside water", cx, cz)
 				}
 			}
 			if w.At(cx, SeaLevel, cz) == Ice && w.At(cx, SeaLevel-1, cz) != Water && w.At(cx, SeaLevel-1, cz).Info().Plant {
@@ -436,8 +436,8 @@ func BenchmarkFollowAndLoad(b *testing.B) {
 
 func TestGroundIsUnderThePlantsAndTheMats(t *testing.T) {
 	w := New()
-	w.Set(2, 5, 2, Grass)
-	w.Set(2, 6, 2, TallGrass)
+	w.Set(2, 5, 2, Turf)
+	w.Set(2, 6, 2, Fern)
 
 	if got := w.Ground(2, 2); got != 5 {
 		t.Errorf("the ground under a plant is %d, wanted 5", got)
@@ -456,7 +456,7 @@ func TestGroundIsUnderThePlantsAndTheMats(t *testing.T) {
 }
 
 func TestEveryBlockHasANameAndPlantsAreNotSolid(t *testing.T) {
-	for b := Grass; b < blockCount; b++ {
+	for b := Turf; b < blockCount; b++ {
 		info := b.Info()
 		if info.Name == "" {
 			t.Errorf("block %d has no name", b)
@@ -518,7 +518,7 @@ func TestCavesLeaveTheSeaItsBed(t *testing.T) {
 }
 
 func TestNothingGrowsOverAHole(t *testing.T) {
-	trunks := map[Block]bool{Log: true, PaleLog: true, PineLog: true, Cactus: true}
+	trunks := map[Block]bool{Log: true, PaleLog: true, PineLog: true, StumpPalm: true}
 
 	for _, country := range []Biome{Plains, Forest, Tundra, Desert} {
 		w, x0, z0 := loadedAt(t, 7, country)

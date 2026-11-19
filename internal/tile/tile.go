@@ -10,8 +10,8 @@ const Size = 16
 type ID uint8
 
 const (
-	GrassTop ID = iota
-	GrassSide
+	TurfTop ID = iota
+	TurfSide
 	Dirt
 	Stone
 	Sand
@@ -40,14 +40,14 @@ const (
 	PaleLogSide
 	PaleLogTop
 	PaleLeaves
-	CactusSide
-	CactusTop
+	StumpPalmSide
+	StumpPalmTop
 	Ice
-	TallGrass
+	Fern
 	RedFlower
 	YellowFlower
 	Bush
-	Reed
+	Horsetail
 	DryBush
 	Mushroom
 	Torch

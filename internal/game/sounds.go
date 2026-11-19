@@ -36,11 +36,11 @@ func (g *Game) NoSound(err error) {
 // materialOf is what a block sounds like.
 func materialOf(b world.Block) sound.Material {
 	switch b {
-	case world.Grass, world.Dirt, world.Clay:
+	case world.Turf, world.Dirt, world.Clay:
 		return sound.Earth
 	case world.Sand, world.Gravel:
 		return sound.Sand
-	case world.Log, world.PineLog, world.PaleLog, world.Planks, world.Workbench, world.Crate, world.Cactus:
+	case world.Log, world.PineLog, world.PaleLog, world.Planks, world.Workbench, world.Crate, world.StumpPalm:
 		return sound.Wood
 	case world.Leaves, world.PineNeedles, world.PaleLeaves:
 		return sound.Plant
