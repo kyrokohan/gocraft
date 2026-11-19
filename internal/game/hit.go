@@ -96,7 +96,7 @@ func (g *Game) strike(p prey) {
 	} else {
 		c := &g.fauna.all[p.i]
 		c.hit(from, g.items[g.selected].Item.Damage())
-		g.ears.Play(breeds[c.kind].cry, c.voice(), 1)
+		g.voice(c, breeds[c.kind].cry, 1)
 		g.fauna.raise(c.herd, from) // its herd runs with it
 	}
 	if g.survival {

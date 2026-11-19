@@ -275,3 +275,18 @@ func TestOlderAndNewerSavesOfBeastsOpen(t *testing.T) {
 		t.Errorf("a bugler saved with health 99 has %v, wanted no more than a bugler has", all[1].health)
 	}
 }
+
+// You hear a herd before you see it: a bugler's voice carries much farther than a
+// mossback's.
+func TestABuglerIsHeardFromFarOff(t *testing.T) {
+	g := onFloor(t)
+	far := g.player.Pos.Add(geometry.Vector3{Z: 50})
+	g.fauna.all = []beast{{kind: render.Bugler, Pos: far}, {kind: render.Mossback, Pos: far}}
+
+	hush(g)
+	g.voice(&g.fauna.all[0], sound.Horn, 1)
+	g.voice(&g.fauna.all[1], sound.Call, 1)
+	if h := heard(g); h[sound.Horn] != 1 || h[sound.Call] != 0 {
+		t.Errorf("fifty blocks from a bugler and a mossback: heard %v, wanted the horn alone", g.ears.Playing())
+	}
+}

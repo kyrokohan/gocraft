@@ -66,29 +66,29 @@ func TestASoundIsLouderInTheEarOnItsSideAndFadesWithDistance(t *testing.T) {
 	m := mixer(noLoops())
 	right := geometry.Vector3{X: -1}
 
-	l, r := m.ears(geometry.Vector3{X: -4})
+	l, r := m.ears(geometry.Vector3{X: -4}, Hearing)
 	if r <= l || l < 0 {
 		t.Errorf("a sound to the right: left %.3f, right %.3f", l, r)
 	}
-	l, r = m.ears(geometry.Vector3{X: 4})
+	l, r = m.ears(geometry.Vector3{X: 4}, Hearing)
 	if l <= r {
 		t.Errorf("a sound to the left: left %.3f, right %.3f", l, r)
 	}
-	l, r = m.ears(geometry.Vector3{Z: 4})
+	l, r = m.ears(geometry.Vector3{Z: 4}, Hearing)
 	if math.Abs(l-r) > 1e-9 {
 		t.Errorf("a sound ahead: left %.3f, right %.3f, wanted the same", l, r)
 	}
-	nearL, nearR := m.ears(right.Scale(2))
-	farL, farR := m.ears(right.Scale(12))
+	nearL, nearR := m.ears(right.Scale(2), Hearing)
+	farL, farR := m.ears(right.Scale(12), Hearing)
 	if !(farL*farL+farR*farR < nearL*nearL+nearR*nearR) {
 		t.Errorf("a sound 12 away is as loud as one 2 away")
 	}
-	if l, r := m.ears(geometry.Vector3{Z: Hearing}); l != 0 || r != 0 {
+	if l, r := m.ears(geometry.Vector3{Z: Hearing}, Hearing); l != 0 || r != 0 {
 		t.Errorf("a sound at the edge of hearing is heard: %.3f, %.3f", l, r)
 	}
 	// Wherever it is round the listener, at one distance it is as loud in all.
 	for _, at := range []geometry.Vector3{{X: 5}, {X: -5}, {Z: 5}, {X: 3, Z: 4}} {
-		l, r := m.ears(at)
+		l, r := m.ears(at, Hearing)
 		if p := l*l + r*r; math.Abs(p-nearPower(5)) > 1e-9 {
 			t.Errorf("at %v the sound has a power of %.4f, wanted %.4f", at, p, nearPower(5))
 		}
@@ -191,5 +191,32 @@ func TestASoundTooFarAwayIsNotStarted(t *testing.T) {
 	m.Play(Call, geometry.Vector3{Z: Hearing + 1}, 1)
 	if len(m.Playing()) != 1 {
 		t.Errorf("playing %v once the listener came near", m.Playing())
+	}
+}
+
+// A sound that carries is heard from farther than Hearing: a call across a valley.
+func TestASoundThatCarriesIsHeardFromFarther(t *testing.T) {
+	m := mixer(noLoops())
+	at := geometry.Vector3{Z: Hearing + 10}
+
+	m.Play(Call, at, 1)
+	if len(m.Playing()) != 0 {
+		t.Fatal("a sound beyond Hearing was started")
+	}
+	m.PlayFar(Call, at, 1, 3*Hearing)
+	if len(m.Playing()) != 1 {
+		t.Fatal("a sound that carries three times as far was not started at Hearing and ten")
+	}
+	m.PlayFar(Call, geometry.Vector3{Z: 3*Hearing + 1}, 1, 3*Hearing)
+	if len(m.Playing()) != 1 {
+		t.Error("a sound that carries was started from beyond where it carries to")
+	}
+
+	// Up close it is as loud as any other.
+	near := geometry.Vector3{Z: 2}
+	l, r := m.ears(near, Hearing)
+	fl, fr := m.ears(near, 3*Hearing)
+	if fl < l || fr < r || fl > 1.2*l {
+		t.Errorf("two away a sound that carries is %v, %v and another %v, %v", fl, fr, l, r)
 	}
 }

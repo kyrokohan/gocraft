@@ -130,7 +130,7 @@ func (g *Game) worldSounds(dt float64) {
 	for i := range g.fauna.all {
 		c := &g.fauna.all[i]
 		if b := &breeds[c.kind]; !c.dead && g.noises.Float64() < dt/b.callEvery {
-			g.ears.Play(b.call, c.voice(), 0.8)
+			g.voice(c, b.call, 0.8)
 		}
 	}
 	for _, m := range g.gloams {

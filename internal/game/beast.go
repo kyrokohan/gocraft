@@ -77,9 +77,11 @@ type breed struct {
 	meat int // pieces of raw meat it leaves
 
 	// call is the sound it makes to itself, about once in callEvery seconds, and cry
-	// the one it makes when it is hit or takes alarm.
+	// the one it makes when it is hit or takes alarm. carries is how far off they are
+	// heard, for a beast whose voice carries farther than other sounds do.
 	call, cry sound.Name
 	callEvery float64
+	carries   float64
 }
 
 // breeds is every kind of beast.
@@ -94,7 +96,7 @@ var breeds = [render.Kinds]breed{
 		health: 16, bump: 3, meat: 3,
 		temper: herder, group: [2]int{5, 8}, most: 16, young: 0.3, wary: 9,
 		lands: []world.Biome{world.Prairie, world.Highland},
-		call:  sound.Horn, cry: sound.Alarm, callEvery: 70,
+		call:  sound.Horn, cry: sound.Alarm, callEvery: 70, carries: 3 * sound.Hearing,
 	},
 }
 
@@ -135,9 +137,10 @@ type beast struct {
 	fall float64 // from 0, as it dies, to 1, gone
 }
 
-// said is a sound a beast makes at a place.
+// said is a sound a beast of a kind makes at a place.
 type said struct {
 	name sound.Name
+	kind render.Kind
 	at   geometry.Vector3
 }
 
@@ -381,7 +384,7 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 				wary *= sneakPart
 			}
 			if c.Pos.Distance(player) < wary && f.raise(c.herd, player) {
-				f.sounds = append(f.sounds, said{b.cry, c.voice()}) // the one that saw it calls out
+				f.sounds = append(f.sounds, said{b.cry, c.kind, c.voice()}) // the one that saw it calls out
 			}
 		}
 		var middle *geometry.Vector3
@@ -595,7 +598,22 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	}
 }
 
-// meatLife is how far apart the pieces of meat a dead beast leaves lie, at the most.
+// voice plays a sound a beast makes, from its head.
+func (g *Game) voice(c *beast, name sound.Name, gain float64) {
+	g.sayFrom(c.kind, name, c.voice(), gain)
+}
+
+// sayFrom plays a sound a beast of a kind makes at a place, as far off as its voice
+// carries.
+func (g *Game) sayFrom(kind render.Kind, name sound.Name, at geometry.Vector3, gain float64) {
+	if far := breeds[kind].carries; far > 0 {
+		g.ears.PlayFar(name, at, gain, far)
+		return
+	}
+	g.ears.Play(name, at, gain)
+}
+
+// meatSpread is how far from where a beast died its meat lies, at the most.
 const meatSpread = 0.6
 
 // stepBeasts moves the beasts for dt seconds, plays what they said, puts down what the
@@ -605,7 +623,7 @@ func (g *Game) stepBeasts(dt float64) {
 	f.sneaking = g.player.Crouched
 	f.step(g.world, g.player.Pos, dt)
 	for _, s := range f.sounds {
-		g.ears.Play(s.name, s.at, 0.9)
+		g.sayFrom(s.kind, s.name, s.at, 0.9)
 	}
 	for _, c := range f.fallen {
 		for range breeds[c.kind].meat {
