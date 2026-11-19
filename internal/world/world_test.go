@@ -1,6 +1,7 @@
 package world
 
 import (
+	"math"
 	"slices"
 	"testing"
 )
@@ -640,6 +641,24 @@ func TestNoTreeReachesFartherThanChunksLookForIt(t *testing.T) {
 		}
 		if blocks == 0 || reach > treeReach {
 			t.Errorf("a %s of %d blocks reaches %d from its foot, and chunks look %d", name, blocks, reach, treeReach)
+		}
+	}
+}
+
+// A new player should see the world, and not the trunk or the bone it stands beside.
+func TestSpawnStandsClearOfWhatIsRoundIt(t *testing.T) {
+	for seed := int64(1); seed <= 12; seed++ {
+		w := Generate(seed)
+		p := w.Spawn()
+		x, y, z := int(math.Floor(p.X)), int(p.Y), int(math.Floor(p.Z))
+		for dz := -1; dz <= 1; dz++ {
+			for dx := -1; dx <= 1; dx++ {
+				for dy := range 2 {
+					if b := w.At(x+dx, y+dy, z+dz); b.Info().Solid {
+						t.Errorf("seed %d: %s stands at %d,%d,%d, beside the spawn at %d,%d,%d", seed, b.Info().Name, x+dx, y+dy, z+dz, x, y, z)
+					}
+				}
+			}
 		}
 	}
 }
