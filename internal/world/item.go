@@ -54,6 +54,16 @@ const (
 	Club
 	Spear
 
+	// The things of fire.
+	CookedMeat
+	PalmSeeds // of a stump palm: poison until they are roasted
+	RoastSeeds
+	Resin      // from a pine or a redwood log, now and then
+	UnlitTorch // a stick with resin on it: lit at a fire, it is the torch block's item
+	FireDrill
+	HardSpear // a spear with its tip hardened in a fire
+	SoftPot   // a pot shaped of clay, before it is baked
+
 	itemEnd
 )
 
@@ -94,6 +104,10 @@ type thing struct {
 	name string
 	icon tile.ID
 	food int // how much eating one gives back, out of MaxFood
+
+	// poison is how many points of health eating one takes.
+	poison float64
+
 	tool Tool
 	tier int
 
@@ -151,6 +165,17 @@ var things = [itemEnd - 256]thing{
 	DiggingStick - 256: {name: "digging stick", icon: tile.DiggingStick, tool: Shovel, tier: TierWood},
 	Club - 256:         {name: "club", icon: tile.Club, tool: Blade, tier: TierWood, hits: 4, knock: 1.8},
 	Spear - 256:        {name: "spear", icon: tile.Spear, tool: Blade, tier: TierWood, hits: 3, reach: 1},
+
+	CookedMeat - 256: {name: "cooked meat", icon: tile.CookedMeat, food: 12},
+	PalmSeeds - 256:  {name: "palm seeds", icon: tile.PalmSeeds, food: 2, poison: 4},
+	RoastSeeds - 256: {name: "roast seeds", icon: tile.RoastSeeds, food: 6},
+	Resin - 256:      {name: "resin", icon: tile.Resin},
+	UnlitTorch - 256: {name: "unlit torch", icon: tile.UnlitTorch},
+
+	// A fire drill is no tool for digging, but it wears as one does: a use is a fire lit.
+	FireDrill - 256: {name: "fire drill", icon: tile.FireDrill, uses: 12},
+	HardSpear - 256: {name: "hardened spear", icon: tile.HardSpear, tool: Blade, tier: TierWood, hits: 4, reach: 1, uses: 150},
+	SoftPot - 256:   {name: "soft pot", icon: tile.SoftPot},
 }
 
 // MaxFood is how full the player can be.
@@ -208,6 +233,12 @@ func (i Item) Food() int {
 	return i.thing().food
 }
 
+// Poison is how many points of health eating one of the item takes: 0 for what is good
+// to eat.
+func (i Item) Poison() float64 {
+	return i.thing().poison
+}
+
 // Tool returns the kind of tool an item is and its tier, or NoTool.
 func (i Item) Tool() (Tool, int) {
 	t := i.thing()
@@ -215,7 +246,7 @@ func (i Item) Tool() (Tool, int) {
 }
 
 // Uses is how many blocks a tool breaks before it is worn out, and 0 for an item that
-// is not a tool.
+// does not wear.
 func (i Item) Uses() int {
 	if uses := i.thing().uses; uses > 0 {
 		return uses
@@ -261,9 +292,10 @@ func (i Item) Damage() float64 {
 	return 2
 }
 
-// StackSize is the most of the item one slot holds.
+// StackSize is the most of the item one slot holds: one of a thing that wears, as each
+// has its own wear.
 func (i Item) StackSize() int {
-	if t, _ := i.Tool(); t != NoTool {
+	if i.Uses() > 0 {
 		return 1
 	}
 	return StackSize
@@ -289,8 +321,14 @@ func (b Block) DigWith(hand Item) (seconds float64, yields bool) {
 // itself, and nothing for leaves and grass that crumble away.
 func (b Block) Drop() (Item, int) {
 	switch b {
-	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fronds, FanLeaves, PalmCrown, DryBush:
+	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fronds, FanLeaves, DryBush, Fire:
 		return NoItem, 0
+	case PalmCrown:
+		return PalmSeeds, 2
+	case CharredLog:
+		return Coal, 1 // what is left of the wood burns well
+	case HearthLit:
+		return Hearth.Item(), 1 // broken, it goes out
 	case Fern:
 		return Fiber, 1
 	case TallFern:
@@ -311,21 +349,29 @@ func (b Block) Drop() (Item, int) {
 	return b.Item(), 1
 }
 
-// fruitChance is the part of the leaves that hold a fruit, and flintChance the part of
-// the gravel that holds a flint.
+// fruitChance is the part of the leaves that hold a fruit, flintChance the part of the
+// gravel that holds a flint, and resinChance the part of the pine and redwood logs that
+// hold resin.
 const (
 	fruitChance = 0.1
 	flintChance = 0.12
+	resinChance = 0.2
 )
 
-// DropAt is Drop for the block in a cell. Leaves now and then hold a fruit, and gravel
-// a flint: which ones is a hash of the cell, so that it does not change.
-func (b Block) DropAt(x, y, z int) (Item, int) {
+// cellChance is a number from 0 to 1 that is a hash of a cell: what the block there
+// holds by chance goes by it, so that it does not change.
+func cellChance(x, y, z int) float64 {
 	h := uint32(x)*0x9E3779B1 ^ uint32(y)*0x85EBCA77 ^ uint32(z)*0xC2B2AE3D
 	h ^= h >> 15
 	h *= 0x2C1B3C6D
 	h ^= h >> 13
-	chance := float64(h) / (1 << 32)
+	return float64(h) / (1 << 32)
+}
+
+// DropAt is Drop for the block in a cell. Leaves now and then hold a fruit, and gravel
+// a flint.
+func (b Block) DropAt(x, y, z int) (Item, int) {
+	chance := cellChance(x, y, z)
 	switch {
 	case (b == Leaves || b == PineNeedles || b == PaleLeaves || b == FanLeaves) && chance < fruitChance:
 		return Fruit, 1
@@ -333,6 +379,15 @@ func (b Block) DropAt(x, y, z int) (Item, int) {
 		return Flint, 1
 	}
 	return b.Drop()
+}
+
+// AlsoAt returns what the block in a cell leaves besides what DropAt says, and how many:
+// a pine or a redwood log now and then holds a piece of resin.
+func (b Block) AlsoAt(x, y, z int) (Item, int) {
+	if (b == PineLog || b == RedwoodLog) && cellChance(x, y, z) < resinChance {
+		return Resin, 1
+	}
+	return NoItem, 0
 }
 
 // Stack is a number of one item, as a slot holds them. The zero Stack is an empty slot.

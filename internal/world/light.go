@@ -71,6 +71,33 @@ func (b *lightBox) add(x, low, y, z int) {
 	b.z0, b.z1 = min(b.z0, z0), max(b.z1, z1)
 }
 
+// lamp is a light that is carried: it glows in the cell it is in as a block that glows
+// does, and is no block. A glow of 0 is no lamp.
+type lamp struct {
+	x, y, z int
+	glow    uint8
+}
+
+// Carry puts the light that is carried in a cell, glowing at a level up to MaxLight, in
+// the place of wherever it was before: there is one. A glow of 0 puts it out, and so
+// does a cell above or below the world. The light round where it was and where it is
+// now is worked out again, when it is next asked for.
+func (w *World) Carry(x, y, z int, glow uint8) {
+	to := lamp{x, y, z, min(glow, MaxLight)}
+	if to.glow == 0 || uint(y) >= Height {
+		to = lamp{}
+	}
+	if to == w.lamp {
+		return
+	}
+	for _, l := range [2]lamp{w.lamp, to} {
+		if l.glow > 0 {
+			w.stale.add(l.x, l.y, l.y, l.z)
+		}
+	}
+	w.lamp = to
+}
+
 // LightAt returns the light in a cell. Above the world it is the open sky's, and below
 // the world, and wherever the world is not loaded, it is dark.
 func (w *World) LightAt(x, y, z int) Light {
@@ -180,6 +207,15 @@ func (w *World) skyDown(x0, x1, z0, z1, y0, y1, below int) {
 				}
 			}
 		}
+	}
+
+	// The light that is carried glows in its cell, whether that is under the blocks or
+	// in the open air over them.
+	if l := w.lamp; l.glow > 0 && l.x >= x0 && l.x <= x1 && l.z >= z0 && l.z <= z1 &&
+		l.y >= y0 && l.y <= y1 && w.Loaded(l.x, l.z) {
+		i := index(l.x, l.y, l.z)
+		w.light[i] = w.light[i]&^MaxLight | Light(max(w.light[i].Block(), int(l.glow)))
+		w.queue = append(w.queue, int32(i))
 	}
 }
 

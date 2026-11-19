@@ -173,6 +173,20 @@ var painters = [tile.Count]painter{
 	tile.DiggingStick: diggingStick,
 	tile.Club:         club,
 	tile.Spear:        spear,
+
+	tile.Fire:          fire,
+	tile.HearthLitTop:  hearthLitTop,
+	tile.HearthLitSide: hearthLitSide,
+	tile.CharredSide:   charredSide,
+	tile.CharredTop:    charredTop,
+	tile.CookedMeat:    cookedMeat,
+	tile.PalmSeeds:     seeds(rgb{214, 84, 44}, rgb{246, 170, 96}),
+	tile.RoastSeeds:    seeds(rgb{122, 78, 44}, rgb{64, 40, 26}),
+	tile.Resin:         resin,
+	tile.UnlitTorch:    unlitTorch,
+	tile.FireDrill:     fireDrill,
+	tile.HardSpear:     hardSpear,
+	tile.SoftPot:       softPot,
 }
 
 func turfTop(x, y int) (rgb, bool) {
@@ -903,70 +917,6 @@ func cracks(x, y int) (rgb, bool) {
 	// first, the ends last. The renderer draws it dark whatever its color.
 	return rgb{float64(crackSteps[y][x]) * 255 / 14, 0, 0}, true
 }
-
-func hearthTop(x, y int) (rgb, bool) {
-	// Cobble round a flue, warm at the bottom.
-	dx, dy := float64(x)-7.5, float64(y)-7.5
-	switch d := dx*dx + dy*dy; {
-	case d < 4:
-		return rgb{140, 62, 30}, true
-	case d < 10:
-		return grain(rgb{40, 36, 36}, 0.1, x, y, 115), true
-	}
-	return cobble(x, y)
-}
-
-func hearthSide(x, y int) (rgb, bool) {
-	// Cobble with an arched mouth and the embers in it.
-	dx, dy := float64(x)-7.5, float64(y)-9
-	inside := math.Abs(dx) < 4 && y >= 9 || dx*dx+dy*dy < 16
-	switch {
-	case inside && y >= 13:
-		return grain(rgb{236, 130, 46}, 0.2, x, y, 116), true
-	case inside && y >= 12:
-		return grain(rgb{170, 70, 30}, 0.2, x, y, 117), true
-	case inside:
-		return grain(rgb{34, 28, 28}, 0.1, x, y, 118), true
-	}
-	return cobble(x, y)
-}
-
-// potTop is the lid of a pot: boards in a frame, with a nail at each corner.
-func potTop(x, y int) (rgb, bool) {
-	if c, ok := potFrame(x, y); ok {
-		return c, true
-	}
-	return planks(x, y)
-}
-
-// potSide is a side of a pot: boards in a frame, braced from corner to corner.
-func potSide(x, y int) (rgb, bool) {
-	if c, ok := potFrame(x, y); ok {
-		return c, true
-	}
-	if d := x - y; d >= -1 && d <= 0 {
-		return grain(rgb{128, 92, 54}, 0.06, x, y, 180), true // the brace
-	}
-	if d := x - y; d == 1 || d == -2 {
-		return grain(rgb{88, 62, 36}, 0.06, x, y, 181), true // its shadow on the boards
-	}
-	return planks(x, y)
-}
-
-// potFrame is the dark frame round each face of a pot, with its nails.
-func potFrame(x, y int) (rgb, bool) {
-	edge := func(v int) bool { return v <= 1 || v >= size-2 }
-	switch {
-	case (x == 1 || x == size-2) && (y == 1 || y == size-2):
-		return rgb{168, 168, 160}, true // a nail head
-	case edge(x) || edge(y):
-		return grain(rgb{104, 74, 42}, 0.07, x, y, 182), true
-	}
-	return rgb{}, false
-}
-
-// bedroll is a bedroll laid out flat, seen from above: a roll for the head across the
-// top, and a blanket of woven moss down the rest, on the ground it lies on.
 
 // The things that are not blocks are drawn on holes, as they would lie in a hand.
 

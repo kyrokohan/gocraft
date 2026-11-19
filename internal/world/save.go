@@ -77,6 +77,9 @@ type Meta struct {
 	// Look is which of the looks the player's body wears, from 0. A save from before
 	// there was a body has none, and wears the first.
 	Look int `json:"look,omitempty"`
+
+	// Torch is how many seconds the torch in the player's hand has burned.
+	Torch float64 `json:"torch,omitempty"`
 }
 
 // Cell is the place of a block in the world.
@@ -194,6 +197,8 @@ func (m Meta) check() string {
 		return fmt.Sprintf("it is played in a way this game does not have: %q", m.Mode)
 	case !finite(m.Health, m.Food, m.Air):
 		return "its player's body is not one"
+	case !finite(m.Torch) || m.Torch < 0:
+		return "its player's torch has burned for no time there is"
 	case len(m.Items) > maxSlots || len(m.Drops) > maxDrops || len(m.Mossbacks) > maxMossbacks || len(m.Beasts) > maxMossbacks ||
 		len(m.Pots) > maxStores || len(m.Hearths) > maxStores:
 		return "it holds more things than a game can make"
