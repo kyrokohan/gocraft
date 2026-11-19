@@ -39,6 +39,12 @@ const (
 	sneakPart  = 0.4 // how much of the distance a herd takes alarm at is left for a crouched player
 	bumpWait   = 1.0 // between two hurts from one beast running into the player
 	bumpShove  = 0.8 // how far that throws the player
+
+	thiefReach = 0.9  // how near a thief comes to take what the player holds
+	robWait    = 8.0  // how long after a theft before the next
+	chewTime   = 0.35 // how long a beast chews what it was fed before it takes more
+	followFar  = 5.0  // how far from the player a tame beast lets itself fall behind
+	followRun  = 10.0 // and how far before it runs to catch up
 )
 
 // temper is how a kind of beast behaves.
@@ -47,6 +53,7 @@ type temper uint8
 const (
 	loner  temper = iota // it goes its own way: it stands, walks and stands
 	herder               // it keeps with its herd, and runs with it from what alarms it
+	thief                // it keeps with its flock, runs as a herd does, and comes for food held out
 )
 
 // breed is a kind of beast as it lives: a row of the table. How it looks, and the box
@@ -67,8 +74,14 @@ type breed struct {
 	most   int     // of its kind round the player
 	young  float64 // the part of a group that is not grown
 
-	// wary is how near a standing player may come before its herd takes alarm.
-	wary float64
+	// wary is how near a standing player may come before its herd takes alarm, and
+	// lure how far a thief comes from for food the player holds.
+	wary, lure float64
+
+	// eats is what it takes from the player's hand, and meals how many of them make it
+	// trust the player: a beast with none cannot be tamed.
+	eats  []world.Item
+	meals int
 
 	// lands are the lands it is found in. A beast with none is found wherever there is
 	// mossy earth.
@@ -89,6 +102,7 @@ var breeds = [render.Kinds]breed{
 	render.Mossback: {
 		walk: creatureSpeed, run: 3.4, gait: 6.15,
 		group: [2]int{1, 1}, most: creatureCount,
+		eats: []world.Item{world.Berries, world.Fruit}, meals: 3,
 		call: sound.Call, cry: sound.Cry, callEvery: callEvery,
 	},
 	render.Bugler: {
@@ -97,6 +111,13 @@ var breeds = [render.Kinds]breed{
 		temper: herder, group: [2]int{5, 8}, most: 16, young: 0.3, wary: 9,
 		lands: []world.Biome{world.Prairie, world.Highland},
 		call:  sound.Horn, cry: sound.Alarm, callEvery: 70, carries: 3 * sound.Hearing,
+	},
+	render.Nipper: {
+		walk: 1.8, run: 5.5, gait: 9,
+		health: 3, meat: 1,
+		temper: thief, group: [2]int{3, 5}, most: 10, wary: 5, lure: 9,
+		lands: []world.Biome{world.Prairie, world.Jungle},
+		call:  sound.Chirp, cry: sound.Chirp, callEvery: 18,
 	},
 }
 
@@ -135,6 +156,11 @@ type beast struct {
 
 	dead bool    // it has no health left
 	fall float64 // from 0, as it dies, to 1, gone
+
+	fed   int     // how many meals it has had from the player's hand
+	tame  bool    // it trusts the player, and follows
+	chew  float64 // how long it still chews its last meal
+	hurry bool    // it runs this frame: after food, or to catch the player up
 }
 
 // said is a sound a beast of a kind makes at a place.
@@ -160,15 +186,19 @@ type fauna struct {
 	herds int        // how many herds there have been, to number the next
 	timer float64    // until the beasts are next looked over
 
-	// sneaking is whether the player is crouched, which lets it come nearer a herd.
-	sneaking bool
+	// sneaking is whether the player is crouched, which lets it come nearer a herd, and
+	// bait whether the player holds food out, which brings thieves.
+	sneaking, bait bool
+
+	robbed float64 // until a thief may take from the player again
 
 	alarms map[int]alarm
 
-	// What the last step left for the game to act on: the sounds the beasts made, and
-	// the beasts that died and are gone.
+	// What the last step left for the game to act on: the sounds the beasts made, the
+	// beasts that died and are gone, and how many times a thief took from the player.
 	sounds []said
 	fallen []beast
+	thefts int
 }
 
 func emptyFauna(w *world.World) *fauna {
@@ -211,6 +241,7 @@ func faunaFrom(w *world.World, s world.Meta, round geometry.Vector3) *fauna {
 		f.all = append(f.all, beast{
 			kind: kind, Pos: b.Pos, Yaw: b.Yaw, young: b.Young, herd: b.Herd,
 			health: min(max(b.Health, 1), max(breeds[kind].health, 1)), regrow: b.Regrow,
+			tame: b.Tame, fed: b.Fed,
 			timer: r.Float64() * 2, rng: r,
 		})
 		f.herds = max(f.herds, b.Herd)
@@ -225,17 +256,18 @@ func (f *fauna) saved() []world.Beast {
 		if !c.dead {
 			out = append(out, world.Beast{
 				Kind: c.kind.String(), Pos: c.Pos, Yaw: c.Yaw, Young: c.young, Herd: c.herd,
-				Health: c.health, Regrow: c.regrow,
+				Health: c.health, Regrow: c.regrow, Tame: c.tame, Fed: c.fed,
 			})
 		}
 	}
 	return out
 }
 
-// count returns how many beasts of a kind there are.
+// count returns how many wild beasts of a kind there are. A tame one is the player's,
+// and takes no wild one's place.
 func (f *fauna) count(k render.Kind) (n int) {
 	for i := range f.all {
-		if f.all[i].kind == k {
+		if f.all[i].kind == k && !f.all[i].tame {
 			n++
 		}
 	}
@@ -289,13 +321,19 @@ func (f *fauna) add(w *world.World, k render.Kind, round geometry.Vector3, near,
 	if more := b.group[1] - b.group[0]; more > 0 {
 		size += f.rng.IntN(more + 1)
 	}
-	size = min(size, b.most-f.count(k))
+	// A group is whole or it is not there: there must be room under the most of its
+	// kind for the fewest that go together.
+	room := b.most - f.count(k)
+	if room < b.group[0] {
+		return false
+	}
+	size = min(size, room)
 	herd := 0
 	if b.group[1] > 1 {
 		f.herds++
 		herd = f.herds
 	}
-	placed := 0
+	placed, before := 0, len(f.all)
 	for try := 0; placed < size && try < 12*size; try++ {
 		mx, mz := x, z
 		if placed > 0 { // the first stands on the place itself, and the others round it
@@ -316,6 +354,10 @@ func (f *fauna) add(w *world.World, k render.Kind, round geometry.Vector3, near,
 			rng:   own,
 		})
 		placed++
+	}
+	if herd != 0 && placed < 2 {
+		f.all = f.all[:before] // one alone is no herd: it found no room for another
+		return false
 	}
 	return placed > 0
 }
@@ -363,7 +405,8 @@ func (f *fauna) raise(herd int, from geometry.Vector3) bool {
 // It leaves the cries of the herds that took alarm in sounds, and the beasts that died
 // and are gone in fallen, for the game to play and to put down what they leave.
 func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
-	f.sounds, f.fallen = f.sounds[:0], f.fallen[:0]
+	f.sounds, f.fallen, f.thefts = f.sounds[:0], f.fallen[:0], 0
+	f.robbed = max(f.robbed-dt, 0)
 	for herd, a := range f.alarms {
 		if a.left -= dt; a.left <= 0 {
 			delete(f.alarms, herd)
@@ -379,7 +422,23 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 			continue
 		}
 		b := &breeds[c.kind]
-		if wary := b.wary; wary > 0 && !c.dead {
+		to := geometry.Vector3{X: player.X - c.Pos.X, Z: player.Z - c.Pos.Z}
+		far := to.Length()
+
+		// A thief comes for food held out, where another time it would run: it darts
+		// in, takes it, and is off, and its flock goes with it.
+		c.hurry = false
+		lured := b.temper == thief && f.bait && f.robbed == 0 && !c.dead && c.flee <= 0 && far < b.lure
+		switch {
+		case lured && far < thiefReach:
+			f.thefts++
+			f.robbed = robWait
+			f.raise(c.herd, player)
+			f.sounds = append(f.sounds, said{b.cry, c.kind, c.voice()})
+		case lured:
+			c.hurry, c.walking, c.timer, c.Yaw = true, true, max(c.timer, rethink), yawOf(to)
+		}
+		if wary := b.wary; wary > 0 && !c.dead && !lured {
 			if f.sneaking {
 				wary *= sneakPart
 			}
@@ -387,8 +446,18 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 				f.sounds = append(f.sounds, said{b.cry, c.kind, c.voice()}) // the one that saw it calls out
 			}
 		}
+		// A tame beast keeps by the player: it comes after one that goes, runs to catch
+		// up when it has fallen far behind, and stands by one that stands.
+		if c.tame && !c.dead && c.flee <= 0 {
+			if far > followFar {
+				c.walking, c.Yaw, c.hurry = true, yawOf(to), far > followRun
+			} else {
+				c.walking = false
+			}
+			c.timer = max(c.timer, rethink)
+		}
 		var middle *geometry.Vector3
-		if m, ok := middles[c.herd]; ok && b.temper == herder {
+		if m, ok := middles[c.herd]; ok && b.temper != loner {
 			middle = &m
 		}
 		c.step(w, dt, middle)
@@ -406,7 +475,7 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 	}
 	f.timer = 1
 	f.all = slices.DeleteFunc(f.all, func(c beast) bool {
-		return c.Pos.Distance(player) > creatureGone
+		return !c.tame && c.Pos.Distance(player) > creatureGone
 	})
 	for k := range render.Kinds {
 		if f.count(k) < breeds[k].most {
@@ -450,6 +519,20 @@ func (c *beast) hit(from geometry.Vector3, points float64) (killed bool) {
 		}
 	}
 	return false
+}
+
+// feed gives the beast a meal from the player's hand, if it is one that can be tamed, is
+// not tame yet, takes that food and is not still chewing. Enough meals make it tame.
+// It reports whether it ate, and whether that meal tamed it.
+func (c *beast) feed(food world.Item) (ate, tamed bool) {
+	b := &breeds[c.kind]
+	if c.tame || c.dead || c.chew > 0 || !slices.Contains(b.eats, food) {
+		return false, false
+	}
+	c.fed, c.chew = c.fed+1, chewTime
+	c.flee = 0 // what feeds it is nothing to run from
+	c.tame = c.fed >= b.meals
+	return true, c.tame
 }
 
 // shear takes a mossback's moss, if it has any, and reports whether it had.
@@ -545,11 +628,15 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	c.hurt = max(c.hurt-dt, 0)
 	c.regrow = max(c.regrow-dt, 0)
 	c.bumped = max(c.bumped-dt, 0)
+	c.chew = max(c.chew-dt, 0)
 	if c.dead {
 		c.fall = min(c.fall+dt/fallTime, 1)
 		c.Stride = 0
 	}
 	speed := b.walk
+	if c.hurry {
+		speed = b.run
+	}
 	if c.flee > 0 {
 		c.flee -= dt
 		c.walking, c.timer, speed = true, max(c.timer, rethink), b.run
@@ -620,8 +707,14 @@ const meatSpread = 0.6
 // dead leave, and has a beast that runs into the player hurt it.
 func (g *Game) stepBeasts(dt float64) {
 	f := g.fauna
+	held := g.items[g.selected]
 	f.sneaking = g.player.Crouched
+	f.bait = g.survival && held.Item.Food() > 0 // in creative there is nothing to lose
 	f.step(g.world, g.player.Pos, dt)
+	if f.thefts > 0 {
+		g.items.takeOne(g.selected)
+		g.tell("a nipper took your " + held.Item.Name())
+	}
 	for _, s := range f.sounds {
 		g.sayFrom(s.kind, s.name, s.at, 0.9)
 	}

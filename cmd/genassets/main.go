@@ -1350,7 +1350,7 @@ func inRows(strip *image.NRGBA, perRow int) *image.NRGBA {
 
 // drawPreview is every picture, enlarged, one above the other.
 func drawPreview() *image.NRGBA {
-	pictures := []*image.NRGBA{enlarge(inRows(drawBlocks(), 13), 6), enlarge(drawTitle(), 6), enlarge(drawTiles(mossbackTiles), 12), enlarge(drawTiles(gloamTiles), 12), enlarge(inRows(drawTiles(personTiles()), 7), 12), enlarge(drawTiles(buglerTiles), 12)}
+	pictures := []*image.NRGBA{enlarge(inRows(drawBlocks(), 13), 6), enlarge(drawTitle(), 6), enlarge(drawTiles(mossbackTiles), 12), enlarge(drawTiles(gloamTiles), 12), enlarge(inRows(drawTiles(personTiles()), 7), 12), enlarge(drawTiles(buglerTiles), 12), enlarge(drawTiles(nipperTiles), 12)}
 	w, h := 0, 0
 	for _, p := range pictures {
 		w, h = max(w, p.Bounds().Dx()), h+p.Bounds().Dy()+12
@@ -1406,6 +1406,9 @@ func run() error {
 		return err
 	}
 	if err := writePNG(filepath.Join(*out, "bugler.png"), drawTiles(buglerTiles)); err != nil {
+		return err
+	}
+	if err := writePNG(filepath.Join(*out, "nipper.png"), drawTiles(nipperTiles)); err != nil {
 		return err
 	}
 	if *preview != "" {

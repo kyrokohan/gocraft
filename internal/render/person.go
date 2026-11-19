@@ -173,9 +173,11 @@ func (p *People) Draw(c *engine.Canvas, cam mesh.Camera, all []Person, sky *Sky,
 	}
 }
 
-// The size of what a cave person holds: a tool as its picture, and a block as a small one.
+// The size of what a cave person holds: a tool as its picture, a smaller thing as a
+// smaller picture, and a block as a small block.
 const (
-	heldPlate = 0.7
+	heldTool  = 0.7
+	heldThing = 0.42
 	heldCube  = 0.22
 )
 
@@ -188,7 +190,10 @@ func (d *Drops) drawHeld(c *engine.Canvas, cam mesh.Camera, item world.Item, han
 		// The picture is across the way the person faces, so that it is seen whole from
 		// behind and from in front, with its lower corner in the hand: a tool is drawn
 		// from there up and out, and so it stands clear of the body.
-		m, size = d.plate(item), heldPlate
+		m, size = d.plate(item), heldThing
+		if _, tier := item.Tool(); tier > 0 {
+			size = heldTool
+		}
 		at = hand.Add(mesh.Camera{Yaw: yaw}.Right().Scale(size / 2))
 	}
 	m.Transform = mesh.Transform{Position: at, Yaw: yaw, Pitch: 0.3 - arm, Scale: size}

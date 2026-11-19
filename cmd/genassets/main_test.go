@@ -39,6 +39,7 @@ func TestCommittedPicturesAreCurrent(t *testing.T) {
 	for name, want := range map[string]*image.NRGBA{
 		"blocks.png": drawBlocks(), "title.png": drawTitle(), "mossback.png": drawTiles(mossbackTiles), "gloam.png": drawTiles(gloamTiles),
 		"person.png": drawTiles(personTiles()), "bugler.png": drawTiles(buglerTiles),
+		"nipper.png": drawTiles(nipperTiles),
 	} {
 		got := readPNG(t, name)
 		if got.Bounds() != want.Bounds() {

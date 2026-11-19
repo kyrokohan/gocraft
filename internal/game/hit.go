@@ -104,10 +104,35 @@ func (g *Game) strike(p prey) {
 	}
 }
 
+// feed gives the beast aimed at what is in the player's hand, if it will take it. It
+// reports whether it did.
+func (g *Game) feed(p prey) bool {
+	if p.gloam {
+		return false
+	}
+	c := &g.fauna.all[p.i]
+	ate, tamed := c.feed(g.items[g.selected].Item)
+	if !ate {
+		return false
+	}
+	g.ears.Play(sound.Eat, c.voice(), 0.8)
+	g.swing = swingTime
+	if g.survival {
+		g.items.takeOne(g.selected)
+	}
+	if tamed {
+		g.tell("the " + c.kind.String() + " trusts you: it will follow you")
+	} else {
+		g.tell("the " + c.kind.String() + " eats from your hand")
+	}
+	return true
+}
+
 // shear takes the moss of the mossback aimed at, in survival, if it has grown, and puts
-// it down on the mossback's back to be picked up. It reports whether it did.
+// it down on the mossback's back to be picked up. It reports whether it did. A hand
+// that holds food shears nothing: that is for eating, or for feeding.
 func (g *Game) shear(p prey) bool {
-	if p.gloam || !g.survival {
+	if p.gloam || !g.survival || g.items[g.selected].Item.Food() > 0 {
 		return false
 	}
 	c := &g.fauna.all[p.i]

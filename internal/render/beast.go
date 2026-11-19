@@ -18,11 +18,12 @@ type Kind uint8
 const (
 	Mossback Kind = iota // a squat grazer with moss on its back
 	Bugler               // a tall herd beast with a crest that sweeps back from its head
+	Nipper               // a quick little thief the size of a hen, that goes in flocks
 
 	Kinds // how many kinds there are
 )
 
-var kindNames = [Kinds]string{Mossback: "mossback", Bugler: "bugler"}
+var kindNames = [Kinds]string{Mossback: "mossback", Bugler: "bugler", Nipper: "nipper"}
 
 // String returns the name of a kind, as a save holds it.
 func (k Kind) String() string {
@@ -51,6 +52,7 @@ const youngScale = 0.5
 var sizes = [Kinds][2]float64{
 	Mossback: {0.8, 0.95},
 	Bugler:   {1.3, 3.0},
+	Nipper:   {0.4, 0.6},
 }
 
 // Size returns the box that blocks stop a beast in: how wide, and how high.
@@ -124,6 +126,7 @@ func NewBeasts(set *assets.Set) *Beasts {
 	return &Beasts{shapes: [Kinds]shape{
 		Mossback: mossbackShape(set),
 		Bugler:   buglerShape(set),
+		Nipper:   nipperShape(set),
 	}}
 }
 
@@ -229,6 +232,38 @@ func buglerShape(set *assets.Set) shape {
 			{mesh: leg, right: 0.32, up: hip, front: -0.2, swing: -0.45},
 			{mesh: arm, right: -0.4, up: hip + 0.05, front: 0.75, swing: -0.3},
 			{mesh: arm, right: 0.4, up: hip + 0.05, front: 0.75, swing: 0.3},
+		},
+	}
+}
+
+// The tiles of the nipper's picture, from the left, as cmd/genassets draws them.
+const (
+	nipperBack = iota
+	nipperSide
+	nipperHead
+	nipperLeg
+)
+
+// nipperShape is a nipper: a little runner on two thin legs, its body level, with a
+// long neck up in front and a longer tail out behind to balance it.
+func nipperShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(64, 132, 84), Texture: set.Nipper}
+	const n = assets.NipperTiles
+	const hip = 0.3 // how long its legs are
+
+	hide := [6]int{nipperSide, nipperSide, nipperSide, nipperBack, nipperSide, nipperSide}
+	head := [6]int{nipperHead, nipperHead, nipperSide, nipperBack, nipperSide, nipperSide}
+	leg := box(-0.035, -hip, -0.035, 0.07, hip, 0.07, all6(nipperLeg), n, look)
+	return shape{
+		stand: hip,
+		hurt:  reddened(set.Nipper),
+		parts: []limb{
+			{mesh: box(-0.11, hip-0.02, -0.2, 0.22, 0.2, 0.42, hide, n, look)},
+			{mesh: box(-0.05, -0.05, -0.5, 0.1, 0.1, 0.5, hide, n, look), up: hip + 0.1, front: -0.2, sway: 0.35},
+			{mesh: box(-0.05, hip+0.1, 0.16, 0.1, 0.24, 0.1, hide, n, look)},
+			{mesh: box(-0.08, hip+0.28, 0.14, 0.16, 0.15, 0.26, head, n, look)},
+			{mesh: leg, right: -0.08, up: hip, swing: 0.7},
+			{mesh: leg, right: 0.08, up: hip, swing: -0.7},
 		},
 	}
 }
