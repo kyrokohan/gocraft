@@ -13,17 +13,29 @@ const (
 // one tree or none, so that no two trees stand in each other.
 const treeSquare = 7
 
+// treeReach is how far from its foot the widest tree reaches, which is a redwood's
+// crown, and so how far outside itself a chunk looks for trees that reach into it.
+const treeReach = 5
+
+// highStand is how high the country must stand, of 1, to be highland.
+const highStand = 0.57
+
 // Biome is a kind of country: what the ground is made of and what grows on it.
 type Biome uint8
 
+// The lands are old ones. There is no grass in them: the ground is moss, and ferns grow
+// where grass would.
 const (
-	Sea    Biome = iota // ground under the water
-	Shore               // sand at the water's edge
-	Plains              // grass, with flowers and few trees
-	Forest              // grass under many trees
-	Desert              // sand over sandstone, with cactus
-	Tundra              // snow, with pines
-	Crags               // bare stone, high up, with snow higher still
+	Sea      Biome = iota // ground under the water
+	Shore                 // sand at the water's edge
+	Prairie               // moss and ferns, with horsetails, stump palms and few trees
+	Jungle                // tree ferns and tall ferns under a high roof of leaves
+	Badlands              // dry red rock over sandstone, where the great skeletons lie
+	Tundra                // snow, with pines
+	Crags                 // bare stone, high up, with snow higher still
+	Highland              // high country of umbrella pines, fan-leaf trees and redwoods
+
+	biomeCount
 )
 
 // lattice returns a number from 0 up to 1 fixed by a point of a grid and a seed.
@@ -108,8 +120,10 @@ func landAt(x, z int, seed uint32) land {
 	// how warm and how wet. And one quick one, for the lie of the ground itself.
 	stand := hills(fx/300, fz/300, seed+1)
 	rough := ramp(0.44, 0.72, hills(fx/170, fz/170, seed+2))
-	warm := hills(fx/380, fz/380, seed+3) + (lattice(x, z, seed+6)-0.5)*0.02
-	wet := hills(fx/330, fz/330, seed+4) + (lattice(x, z, seed+7)-0.5)*0.02
+	warmth := hills(fx/380, fz/380, seed+3)
+	wetness := hills(fx/330, fz/330, seed+4)
+	warm := warmth + (lattice(x, z, seed+6)-0.5)*0.02
+	wet := wetness + (lattice(x, z, seed+7)-0.5)*0.02
 	lie := hills(fx/52, fz/52, seed+5) - 0.5
 
 	dry := warm > 0.60 && wet < 0.46
@@ -118,6 +132,13 @@ func landAt(x, z int, seed uint32) land {
 		swell = 4 + 14*rough // dunes, not mountains
 	}
 	h := float64(SeaLevel) + (stand-0.44)*90 + lie*swell
+	if dry {
+		// The badlands rise in mesas: flat tops in two steps, with steep sides that
+		// show the beds of the rock. They are lower toward the edge of the dry country.
+		inside := ramp(0.60, 0.625, warmth) * (1 - ramp(0.435, 0.46, wetness))
+		mesa := smooth(fx/36, fz/36, seed+8)
+		h += inside * (9*ramp(0.58, 0.62, mesa) + 7*ramp(0.72, 0.75, mesa))
+	}
 	l := land{top: min(max(int(math.Floor(h)), 2), maxTop), cold: warm < 0.38}
 
 	switch {
@@ -125,16 +146,18 @@ func landAt(x, z int, seed uint32) land {
 		l.biome = Sea
 	case l.top <= SeaLevel+1:
 		l.biome = Shore
+	case dry:
+		l.biome = Badlands // red rock to the top of its mesas, however high
 	case l.top >= rockLine:
 		l.biome = Crags
-	case dry:
-		l.biome = Desert
 	case l.cold:
 		l.biome = Tundra
+	case stand > highStand:
+		l.biome = Highland
 	case wet > 0.55:
-		l.biome = Forest
+		l.biome = Jungle
 	default:
-		l.biome = Plains
+		l.biome = Prairie
 	}
 	return l
 }
@@ -189,9 +212,9 @@ func (t terrain) build() {
 	}
 
 	// The trees whose leaves can reach into this chunk: those rooted in it or within
-	// two blocks of it. A tree takes the place of whatever small thing grew at its foot.
-	for gz := floorDiv(z0-2, treeSquare); gz <= floorDiv(z0+ChunkSize+1, treeSquare); gz++ {
-		for gx := floorDiv(x0-2, treeSquare); gx <= floorDiv(x0+ChunkSize+1, treeSquare); gx++ {
+	// treeReach of it. A tree takes the place of whatever small thing grew at its foot.
+	for gz := floorDiv(z0-treeReach, treeSquare); gz <= floorDiv(z0+ChunkSize-1+treeReach, treeSquare); gz++ {
+		for gx := floorDiv(x0-treeReach, treeSquare); gx <= floorDiv(x0+ChunkSize-1+treeReach, treeSquare); gx++ {
 			x := gx*treeSquare + 2 + int(lattice(gx, gz, t.seed+7002)*3)
 			z := gz*treeSquare + 2 + int(lattice(gx, gz, t.seed+7003)*3)
 			t.plant(x, z, landAt(x, z, t.seed), lattice(gx, gz, t.seed+7001), lattice(gx, gz, t.seed+7004))
@@ -214,8 +237,11 @@ func (t terrain) column(x, z int, l land) {
 		}
 	case Shore:
 		surface, under = Sand, Sand
-	case Desert:
-		surface, under, deep = Sand, Sandstone, 6
+	case Badlands:
+		surface, under, deep = Redrock, Sandstone, 6
+		if smooth(float64(x)/11, float64(z)/11, t.seed+32) > 0.68 {
+			surface = Sand // a dry wash
+		}
 	case Tundra:
 		surface = Snow
 	case Crags:
@@ -235,8 +261,8 @@ func (t terrain) column(x, z int, l land) {
 		switch {
 		case y == l.top:
 			b = surface
-		case l.biome == Desert && y >= l.top-2:
-			b = Sand // loose sand over the sandstone
+		case l.biome == Badlands && y >= l.top-2:
+			b = surface // red rock, or the sand of a wash, over the sandstone
 		case y >= l.top-deep:
 			b = under
 		default:
@@ -259,30 +285,51 @@ func (t terrain) grow(x, z int, l land) {
 		return // the ground here is the mouth of a cave
 	}
 	chance := lattice(x, z, t.seed+8001)
-	var b Block
+	b, tall := Air, 1
 	switch l.biome {
-	case Plains:
-		switch {
+	case Prairie:
+		// Tall ferns gather in thickets and horsetails in stands, with low ferns
+		// everywhere between them.
+		switch patch := smooth(float64(x)/14, float64(z)/14, t.seed+8003); {
+		case patch > 0.70 && chance < 0.55:
+			b = TallFern
+		case patch < 0.24 && chance < 0.30:
+			b, tall = Horsetail, 2+int(chance*10)%2
 		case chance < 0.16:
 			b = Fern
-		case chance < 0.19:
-			// Flowers of one color grow together.
+		case chance < 0.175:
+			b = TallFern
+		case chance < 0.185:
+			b = Bush
+		}
+	case Jungle:
+		switch {
+		case chance < 0.22:
+			b = Fern
+		case chance < 0.36:
+			b = TallFern
+		case chance < 0.385:
+			b = Bush
+		case chance < 0.40:
+			// The first flowers. Those of one color grow together.
 			b = RedFlower
 			if smooth(float64(x)/18, float64(z)/18, t.seed+8002) < 0.5 {
 				b = YellowFlower
 			}
-		}
-	case Forest:
-		switch {
-		case chance < 0.07:
-			b = Fern
-		case chance < 0.095:
-			b = Bush
-		case chance < 0.1:
+		case chance < 0.41:
 			b = Mushroom
 		}
-	case Desert:
-		if chance < 0.015 {
+	case Highland:
+		switch {
+		case chance < 0.08:
+			b = Fern
+		case chance < 0.10:
+			b = Bush
+		case chance < 0.11:
+			b = Mushroom
+		}
+	case Badlands:
+		if chance < 0.012 {
 			b = DryBush
 		}
 	case Tundra:
@@ -290,14 +337,16 @@ func (t terrain) grow(x, z int, l land) {
 			b = DryBush
 		}
 	case Shore:
-		// Reeds stand at the water's edge: on sand a step above the water, beside a
-		// column that is under it.
+		// Horsetails stand at the water's edge: on sand a step above the water, beside
+		// a column that is under it.
 		if chance < 0.3 && l.top == SeaLevel+1 && t.byWater(x, z) {
-			b = Horsetail
+			b, tall = Horsetail, 1+int(chance*10)%2
 		}
 	}
-	if b != Air {
-		t.put(x, l.top+1, z, b, true)
+	for i := range tall {
+		if b != Air {
+			t.put(x, l.top+1+i, z, b, true)
+		}
 	}
 }
 
@@ -321,31 +370,34 @@ func (t terrain) plant(x, z int, l land, chance, kind float64) {
 	}
 	y := l.top + 1
 	switch l.biome {
-	case Forest:
-		if chance < 0.66 {
-			if kind < 0.3 {
-				t.paleTree(x, y, z, 5+int(kind*10))
-			} else {
-				t.broadTree(x, y, z, 4+int(kind*3))
-			}
+	case Jungle:
+		switch {
+		case chance < 0.45:
+			t.treeFern(x, y, z, 3+int(kind*4))
+		case chance < 0.62:
+			t.broadTree(x, y, z, 6+int(kind*4)) // the roof of the jungle
+		case chance < 0.72:
+			t.stumpPalm(x, y, z, 1+int(kind*2))
 		}
-	case Plains:
-		if chance < 0.07 {
-			if kind < 0.4 {
-				t.paleTree(x, y, z, 5+int(kind*5))
-			} else {
-				t.broadTree(x, y, z, 4+int(kind*3))
-			}
+	case Highland:
+		switch {
+		case chance < 0.40:
+			t.umbrellaPine(x, y, z, 9+int(kind*6))
+		case chance < 0.52:
+			t.fanTree(x, y, z, 5+int(kind*3))
+		case chance < 0.56:
+			t.redwood(x, y, z, 22+int(kind*11))
+		}
+	case Prairie:
+		switch {
+		case chance < 0.08:
+			t.stumpPalm(x, y, z, 1+int(kind*2))
+		case chance < 0.11:
+			t.fanTree(x, y, z, 5+int(kind*3))
 		}
 	case Tundra:
 		if chance < 0.32 {
 			t.pine(x, y, z, 6+int(kind*4))
-		}
-	case Desert:
-		if chance < 0.1 {
-			for i := range 1 + int(kind*3) {
-				t.put(x, y+i, z, StumpPalm, false)
-			}
 		}
 	}
 }
@@ -364,12 +416,28 @@ func (t terrain) crown(x, y, z, reach int, leaves Block, corners bool) {
 	}
 }
 
-// broadTree stands a broad-leaved tree with its lowest log at (x, y, z): a short trunk
-// under a wide round crown.
-func (t terrain) broadTree(x, y, z, trunk int) {
-	for i := range trunk {
-		t.put(x, y+i, z, Log, false)
+// disc puts one flat round layer of a tree's leaves, reach blocks from its trunk.
+func (t terrain) disc(x, y, z, reach int, leaves Block) {
+	for dz := -reach; dz <= reach; dz++ {
+		for dx := -reach; dx <= reach; dx++ {
+			if dx*dx+dz*dz <= reach*reach+reach {
+				t.put(x+dx, y, z+dz, leaves, true)
+			}
+		}
 	}
+}
+
+// trunk stands n logs one on another, the lowest at (x, y, z).
+func (t terrain) trunk(x, y, z, n int, log Block) {
+	for i := range n {
+		t.put(x, y+i, z, log, false)
+	}
+}
+
+// broadTree stands a broad-leaved tree with its lowest log at (x, y, z): a trunk under
+// a wide round crown.
+func (t terrain) broadTree(x, y, z, trunk int) {
+	t.trunk(x, y, z, trunk, Log)
 	top := y + trunk
 	t.crown(x, top-2, z, 2, Leaves, true)
 	t.crown(x, top-1, z, 2, Leaves, true)
@@ -377,23 +445,9 @@ func (t terrain) broadTree(x, y, z, trunk int) {
 	t.crown(x, top+1, z, 1, Leaves, false)
 }
 
-// paleTree stands a pale tree: a tall thin trunk with a small crown at the top.
-func (t terrain) paleTree(x, y, z, trunk int) {
-	for i := range trunk {
-		t.put(x, y+i, z, PaleLog, false)
-	}
-	top := y + trunk
-	t.crown(x, top-2, z, 1, PaleLeaves, true)
-	t.crown(x, top-1, z, 2, PaleLeaves, false)
-	t.crown(x, top, z, 1, PaleLeaves, true)
-	t.crown(x, top+1, z, 0, PaleLeaves, false)
-}
-
 // pine stands a pine: a tall trunk with rings of needles that narrow to a point.
 func (t terrain) pine(x, y, z, trunk int) {
-	for i := range trunk {
-		t.put(x, y+i, z, PineLog, false)
-	}
+	t.trunk(x, y, z, trunk, PineLog)
 	top := y + trunk
 	t.crown(x, top, z, 0, PineNeedles, false) // the tip
 	for down, reach := range []int{1, 2, 1, 2, 2} {
@@ -401,4 +455,91 @@ func (t terrain) pine(x, y, z, trunk int) {
 			t.crown(x, at, z, reach, PineNeedles, false)
 		}
 	}
+}
+
+// umbrellaPine stands an umbrella pine: a tall bare trunk that spreads its needles flat
+// and wide at the top, with one more ring of them lower down on a tall one.
+func (t terrain) umbrellaPine(x, y, z, trunk int) {
+	t.trunk(x, y, z, trunk, PineLog)
+	top := y + trunk
+	t.disc(x, top, z, 1, PineNeedles)
+	t.disc(x, top-1, z, 3, PineNeedles)
+	t.disc(x, top-2, z, 2, PineNeedles)
+	if trunk >= 11 {
+		t.disc(x, top-5, z, 2, PineNeedles)
+	}
+}
+
+// fanTree stands a fan-leaf tree: a pale trunk in a tall crown of gold leaves, shaped
+// like an egg.
+func (t terrain) fanTree(x, y, z, trunk int) {
+	t.trunk(x, y, z, trunk, PaleLog)
+	top := y + trunk
+	for i, reach := range []int{1, 2, 2, 2, 1} {
+		t.crown(x, top-3+i, z, reach, FanLeaves, true)
+	}
+	t.crown(x, top+2, z, 0, FanLeaves, false)
+}
+
+// redwood stands a giant: a trunk two blocks thick, bare for more than half its height,
+// under a crown that narrows to a point in steps. Its foot is the four columns from
+// (x, z) to (x+1, z+1), and it does not stand where one of them is the mouth of a cave.
+func (t terrain) redwood(x, y, z, trunk int) {
+	feet := [4][2]int{{0, 0}, {1, 0}, {0, 1}, {1, 1}}
+	var grounds [4]int
+	for i, d := range feet {
+		l := landAt(x+d[0], z+d[1], t.seed)
+		if holeAt(x+d[0], l.top, z+d[1], l, t.seed) {
+			return
+		}
+		grounds[i] = l.top
+	}
+	for i, d := range feet {
+		// Each quarter of the trunk goes down to its own ground.
+		for at := min(y, grounds[i]+1); at < y+trunk; at++ {
+			t.put(x+d[0], at, z+d[1], RedwoodLog, false)
+		}
+	}
+
+	top := y + trunk + 1
+	first := y + trunk*11/20
+	for at := first; at <= top; at++ {
+		reach := 1 + 3*(top-at)/(top-first)
+		if (at-first)%2 == 1 && reach > 1 {
+			reach-- // every other layer is drawn in, so the crown stands in steps
+		}
+		// A round layer about the middle of the four logs, which is no block's middle.
+		edge := (float64(reach) + 0.5) * (float64(reach) + 0.5)
+		for dz := -reach; dz <= reach+1; dz++ {
+			for dx := -reach; dx <= reach+1; dx++ {
+				fx, fz := float64(dx)-0.5, float64(dz)-0.5
+				if fx*fx+fz*fz <= edge {
+					t.put(x+dx, at, z+dz, PineNeedles, true)
+				}
+			}
+		}
+	}
+}
+
+// treeFern stands a tree fern: a dark trunk with a star of fronds on its top, whose
+// tips hang down.
+func (t terrain) treeFern(x, y, z, trunk int) {
+	t.trunk(x, y, z, trunk, FernTrunk)
+	top := y + trunk
+	t.crown(x, top, z, 1, Fronds, false)
+	for _, d := range [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+		t.put(x+2*d[0], top, z+2*d[1], Fronds, true)
+		t.put(x+3*d[0], top-1, z+3*d[1], Fronds, true)
+	}
+	for _, d := range [4][2]int{{1, 1}, {-1, 1}, {1, -1}, {-1, -1}} {
+		t.put(x+d[0], top, z+d[1], Fronds, true)
+		t.put(x+2*d[0], top-1, z+2*d[1], Fronds, true)
+	}
+}
+
+// stumpPalm stands a stump palm: a short armored trunk with a crown of stiff leaves
+// standing on it.
+func (t terrain) stumpPalm(x, y, z, trunk int) {
+	t.trunk(x, y, z, trunk, StumpPalm)
+	t.put(x, y+trunk, z, PalmCrown, false)
 }

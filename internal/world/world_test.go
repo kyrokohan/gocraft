@@ -151,9 +151,12 @@ func counted(w *World, x, z int) map[Block]int {
 }
 
 func TestTreesAreWholeAcrossChunkEdges(t *testing.T) {
-	trunkOf := map[Block]Block{Leaves: Log, PaleLeaves: PaleLog, PineNeedles: PineLog}
+	// A redwood's needles are told from an umbrella pine's by the trunk they are near.
+	trunksOf := map[Block][]Block{
+		Leaves: {Log}, PineNeedles: {PineLog, RedwoodLog}, FanLeaves: {PaleLog}, Fronds: {FernTrunk},
+	}
 
-	for _, country := range []Biome{Forest, Tundra} {
+	for _, country := range []Biome{Jungle, Highland, Tundra} {
 		w, x0, z0 := loadedAt(t, 5, country)
 
 		// Every leaf is within reach of a log of its own tree: a tree cut off at the
@@ -163,16 +166,16 @@ func TestTreesAreWholeAcrossChunkEdges(t *testing.T) {
 		for z := z0 - span; z < z0+span; z++ {
 			for x := x0 - span; x < x0+span; x++ {
 				for y := SeaLevel; y < Height; y++ {
-					trunk, isLeaf := trunkOf[w.At(x, y, z)]
+					trunks, isLeaf := trunksOf[w.At(x, y, z)]
 					if !isLeaf {
 						continue
 					}
 					leaves++
 					near := false
-					for dz := -2; dz <= 2 && !near; dz++ {
-						for dx := -2; dx <= 2 && !near; dx++ {
+					for dz := -treeReach; dz <= treeReach && !near; dz++ {
+						for dx := -treeReach; dx <= treeReach && !near; dx++ {
 							for dy := -3; dy <= 2 && !near; dy++ {
-								near = w.At(x+dx, y+dy, z+dz) == trunk
+								near = slices.Contains(trunks, w.At(x+dx, y+dy, z+dz))
 							}
 						}
 					}
@@ -220,10 +223,11 @@ func TestEveryKindOfCountryHasItsOwnGroundAndGrowth(t *testing.T) {
 		lacks   []Block
 	}{
 		{"sea", Sea, []Block{Water, Sand}, nil},
-		{"plains", Plains, []Block{Turf, Dirt, Fern}, []Block{StumpPalm, Sandstone}},
-		{"forest", Forest, []Block{Turf, Log, Leaves, PaleLog, PaleLeaves, Bush}, []Block{StumpPalm}},
-		{"desert", Desert, []Block{Sand, Sandstone, StumpPalm}, []Block{Log, PineLog}},
-		{"tundra", Tundra, []Block{Snow, PineLog, PineNeedles}, []Block{StumpPalm}},
+		{"prairie", Prairie, []Block{Turf, Dirt, Fern, TallFern, Horsetail, StumpPalm, PalmCrown}, []Block{Sandstone, Redrock, PineLog}},
+		{"jungle", Jungle, []Block{Turf, FernTrunk, Fronds, Log, Leaves, TallFern, Bush, RedFlower}, []Block{Redrock, PineLog}},
+		{"highland", Highland, []Block{Turf, PineLog, PineNeedles, PaleLog, FanLeaves, RedwoodLog}, []Block{Redrock, FernTrunk}},
+		{"badlands", Badlands, []Block{Redrock, Sandstone, Sand}, []Block{Log, PineLog, Turf, StumpPalm}},
+		{"tundra", Tundra, []Block{Snow, PineLog, PineNeedles}, []Block{StumpPalm, Redrock}},
 		{"crags", Crags, []Block{Stone}, nil},
 	} {
 		w, x, z := loadedAt(t, 7, tc.country)
@@ -264,7 +268,7 @@ func TestTheWorldIsAMixOfEveryKindOfCountry(t *testing.T) {
 				n++
 			}
 		}
-		for b := Sea; b <= Crags; b++ {
+		for b := Sea; b < biomeCount; b++ {
 			if part := share[b] / n; part < 0.01 || part > 0.6 {
 				t.Errorf("seed %d: country %d is %.1f%% of the world, wanted between 1 and 60", seed, b, part*100)
 			}
@@ -476,7 +480,7 @@ func loadedAt(t *testing.T, seed int64, country Biome) (w *World, x, z int) {
 }
 
 func TestThereAreCavesUnderTheLand(t *testing.T) {
-	w, x0, z0 := loadedAt(t, 7, Plains)
+	w, x0, z0 := loadedAt(t, 7, Prairie)
 	s := uint32(7)
 
 	under, hollow := 0, 0
@@ -493,7 +497,7 @@ func TestThereAreCavesUnderTheLand(t *testing.T) {
 		}
 	}
 	if share := float64(hollow) / float64(under); share < 0.01 || share > 0.2 {
-		t.Errorf("%.1f%% of the ground under the plains is cave, wanted between 1 and 20", share*100)
+		t.Errorf("%.1f%% of the ground under the prairie is cave, wanted between 1 and 20", share*100)
 	}
 }
 
@@ -518,9 +522,9 @@ func TestCavesLeaveTheSeaItsBed(t *testing.T) {
 }
 
 func TestNothingGrowsOverAHole(t *testing.T) {
-	trunks := map[Block]bool{Log: true, PaleLog: true, PineLog: true, StumpPalm: true}
+	trunks := map[Block]bool{Log: true, PaleLog: true, PineLog: true, StumpPalm: true, FernTrunk: true, RedwoodLog: true}
 
-	for _, country := range []Biome{Plains, Forest, Tundra, Desert} {
+	for _, country := range []Biome{Prairie, Jungle, Highland, Tundra} {
 		w, x0, z0 := loadedAt(t, 7, country)
 
 		span := (LoadRadius - 1) * ChunkSize
@@ -528,7 +532,8 @@ func TestNothingGrowsOverAHole(t *testing.T) {
 			for x := x0 - span; x < x0+span; x++ {
 				for y := 1; y < Height; y++ {
 					b, below := w.At(x, y, z), w.At(x, y-1, z)
-					if (b.Info().Plant || (trunks[b] && !trunks[below])) && !below.Info().Solid {
+					// A horsetail may stand on a horsetail.
+					if (b.Info().Plant && b != below || (trunks[b] && !trunks[below])) && !below.Info().Solid {
 						t.Fatalf("country %d: a %s at %d,%d,%d stands on %s", country, b.Info().Name, x, y, z, below.Info().Name)
 					}
 				}
@@ -602,5 +607,39 @@ func TestHeightNearIsTheHighestGroundInReach(t *testing.T) {
 	w.Set(3, 40, 3, Brick)
 	if got := w.HeightNear(3, 3, 10); got != 41 {
 		t.Errorf("after building up, the world near is %d high, wanted 41", got)
+	}
+}
+
+// A chunk looks treeReach blocks outside itself for trees whose leaves reach into it. A
+// tree that reached farther would be cut off at the edge of a chunk.
+func TestNoTreeReachesFartherThanChunksLookForIt(t *testing.T) {
+	const x, y, z = 8, 60, 8 // the foot of the tree, in the middle of chunk 0,0
+	for name, stand := range map[string]func(terrain){
+		"broad tree":    func(t terrain) { t.broadTree(x, y, z, 10) },
+		"pine":          func(t terrain) { t.pine(x, y, z, 10) },
+		"umbrella pine": func(t terrain) { t.umbrellaPine(x, y, z, 15) },
+		"fan-leaf tree": func(t terrain) { t.fanTree(x, y, z, 8) },
+		"redwood":       func(t terrain) { t.redwood(x, y, z, 33) },
+		"tree fern":     func(t terrain) { t.treeFern(x, y, z, 7) },
+		"stump palm":    func(t terrain) { t.stumpPalm(x, y, z, 3) },
+	} {
+		blocks, reach := 0, 0
+		for cz := -1; cz <= 1; cz++ {
+			for cx := -1; cx <= 1; cx++ {
+				chunk := make([]Block, ChunkSize*ChunkSize*Height)
+				stand(terrain{seed: 1, cx: cx, cz: cz, blocks: chunk})
+				for i, b := range chunk {
+					if b == Air || i/(ChunkSize*ChunkSize) < y {
+						continue // air, or the foot of a trunk let down into the ground
+					}
+					blocks++
+					bx, bz := cx*ChunkSize+i%ChunkSize, cz*ChunkSize+i/ChunkSize%ChunkSize
+					reach = max(reach, abs(bx-x), abs(bz-z))
+				}
+			}
+		}
+		if blocks == 0 || reach > treeReach {
+			t.Errorf("a %s of %d blocks reaches %d from its foot, and chunks look %d", name, blocks, reach, treeReach)
+		}
 	}
 }
