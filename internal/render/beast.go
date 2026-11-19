@@ -16,14 +16,15 @@ import (
 type Kind uint8
 
 const (
-	Mossback Kind = iota // a squat grazer with moss on its back
-	Bugler               // a tall herd beast with a crest that sweeps back from its head
-	Nipper               // a quick little thief the size of a hen, that goes in flocks
+	Mossback  Kind = iota // a squat grazer with moss on its back
+	Bugler                // a tall herd beast with a crest that sweeps back from its head
+	Nipper                // a quick little thief the size of a hen, that goes in flocks
+	Quickclaw             // a feathered hunter as tall as a person, that comes in the dark
 
 	Kinds // how many kinds there are
 )
 
-var kindNames = [Kinds]string{Mossback: "mossback", Bugler: "bugler", Nipper: "nipper"}
+var kindNames = [Kinds]string{Mossback: "mossback", Bugler: "bugler", Nipper: "nipper", Quickclaw: "quickclaw"}
 
 // String returns the name of a kind, as a save holds it.
 func (k Kind) String() string {
@@ -53,6 +54,8 @@ var sizes = [Kinds][2]float64{
 	Mossback: {0.8, 0.95},
 	Bugler:   {1.3, 3.0},
 	Nipper:   {0.4, 0.6},
+
+	Quickclaw: {0.6, 1.7},
 }
 
 // Size returns the box that blocks stop a beast in: how wide, and how high.
@@ -87,6 +90,10 @@ type Beast struct {
 	// Fall is how far a beast that has died has fallen, from 0 to 1: it sinks to the
 	// ground and fades.
 	Fall float64
+
+	// Glow is true where it is dark enough for the eyes of a beast that has such eyes
+	// to shine: they are then drawn lit in full, whatever the light.
+	Glow bool
 }
 
 // limb is one box of a beast's shape.
@@ -104,6 +111,10 @@ type limb struct {
 	// swing is how far the box swings forward and back as the beast steps, in radians:
 	// a leg. sway is how far it swings from side to side: a tail.
 	swing, sway float64
+
+	// eye is true for a box that is an eye: it has no picture, only a color, and it
+	// shines in the dark.
+	eye bool
 }
 
 // shape is a kind of beast as it is drawn.
@@ -127,6 +138,8 @@ func NewBeasts(set *assets.Set) *Beasts {
 		Mossback: mossbackShape(set),
 		Bugler:   buglerShape(set),
 		Nipper:   nipperShape(set),
+
+		Quickclaw: quickclawShape(set),
 	}}
 }
 
@@ -268,6 +281,57 @@ func nipperShape(set *assets.Set) shape {
 	}
 }
 
+// shining is the light an eye that shines is drawn in: all of it, from every side.
+var shining = []mesh.Light{mesh.Ambient{Level: 1}}
+
+// clawEyes is the color of a quickclaw's eyes.
+var clawEyes = engine.RGB(255, 214, 64)
+
+// The tiles of the quickclaw's picture, from the left, as cmd/genassets draws them.
+const (
+	clawBack = iota
+	clawSide
+	clawHead
+	clawLeg
+	clawArm
+)
+
+// quickclawShape is a quickclaw: a hunter on two long legs, as tall as a person, its
+// body level, with a stiff tail behind, a head held high, and two eyes that shine.
+func quickclawShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(58, 62, 74), Texture: set.Quickclaw}
+	const n = assets.QuickclawTiles
+	const hip = 0.9 // how long its legs are
+
+	hide := [6]int{clawSide, clawSide, clawSide, clawBack, clawSide, clawSide}
+	head := [6]int{clawHead, clawHead, clawSide, clawBack, clawSide, clawSide}
+	leg := box(-0.08, -hip, -0.08, 0.16, hip, 0.16, all6(clawLeg), n, look)
+	arm := box(-0.06, -0.4, -0.1, 0.12, 0.4, 0.2, all6(clawArm), n, look)
+	// An eye is a small flat box of one color. It is seen from the side of the head and
+	// from in front of it, so each eye is two of them.
+	bright := mesh.Material{Color: clawEyes}
+	eye := box(-0.02, -0.04, -0.05, 0.04, 0.08, 0.1, all6(0), n, bright)
+	front := box(-0.04, -0.04, -0.01, 0.08, 0.08, 0.02, all6(0), n, bright)
+	return shape{
+		stand: hip,
+		hurt:  reddened(set.Quickclaw),
+		parts: []limb{
+			{mesh: box(-0.25, hip-0.05, -0.55, 0.5, 0.55, 1.1, hide, n, look)},
+			{mesh: box(-0.11, -0.11, -1.3, 0.22, 0.22, 1.3, hide, n, look), up: hip + 0.3, front: -0.55, sway: 0.3},
+			{mesh: box(-0.13, hip+0.3, 0.3, 0.26, 0.55, 0.26, hide, n, look)},
+			{mesh: box(-0.16, hip+0.62, 0.3, 0.32, 0.34, 0.62, head, n, look)},
+			{mesh: eye, right: -0.17, up: hip + 0.84, front: 0.62, eye: true},
+			{mesh: eye, right: 0.17, up: hip + 0.84, front: 0.62, eye: true},
+			{mesh: front, right: -0.09, up: hip + 0.84, front: 0.93, eye: true},
+			{mesh: front, right: 0.09, up: hip + 0.84, front: 0.93, eye: true},
+			{mesh: leg, right: -0.17, up: hip, front: -0.05, swing: 0.6},
+			{mesh: leg, right: 0.17, up: hip, front: -0.05, swing: -0.6},
+			{mesh: arm, right: -0.29, up: hip + 0.35, front: 0.35, swing: -0.25},
+			{mesh: arm, right: 0.29, up: hip + 0.35, front: 0.35, swing: 0.25},
+		},
+	}
+}
+
 // hurtRed is the color a creature that was hit is flushed with, and hurtPart how much.
 var hurtRed = engine.RGB(220, 30, 30)
 
@@ -386,7 +450,11 @@ func (b *Beasts) Draw(c *engine.Canvas, cam mesh.Camera, all []Beast, sky *Sky) 
 				m.Transform.Scale = size
 			}
 			m.Material.Opacity = opacity
-			if one.Hurt {
+			switch {
+			case p.eye && one.Glow && one.Fall == 0:
+				m.DrawShadedPixels(c, cam, shining...)
+				continue
+			case one.Hurt && !p.eye:
 				m.Material.Texture = s.hurt
 			}
 			m.DrawShadedPixels(c, cam, b.lights[:]...)

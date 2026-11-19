@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"glonk.dev/engine"
-	"glonk.dev/geometry"
 
 	"github.com/kyrokohan/skyspear/internal/world"
 )
@@ -207,12 +206,12 @@ func TestABedrollIsWhereThePlayerWakesAndSleepsAwayTheNight(t *testing.T) {
 	}
 
 	g.days = 0.6 // night
-	g.gloams = []gloam{{pos: g.player.Pos.Add(geometry.Vector3{X: 3}), health: gloamHealth}}
+	g.fauna.all = []beast{claw(g.player.Pos.X+3, g.player.Pos.Z)}
 	lie()
-	if g.days != 0.6 || !strings.Contains(g.notice, "gloam") {
-		t.Errorf("with a gloam near: days %v, told %q: wanted no sleep, and why", g.days, g.notice)
+	if g.days != 0.6 || !strings.Contains(g.notice, "hunter") {
+		t.Errorf("with a hunter near: days %v, told %q: wanted no sleep, and why", g.days, g.notice)
 	}
-	g.gloams = nil
+	g.fauna.all = nil
 	lie()
 	if !near(timeOfDay(g.days), firstMorning) || g.days < 0.6 || !strings.Contains(g.notice, "morning") {
 		t.Errorf("at night: the clock is at %v of a day, told %q: wanted the next morning", timeOfDay(g.days), g.notice)

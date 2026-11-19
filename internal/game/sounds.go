@@ -20,7 +20,6 @@ const (
 	digStroke    = 0.25 // seconds from one stroke of digging to the next
 	crackleTime  = 1.0  // seconds of a kiln's crackle, which is played again as it ends
 	callEvery    = 14.0 // seconds a mossback is quiet for, as a rule
-	moanEvery    = 5.0  // and a gloam
 	dripEvery    = 4.0  // and the water in a cave
 	splashSpeed  = 2.0  // blocks a second down, the least to splash into water at
 	landSpeed    = 6.0  // and to be heard landing on the ground at
@@ -131,11 +130,6 @@ func (g *Game) worldSounds(dt float64) {
 		c := &g.fauna.all[i]
 		if b := &breeds[c.kind]; !c.dead && g.noises.Float64() < dt/b.callEvery {
 			g.voice(c, b.call, 0.8)
-		}
-	}
-	for _, m := range g.gloams {
-		if !m.dying && m.fade < 0.5 && g.noises.Float64() < dt/moanEvery {
-			g.ears.Play(sound.Moan, m.pos.Add(geometry.Vector3{Y: 1.2}), 0.9)
 		}
 	}
 	if g.crackle -= dt; g.crackle <= 0 {

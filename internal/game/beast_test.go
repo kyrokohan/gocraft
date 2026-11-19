@@ -306,17 +306,18 @@ func BenchmarkFrame(b *testing.B) {
 	ahead.Y = 0
 	ahead = ahead.Normalize()
 	for _, c := range []struct {
-		name   string
-		days   float64
-		gloams int
-		view   string
-	}{{"day", 0, 0, viewEyes}, {"day from behind", 0, 0, viewBehind}, {"night", 0.7, 0, viewEyes}, {"night with gloams", 0.7, gloamMost, viewEyes}} {
+		name    string
+		days    float64
+		hunters int
+		view    string
+	}{{"day", 0, 0, viewEyes}, {"day from behind", 0, 0, viewBehind}, {"night", 0.7, 0, viewEyes}, {"night with hunters", 0.7, 3, viewEyes}} {
 		b.Run(c.name, func(b *testing.B) {
-			g.days, g.gloams, g.settings.View = c.days, nil, c.view
-			for i := range c.gloams {
+			g.days, g.settings.View = c.days, c.view
+			g.fauna.dismiss()
+			for i := range c.hunters {
 				at := g.player.Pos.Add(ahead.Scale(4 + 2*float64(i)))
 				at.Y = float64(g.world.Ground(int(math.Floor(at.X)), int(math.Floor(at.Z))) + 1)
-				g.gloams = append(g.gloams, gloam{pos: at, yaw: math.Pi, health: gloamHealth})
+				g.fauna.all = append(g.fauna.all, beast{kind: render.Quickclaw, Pos: at, Yaw: math.Pi, health: 10})
 			}
 			for b.Loop() {
 				fb.Clear()

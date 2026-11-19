@@ -389,44 +389,6 @@ func mossBareHide(x, y int) (rgb, bool) {
 	return grain(c, 0.03, x, y, 175), true
 }
 
-// The gloam is a creature of the dark: a tall, stooped shape of smoke with long arms,
-// which drifts after the player and fades in the light. Its picture is three tiles: its
-// smoke, its face, and an arm, ragged at the ends. Its eyes are not in the picture: they
-// are lit boxes of their own, which glow where the rest of it cannot be seen.
-var gloamTiles = []painter{gloamSmoke, gloamFace, gloamArm}
-
-var smoke = rgb{34, 30, 50}
-
-func gloamSmoke(x, y int) (rgb, bool) {
-	if y >= size-3 && hash(x, y, 176) < 0.22*float64(y-size+4) {
-		return rgb{}, false // it frays away at the bottom
-	}
-	wisp := blotch(x, y/3, 3, 177) // streaks that run up and down
-	c := smoke.mix(rgb{70, 60, 102}, 0.6*wisp*wisp)
-	return grain(c, 0.06, x, y, 178), true
-}
-
-// gloamFace is the same from left to right as from right to left, as the mossback's is.
-func gloamFace(x, y int) (rgb, bool) {
-	mx := min(x, size-1-x)
-	switch {
-	case mx >= 3 && mx <= 6 && y >= 5 && y <= 8:
-		return rgb{12, 10, 18}, true // the hollows the eyes glow from
-	case mx >= 6 && y == 12:
-		return rgb{18, 16, 26}, true // a mouth like a crack
-	}
-	c, _ := gloamSmoke(mx, min(y, size-4))
-	return c, true
-}
-
-func gloamArm(x, y int) (rgb, bool) {
-	if y >= size-4 && x%3 != 1 {
-		return rgb{}, false // long fingers
-	}
-	c, _ := gloamSmoke(x, min(y, size-4))
-	return c.scale(0.9), true
-}
-
 // drawTiles draws a creature's picture: its tiles side by side.
 func drawTiles(tiles []painter) *image.NRGBA {
 	img := image.NewNRGBA(image.Rect(0, 0, size*len(tiles), size))
@@ -1350,7 +1312,7 @@ func inRows(strip *image.NRGBA, perRow int) *image.NRGBA {
 
 // drawPreview is every picture, enlarged, one above the other.
 func drawPreview() *image.NRGBA {
-	pictures := []*image.NRGBA{enlarge(inRows(drawBlocks(), 13), 6), enlarge(drawTitle(), 6), enlarge(drawTiles(mossbackTiles), 12), enlarge(drawTiles(gloamTiles), 12), enlarge(inRows(drawTiles(personTiles()), 7), 12), enlarge(drawTiles(buglerTiles), 12), enlarge(drawTiles(nipperTiles), 12)}
+	pictures := []*image.NRGBA{enlarge(inRows(drawBlocks(), 13), 6), enlarge(drawTitle(), 6), enlarge(drawTiles(mossbackTiles), 12), enlarge(inRows(drawTiles(personTiles()), 7), 12), enlarge(drawTiles(buglerTiles), 12), enlarge(drawTiles(nipperTiles), 12), enlarge(drawTiles(quickclawTiles), 12)}
 	w, h := 0, 0
 	for _, p := range pictures {
 		w, h = max(w, p.Bounds().Dx()), h+p.Bounds().Dy()+12
@@ -1399,9 +1361,6 @@ func run() error {
 	if err := writePNG(filepath.Join(*out, "mossback.png"), drawTiles(mossbackTiles)); err != nil {
 		return err
 	}
-	if err := writePNG(filepath.Join(*out, "gloam.png"), drawTiles(gloamTiles)); err != nil {
-		return err
-	}
 	if err := writePNG(filepath.Join(*out, "person.png"), drawTiles(personTiles())); err != nil {
 		return err
 	}
@@ -1409,6 +1368,9 @@ func run() error {
 		return err
 	}
 	if err := writePNG(filepath.Join(*out, "nipper.png"), drawTiles(nipperTiles)); err != nil {
+		return err
+	}
+	if err := writePNG(filepath.Join(*out, "quickclaw.png"), drawTiles(quickclawTiles)); err != nil {
 		return err
 	}
 	if *preview != "" {

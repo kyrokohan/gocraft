@@ -14,7 +14,7 @@ import (
 	"github.com/kyrokohan/skyspear/internal/tile"
 )
 
-//go:embed img/blocks.png img/title.png img/mossback.png img/gloam.png img/person.png img/bugler.png img/nipper.png sound/*.wav
+//go:embed img/blocks.png img/title.png img/mossback.png img/person.png img/bugler.png img/nipper.png img/quickclaw.png sound/*.wav
 var files embed.FS
 
 // Levels is how many sizes each tile is kept in: 16, 8, 4, 2 and 1 pixels across. A
@@ -59,8 +59,9 @@ type Set struct {
 	// of its head and a leg.
 	Nipper *bitmap.Bitmap
 
-	// Gloam is the same for the gloam: GloamTiles tiles, its smoke, its face and an arm.
-	Gloam *bitmap.Bitmap
+	// Quickclaw is the same for the quickclaw: QuickclawTiles tiles, its back, its side,
+	// the side of its head, a leg and an arm.
+	Quickclaw *bitmap.Bitmap
 
 	// Person is the same for the cave person, once for each look, one look after
 	// another: PersonTiles tiles each, the face, the hair, the front, the back and a
@@ -76,8 +77,9 @@ const (
 	MossbackTiles = 6
 	BuglerTiles   = 7
 	NipperTiles   = 4
-	GloamTiles    = 3
-	PersonTiles   = 7
+
+	QuickclawTiles = 5
+	PersonTiles    = 7
 )
 
 // PersonLooks is how many looks a cave person can have.
@@ -124,7 +126,7 @@ func Load() (*Set, error) {
 	if set.Nipper, err = creature("img/nipper.png", NipperTiles); err != nil {
 		return nil, err
 	}
-	if set.Gloam, err = creature("img/gloam.png", GloamTiles); err != nil {
+	if set.Quickclaw, err = creature("img/quickclaw.png", QuickclawTiles); err != nil {
 		return nil, err
 	}
 	if set.Person, err = creature("img/person.png", PersonTiles*PersonLooks); err != nil {

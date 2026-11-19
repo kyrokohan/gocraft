@@ -44,8 +44,8 @@ const (
 	Horn    // a bugler, to its herd: a long low call through its crest
 	Alarm   // a bugler that takes alarm, or is hit
 	Chirp   // a nipper
-	Moan    // a gloam
-	Hiss    // a gloam hit
+	Growl   // a quickclaw that hunts: low, and from the throat
+	Screech // a quickclaw hit, or one that has seen its prey
 	Crackle // a kiln's fire
 	Drip    // water in a cave
 	Wind    // a loop
@@ -62,7 +62,7 @@ func Place(m Material) Name { return Name(m)*perMaterial + placeOf }
 var materialNames = [materials]string{"earth", "stone", "sand", "wood", "plant", "glass", "snow"}
 
 var otherNames = [Count - Splash]string{
-	"splash", "pickup", "hurt", "eat", "call", "cry", "horn", "alarm", "chirp", "moan", "hiss", "crackle", "drip", "wind", "cave",
+	"splash", "pickup", "hurt", "eat", "call", "cry", "horn", "alarm", "chirp", "growl", "screech", "crackle", "drip", "wind", "cave",
 }
 
 // File is the name of the sound's file: step-wood.wav, say, or splash.wav.

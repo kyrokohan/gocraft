@@ -288,25 +288,22 @@ func makeSound(n sound.Name) []float64 {
 			add(s, chirp(1500+200*float64(i), 1.5, 0.07), 1, samples(0.1*float64(i)))
 		}
 		return peakTo(s, 0.5)
-	case sound.Moan:
-		// A breath through a narrow throat that slowly moves, over two low tones that
-		// beat against each other.
-		s := make([]float64, samples(1.8))
-		f := newBand(350, 6)
-		for i := range s {
-			t := float64(i) / rate
-			f = retune(f, 300+100*math.Sin(2*math.Pi*t/1.8))
-			loud := swell(t, 0.4, 0.9) * math.Min(1, (1.8-t)/0.6)
-			s[i] = (f.at(noise(i, 994))*3 + 0.4*(math.Sin(2*math.Pi*62*t)+math.Sin(2*math.Pi*65.5*t))) * loud
+	case sound.Growl:
+		// A low rattle from the throat that rises and dies: a quickclaw that hunts.
+		pitch := func(t float64) float64 { return 58 + 14*math.Sin(math.Pi*t/0.9) }
+		loud := func(t float64) float64 {
+			return math.Sin(math.Pi*min(t/0.9, 1)) * (0.7 + 0.3*math.Sin(2*math.Pi*23*t)) // it rattles
 		}
-		return peakTo(s, 0.5)
-	case sound.Hiss:
-		s := make([]float64, samples(0.3))
-		f := newHighpass(2500)
+		return peakTo(voiced(0.9, pitch, loud, 300, 1100), 0.55)
+	case sound.Screech:
+		// A harsh cry that leaps up and breaks off, with breath in it.
+		s := voiced(0.4, func(t float64) float64 { return 520 + 900*t - 1400*t*t },
+			func(t float64) float64 { return math.Pow(math.Sin(math.Pi*t/0.4), 0.5) }, 1500, 2900)
+		f := newHighpass(2200)
 		for i := range s {
-			s[i] = f.at(noise(i, 995)) * swell(float64(i)/rate, 0.01, 0.1)
+			s[i] += 0.5 * f.at(noise(i, 996)) * swell(float64(i)/rate, 0.02, 0.25)
 		}
-		return peakTo(s, 0.55)
+		return peakTo(s, 0.7)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))

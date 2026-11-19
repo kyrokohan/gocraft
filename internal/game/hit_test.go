@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"glonk.dev/engine"
 	"glonk.dev/geometry"
 
+	"github.com/kyrokohan/skyspear/internal/render"
 	"github.com/kyrokohan/skyspear/internal/world"
 )
 
@@ -26,20 +26,6 @@ func withMossback(t *testing.T, g *Game) *beast {
 		t.Fatalf("aimed at %+v (%v), wanted the mossback", g.prey, g.preyed)
 	}
 	return &g.fauna.all[0]
-}
-
-// withGloam puts a gloam on the test floor three blocks ahead of the player at midnight,
-// with no others to come, and turns the player to look at it.
-func withGloam(t *testing.T, g *Game) *gloam {
-	t.Helper()
-	g.days, g.gloamWait = midnight, math.Inf(1)
-	g.gloams = []gloam{{pos: geometry.Vector3{X: 20.5, Y: 6, Z: 23.5}, health: gloamHealth}}
-	g.player.Pitch = -0.21
-	hold(t, g, 1)
-	if !g.preyed || g.prey != (prey{gloam: true}) {
-		t.Fatalf("aimed at %+v (%v), wanted the gloam", g.prey, g.preyed)
-	}
-	return &g.gloams[0]
 }
 
 func TestAHitKnocksAMossbackAwayAndItRuns(t *testing.T) {
@@ -117,98 +103,33 @@ func TestTheHerdIsSavedAndComesBack(t *testing.T) {
 	}
 }
 
-func TestGloamsGatherInTheDarkInSurvivalOnly(t *testing.T) {
-	g := inSurvival(t)
-	g.days = midnight
-	for range seconds(20 * gloamLook) {
-		if hold(t, g, 1); len(g.gloams) > 0 {
-			break
-		}
-	}
-	if len(g.gloams) != 1 {
-		t.Fatalf("after a long night there are %d gloams", len(g.gloams))
-	}
-	m := g.gloams[0]
-	along := geometry.Vector3{X: m.pos.X - g.player.Pos.X, Z: m.pos.Z - g.player.Pos.Z}.Length()
-	if along < gloamNear-1 || along > gloamFar+1 || m.pos.Y != 6 || m.fade < 0.9 {
-		t.Errorf("a gloam gathered %v blocks away at %v, faded %v", along, m.pos, m.fade)
-	}
-
-	for _, tc := range []struct {
-		name     string
-		g        *Game
-		survival bool
-		days     float64
-	}{
-		{"in creative at night", onFloor(t), false, midnight},
-		{"in survival by day", inSurvival(t), true, 0},
-	} {
-		tc.g.days = tc.days
-		hold(t, tc.g, seconds(10*gloamLook))
-		if len(tc.g.gloams) != 0 {
-			t.Errorf("%s: %d gloams gathered", tc.name, len(tc.g.gloams))
-		}
-	}
-}
-
-func TestAGloamFollowsAndHurtsOnTouch(t *testing.T) {
-	g := inSurvival(t)
-	withGloam(t, g)
-	hold(t, g, seconds(3))
-	if g.health >= maxHealth {
-		t.Fatalf("the gloam is at %v and the player at %v is unhurt", g.gloams[0].pos, g.player.Pos)
-	}
-
-	g.hurt(maxHealth)
-	press(g, engine.KeyEnter) // Wake up
-	if len(g.gloams) != 0 {
-		t.Errorf("the player woke with %d gloams about", len(g.gloams))
-	}
-}
-
-func TestAGloamFadesInTorchlight(t *testing.T) {
-	g := inSurvival(t)
-	withGloam(t, g)
-	g.world.Set(21, 6, 23, world.Torch)
-
-	hold(t, g, seconds(gloamFadeTime/2))
-	if len(g.gloams) != 1 || g.gloams[0].fade == 0 {
-		t.Fatalf("by the torch the gloams are %+v", g.gloams)
-	}
-	hold(t, g, seconds(gloamFadeTime))
-	if len(g.gloams) != 0 {
-		t.Errorf("a gloam is still there by a torch: %+v", g.gloams)
-	}
-}
-
-func TestAnIronBladeUndoesAGloamInTwoHits(t *testing.T) {
-	g := inSurvival(t)
-	g.items[0] = world.Stack{Item: world.IronBlade, Count: 1}
-	m := withGloam(t, g)
-
-	hold(t, g, 1, 'q')
-	if m.health != gloamHealth-world.IronBlade.Damage() || g.items[0].Wear != 1 {
-		t.Fatalf("after a hit the gloam has %v health and the blade %d wear", m.health, g.items[0].Wear)
-	}
-	m.pos = geometry.Vector3{X: 20.5, Y: 6, Z: 23.5}
-	hold(t, g, seconds(hitWait)+1)
-	hold(t, g, 1, 'q')
-	if !m.dying {
-		t.Fatalf("after two hits the gloam has %v health", m.health)
-	}
-	hold(t, g, seconds(gloamDieTime)+1)
-	if len(g.gloams) != 0 {
-		t.Errorf("the gloam is still there: %+v", g.gloams)
-	}
-}
-
 func TestAHeldKeyHitsNoFasterThanHitWait(t *testing.T) {
 	g := inSurvival(t)
-	m := withGloam(t, g)
-	m.health = 100
+	g.days = midnight // so that the quickclaw does not leave
+	g.fauna.timer = math.Inf(1)
+	g.fauna.all = []beast{claw(20.5, 22.5)}
+	g.fauna.all[0].health = 100
 	hold(t, g, seconds(1), 'q')
-	if hits := int(100 - m.health); hits < 2 || hits > 4 {
+	if hits := int(100 - g.fauna.all[0].health); hits < 2 || hits > 4 {
 		t.Errorf("a second of holding Q hit %d times", hits)
+	}
+}
+
+// A blade is the weapon: a hit with one of iron takes six points.
+func TestAnIronBladeKillsAQuickclawInTwoHits(t *testing.T) {
+	g := inSurvival(t)
+	g.days = midnight
+	g.fauna.timer = math.Inf(1)
+	g.fauna.all = []beast{claw(20.5, 22.5)}
+	g.items[0] = world.Stack{Item: world.IronBlade, Count: 1}
+
+	g.strike(prey{i: 0})
+	if c := g.fauna.all[0]; c.health != breeds[render.Quickclaw].health-world.IronBlade.Damage() || g.items[0].Wear != 1 {
+		t.Fatalf("after a hit the quickclaw has %v health and the blade %d wear", c.health, g.items[0].Wear)
+	}
+	g.strike(prey{i: 0})
+	if !g.fauna.all[0].dead {
+		t.Fatalf("after two hits the quickclaw has %v health and lives", g.fauna.all[0].health)
 	}
 }
 

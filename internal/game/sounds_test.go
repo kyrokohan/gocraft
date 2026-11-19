@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"glonk.dev/engine"
-	"glonk.dev/geometry"
 
 	"github.com/kyrokohan/skyspear/internal/sound"
 	"github.com/kyrokohan/skyspear/internal/world"
@@ -107,20 +106,20 @@ func TestTheBodyIsHeard(t *testing.T) {
 func TestCreaturesAndKilnsAreHeard(t *testing.T) {
 	g := inSurvival(t)
 	withMossback(t, g)
+	g.fauna.all = append(g.fauna.all, claw(22.5, 20.5))
 	hush(g)
 	g.strike(g.prey)
-	g.gloams = []gloam{{pos: geometry.Vector3{X: 22, Y: 6, Z: 20}, health: gloamHealth}}
-	g.strike(prey{gloam: true})
-	if h := heard(g); h[sound.Cry] != 1 || h[sound.Hiss] != 1 {
-		t.Errorf("a mossback and a gloam hit: heard %v", g.ears.Playing())
+	g.strike(prey{i: 1})
+	if h := heard(g); h[sound.Cry] != 1 || h[sound.Screech] != 1 {
+		t.Errorf("a mossback and a quickclaw hit: heard %v", g.ears.Playing())
 	}
 
 	// Each is as sure to be heard as can be in as long as it is quiet for, as a rule.
 	g.kilns = map[world.Cell]*world.KilnStore{{X: 18, Y: 6, Z: 20}: {Burn: 5}}
 	hush(g)
 	g.worldSounds(callEvery)
-	if h := heard(g); h[sound.Call] != 1 || h[sound.Moan] != 1 || h[sound.Crackle] != 1 {
-		t.Errorf("a mossback, a gloam and a kiln left be: heard %v", g.ears.Playing())
+	if h := heard(g); h[sound.Call] != 1 || h[sound.Growl] != 1 || h[sound.Crackle] != 1 {
+		t.Errorf("a mossback, a quickclaw and a kiln left be: heard %v", g.ears.Playing())
 	}
 }
 

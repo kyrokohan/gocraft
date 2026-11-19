@@ -128,15 +128,9 @@ type Game struct {
 	strode float64
 	paced  bool
 
-	// The gloams, in survival, and when a place is next looked for to gather one.
-	gloams    []gloam
-	gloamWait float64
-	gloamRng  *rand.Rand
-	shades    *render.Gloams
-	shapes    []render.Gloam // the gloams as they are drawn, kept between frames
-	player    Player
-	saved     bool // the world is the one in the save file
-	started   bool // play has begun, so there is something worth saving
+	player  Player
+	saved   bool // the world is the one in the save file
+	started bool // play has begun, so there is something worth saving
 
 	survival bool // the world is played in survival, and not in creative
 	items    inventory
@@ -223,9 +217,8 @@ func New(opts Options) (*Game, error) {
 	}
 	g := &Game{
 		opts: opts, set: set, rend: render.New(set), beasts: render.NewBeasts(set), look: render.NewDrops(set),
-		folk:   render.NewPeople(set),
-		shades: render.NewGloams(set),
-		exact:  true, box: mesh.Cube(1), settings: loadSettings(opts.Settings),
+		folk:  render.NewPeople(set),
+		exact: true, box: mesh.Cube(1), settings: loadSettings(opts.Settings),
 		ears: sound.NewMixer(set.Sounds), noises: rand.New(rand.NewPCG(1, 0x736f756e)),
 		scatter: rand.New(rand.NewPCG(2, 0x62697473)),
 	}
@@ -265,7 +258,7 @@ func (g *Game) use(w *world.World, s world.Meta) {
 	g.clouds = render.NewClouds(g.world.Seed)
 	g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
 	g.fauna = faunaFrom(g.world, s, g.player.Pos)
-	g.gloams, g.bits = nil, nil
+	g.bits = nil
 	g.selected = min(max(s.Slot, 0), hotbarSlots-1)
 	g.days = s.Days
 	g.saved = true
@@ -359,7 +352,7 @@ func (g *Game) newWorld(seed int64) {
 	g.player = Player{Pos: g.world.Spawn()}
 	g.fauna = newFauna(g.world, g.player.Pos)
 	g.selected, g.aimed, g.saved, g.days = 0, false, false, 0
-	g.drops, g.gloams, g.bits = nil, nil, nil
+	g.drops, g.bits = nil, nil
 	g.loadStores(world.Meta{})
 	g.begin(false)
 }
@@ -455,7 +448,9 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		g.player.Step(g.world, c, dt)
 		g.pace(from)
 		g.stepSounds(from, wasWet, fell)
-		g.stepBeasts(dt)
+		if g.stepBeasts(dt); g.screen != playing {
+			return nil // a hunter made the player faint
+		}
 		g.worldSounds(dt)
 		g.flash = max(g.flash-dt, 0)
 		g.swing = max(g.swing-dt, 0)
@@ -463,9 +458,6 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			if g.live(dt); g.screen != playing {
 				return nil // the player fainted
 			}
-		}
-		if g.stepGloams(dt); g.screen != playing {
-			return nil // a gloam made the player faint
 		}
 		g.stepDrops(dt)
 		g.stepBits(dt)
@@ -620,6 +612,7 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera, body bool) {
 	for i := range g.fauna.all {
 		pose := g.fauna.all[i].Pose()
 		pose.Light = g.sky.Brightness(g.lightAt(pose.Pos.Add(geometry.Vector3{Y: 0.5})))
+		pose.Glow = pose.Light < glowBelow
 		g.poses = append(g.poses, pose)
 	}
 	g.beasts.Draw(c, cam, g.poses, g.sky)
@@ -642,14 +635,6 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera, body bool) {
 	g.look.Draw(c, cam, g.lying, g.sky)
 	g.look.DrawBits(c, cam, g.drawnBits(), g.sky)
 
-	// A gloam is seen through as it fades, so it comes after what is solid.
-	g.shapes = g.shapes[:0]
-	for i := range g.gloams {
-		shape := g.gloams[i].pose(g.player.Pos)
-		shape.Light = g.sky.Brightness(g.lightAt(shape.Pos.Add(geometry.Vector3{Y: 1})))
-		g.shapes = append(g.shapes, shape)
-	}
-	g.shades.Draw(c, cam, g.shapes, g.sky)
 	g.clouds.Draw(c, cam, g.sky)
 }
 
