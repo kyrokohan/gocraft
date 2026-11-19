@@ -15,14 +15,15 @@ import (
 
 // The pace of the sounds that come again and again.
 const (
-	stepLength  = 1.6  // blocks walked from one step to the next
-	digStroke   = 0.25 // seconds from one stroke of digging to the next
-	crackleTime = 1.0  // seconds of a kiln's crackle, which is played again as it ends
-	callEvery   = 14.0 // seconds a mossback is quiet for, as a rule
-	moanEvery   = 5.0  // and a gloam
-	dripEvery   = 4.0  // and the water in a cave
-	splashSpeed = 2.0  // blocks a second down, the least to splash into water at
-	landSpeed   = 6.0  // and to be heard landing on the ground at
+	stepLength   = 1.6  // blocks walked from one step to the next
+	crouchedStep = 0.4  // how loud a crouched player's step is, of a walking one's
+	digStroke    = 0.25 // seconds from one stroke of digging to the next
+	crackleTime  = 1.0  // seconds of a kiln's crackle, which is played again as it ends
+	callEvery    = 14.0 // seconds a mossback is quiet for, as a rule
+	moanEvery    = 5.0  // and a gloam
+	dripEvery    = 4.0  // and the water in a cave
+	splashSpeed  = 2.0  // blocks a second down, the least to splash into water at
+	landSpeed    = 6.0  // and to be heard landing on the ground at
 )
 
 // Mixer returns the game's mixer, for a speaker to play.
@@ -105,7 +106,11 @@ func (g *Game) stepSounds(from geometry.Vector3, wasWet bool, fell float64) {
 	}
 	if g.walked += math.Hypot(p.Pos.X-from.X, p.Pos.Z-from.Z); g.walked >= stepLength {
 		g.walked = 0
-		g.ears.PlayNear(sound.Step(materialOf(under)), 1)
+		gain := 1.0
+		if p.Crouched {
+			gain = crouchedStep
+		}
+		g.ears.PlayNear(sound.Step(materialOf(under)), gain)
 	}
 }
 

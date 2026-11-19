@@ -17,12 +17,14 @@ const (
 	playerWidth  = 0.6
 	playerHeight = 1.8
 
-	walkSpeed = 4.3
-	swimSpeed = 2.6
-	flySpeed  = 10.0
-	turnSpeed = 2.0 // radians a second
-	tiltSpeed = 1.5
-	maxPitch  = 1.5 // just short of straight up or down, where the view would flip
+	walkSpeed   = 4.3
+	crouchSpeed = walkSpeed / 3
+	crouchDrop  = 0.45 // how much lower the eyes of a crouched player are
+	swimSpeed   = 2.6
+	flySpeed    = 10.0
+	turnSpeed   = 2.0 // radians a second
+	tiltSpeed   = 1.5
+	maxPitch    = 1.5 // just short of straight up or down, where the view would flip
 
 	gravity   = 28.0
 	jumpSpeed = 8.6  // enough to clear one block and not two
@@ -48,6 +50,10 @@ type Player struct {
 	// OnGround is true while the player stands on a block.
 	OnGround bool
 
+	// Crouched is true while the player goes bent low: slowly and quietly, seeing from
+	// lower. Jumping, flying and water stand the player up.
+	Crouched bool
+
 	velY float64 // speed upward
 }
 
@@ -57,6 +63,7 @@ type controls struct {
 	turn, tilt      float64 // 1 is to the right and up
 	rise, sink      bool    // jump, swim up or fly up; fly down
 	toggleFly       bool
+	toggleCrouch    bool
 }
 
 // keyDown reports whether a letter key counts as down or pressed, in either case:
@@ -66,9 +73,10 @@ func keyDown(held func(engine.Key) bool, letter rune) bool {
 	return held(engine.Key(letter)) || held(engine.Key(unicode.ToUpper(letter)))
 }
 
-// readControls turns the keys into what the player asks for. F is a switch, so it is
-// read with Started: Pressed is true for every repeat of a held key, and would flip
-// flying many times a second.
+// readControls turns the keys into what the player asks for. F and C are switches, so
+// they are read with Started: Pressed is true for every repeat of a held key, and would
+// flip flying or crouching many times a second. Crouching is a switch and not a key to
+// hold because many terminals report only one held key at a time.
 func readControls(in *engine.Input) controls {
 	axis := func(plus, minus bool) float64 {
 		switch {
@@ -87,6 +95,8 @@ func readControls(in *engine.Input) controls {
 		rise:      in.IsDown(engine.Key(' ')),
 		sink:      keyDown(in.IsDown, 'x'),
 		toggleFly: keyDown(in.Started, 'f'),
+
+		toggleCrouch: keyDown(in.Started, 'c'),
 	}
 }
 
@@ -94,12 +104,21 @@ func readControls(in *engine.Input) controls {
 // what glonk draws through it ends where the blocks do. It has no fog: that is the sky's.
 func (p *Player) Camera() mesh.Camera {
 	return mesh.Camera{
-		Position: geometry.Vector3{X: p.Pos.X, Y: p.Pos.Y + eyeHeight, Z: p.Pos.Z},
+		Position: p.head(),
 		Yaw:      p.Yaw,
 		Pitch:    p.Pitch,
 		FOV:      defaultSettings.fov(),
 		Far:      render.ViewDistance,
 	}
+}
+
+// head returns where the player's eyes are: lower while crouched.
+func (p *Player) head() geometry.Vector3 {
+	up := eyeHeight
+	if p.Crouched {
+		up -= crouchDrop
+	}
+	return geometry.Vector3{X: p.Pos.X, Y: p.Pos.Y + up, Z: p.Pos.Z}
 }
 
 // overlaps reports whether the player's box is in any part of a cell.
@@ -129,11 +148,14 @@ func (p *Player) Step(w *world.World, c controls, dt float64) {
 		p.Flying = !p.Flying
 		p.velY = 0
 	}
+	if c.toggleCrouch {
+		p.Crouched = !p.Crouched
+	}
 
 	speed := walkSpeed
 	switch {
 	case p.Flying:
-		speed = flySpeed
+		speed, p.Crouched = flySpeed, false
 		p.velY = 0
 		if c.rise {
 			p.velY += flySpeed
@@ -142,7 +164,7 @@ func (p *Player) Step(w *world.World, c controls, dt float64) {
 			p.velY -= flySpeed
 		}
 	case inWater(w, p.Pos):
-		speed = swimSpeed
+		speed, p.Crouched = swimSpeed, false
 		p.velY = max(p.velY-gravity/4*dt, -sinkSpeed)
 		if c.rise {
 			p.velY = swimUp
@@ -150,7 +172,10 @@ func (p *Player) Step(w *world.World, c controls, dt float64) {
 	default:
 		p.velY = max(p.velY-gravity*dt, -fallSpeed)
 		if c.rise && p.OnGround {
-			p.velY = jumpSpeed
+			p.velY, p.Crouched = jumpSpeed, false
+		}
+		if p.Crouched {
+			speed = crouchSpeed
 		}
 	}
 
