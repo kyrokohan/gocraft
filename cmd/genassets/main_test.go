@@ -64,7 +64,7 @@ func TestOnlyLeavesGlassPlantsAndPicturesOnNoBlockHaveHoles(t *testing.T) {
 			}
 		}
 		seeThrough := slices.Contains([]tile.ID{
-			tile.Leaves, tile.Glass, tile.PineNeedles, tile.PaleLeaves,
+			tile.Leaves, tile.Glass, tile.PineNeedles, tile.PaleLeaves, tile.Fronds, tile.FanLeaves, tile.TallFern, tile.PalmCrown,
 			tile.Fern, tile.RedFlower, tile.YellowFlower, tile.Bush, tile.Horsetail, tile.DryBush, tile.Mushroom, tile.Torch, tile.Bedroll,
 			tile.Berries, tile.Cracks, tile.Stick, tile.Coal, tile.CopperBar, tile.IronBar, tile.CrystalShard, tile.Fruit, tile.BerryLoaf,
 			tile.WoodPick, tile.WoodAxe, tile.WoodShovel, tile.StonePick, tile.StoneAxe, tile.StoneShovel,

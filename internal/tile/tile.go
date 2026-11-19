@@ -59,6 +59,19 @@ const (
 	CrateSide
 	Bedroll
 
+	TallFern
+	PalmCrown
+	FernTrunkSide
+	FernTrunkTop
+	Fronds
+	FanLeaves
+	RedwoodSide
+	RedwoodTop
+	BoneSide
+	BoneTop
+	RedrockTop
+	RedrockSide
+
 	// Pictures that are on no block.
 
 	Berries

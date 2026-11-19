@@ -225,7 +225,7 @@ func (b Block) DigWith(hand Item) (seconds float64, yields bool) {
 // itself, and nothing for leaves and grass that crumble away.
 func (b Block) Drop() (Item, int) {
 	switch b {
-	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fern, DryBush:
+	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fronds, FanLeaves, Fern, TallFern, PalmCrown, DryBush:
 		return NoItem, 0
 	case Turf:
 		return Dirt.Item(), 1 // the turf does not come away
@@ -247,7 +247,7 @@ const fruitChance = 0.1
 // DropAt is Drop for the block in a cell. Leaves now and then hold a fruit: which ones
 // is a hash of the cell, so that it does not change.
 func (b Block) DropAt(x, y, z int) (Item, int) {
-	if b == Leaves || b == PineNeedles || b == PaleLeaves {
+	if b == Leaves || b == PineNeedles || b == PaleLeaves || b == FanLeaves {
 		h := uint32(x)*0x9E3779B1 ^ uint32(y)*0x85EBCA77 ^ uint32(z)*0xC2B2AE3D
 		h ^= h >> 15
 		h *= 0x2C1B3C6D

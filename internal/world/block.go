@@ -51,6 +51,15 @@ const (
 	Crate
 	Bedroll
 
+	TallFern
+	PalmCrown
+	FernTrunk
+	Fronds
+	FanLeaves
+	RedwoodLog
+	Bone
+	Redrock
+
 	blockCount
 )
 
@@ -141,6 +150,20 @@ var infos = [256]Info{
 	// A crate keeps things, and a bedroll is where the player sleeps and wakes.
 	Crate:   byAxe(solid("crate", tile.CrateTop, tile.CrateSide, tile.CrateTop), 1.2),
 	Bedroll: dig(Info{Name: "bedroll", Top: tile.Bedroll, Side: tile.Bedroll, Bottom: tile.Bedroll, Mat: true}, 0.3),
+
+	// What grows in the old lands. A tall fern fills its cell, and a stump palm's crown
+	// stands on its trunk as a plant does on the ground.
+	TallFern:   plant("tall fern", tile.TallFern),
+	PalmCrown:  plant("stump palm crown", tile.PalmCrown),
+	FernTrunk:  byAxe(solid("tree fern trunk", tile.FernTrunkTop, tile.FernTrunkSide, tile.FernTrunkTop), 1.2),
+	Fronds:     dig(leaves("fronds", tile.Fronds), 0.2),
+	FanLeaves:  dig(leaves("fan leaves", tile.FanLeaves), 0.2),
+	RedwoodLog: byAxe(solid("redwood log", tile.RedwoodTop, tile.RedwoodSide, tile.RedwoodTop), 2),
+
+	// Bone is what the great skeletons are made of, and red rock the ground of the
+	// badlands they lie in.
+	Bone:    byPick(solid("bone", tile.BoneTop, tile.BoneSide, tile.BoneTop), 1.5, 0),
+	Redrock: byPick(solid("red rock", tile.RedrockTop, tile.RedrockSide, tile.RedrockTop), 1.6, TierWood),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for

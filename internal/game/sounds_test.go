@@ -36,6 +36,8 @@ func TestABlockSoundsAsWhatItIsMadeOf(t *testing.T) {
 		world.Stone: sound.Stone, world.CoalOre: sound.Stone, world.Brick: sound.Stone, world.Kiln: sound.Stone,
 		world.Gravel: sound.Sand, world.Sand: sound.Sand,
 		world.PineLog: sound.Wood, world.Crate: sound.Wood, world.Workbench: sound.Wood,
+		world.RedwoodLog: sound.Wood, world.FernTrunk: sound.Wood, world.Fronds: sound.Plant, world.FanLeaves: sound.Plant,
+		world.TallFern: sound.Plant, world.Bone: sound.Stone, world.Redrock: sound.Stone,
 		world.PineNeedles: sound.Plant, world.Fern: sound.Plant, world.Torch: sound.Plant, world.Bedroll: sound.Plant,
 		world.Ice: sound.Glass, world.Glass: sound.Glass,
 		world.Snow: sound.Snow,
