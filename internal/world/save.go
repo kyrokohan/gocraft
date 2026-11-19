@@ -151,6 +151,11 @@ type Beast struct {
 
 	// Regrow is as a Mossback's.
 	Regrow float64 `json:"regrow,omitempty"`
+
+	// Fed is how many meals it has had from the player's hand, and Tame whether it has
+	// had enough of them to trust the player.
+	Fed  int  `json:"fed,omitempty"`
+	Tame bool `json:"tame,omitempty"`
 }
 
 // Mossback is a mossback as a save from before there were other beasts holds it.
@@ -222,7 +227,7 @@ func (m Meta) check() string {
 		}
 	}
 	for _, a := range m.Beasts {
-		if !finite(a.Pos.X, a.Pos.Y, a.Pos.Z, a.Yaw, a.Regrow, a.Health) || a.Regrow < 0 || a.Health < 0 || a.Herd < 0 {
+		if !finite(a.Pos.X, a.Pos.Y, a.Pos.Z, a.Yaw, a.Regrow, a.Health) || a.Regrow < 0 || a.Health < 0 || a.Herd < 0 || a.Fed < 0 {
 			return "one of its beasts is nowhere"
 		}
 	}

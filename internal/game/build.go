@@ -251,7 +251,7 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		switch {
 		case (clicked || keyDown(in.IsDown, 'q')) && g.hitWait == 0:
 			g.strike(g.prey)
-		case places && !g.shear(g.prey):
+		case places && !g.feed(g.prey) && !g.shear(g.prey):
 			g.eat()
 		}
 		return
