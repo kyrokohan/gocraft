@@ -64,6 +64,10 @@ const (
 	HardSpear // a spear with its tip hardened in a fire
 	SoftPot   // a pot shaped of clay, before it is baked
 
+	// What is thrown, besides a spear.
+	Pebble
+	Sling
+
 	itemEnd
 )
 
@@ -176,6 +180,10 @@ var things = [itemEnd - 256]thing{
 	FireDrill - 256: {name: "fire drill", icon: tile.FireDrill, uses: 12},
 	HardSpear - 256: {name: "hardened spear", icon: tile.HardSpear, tool: Blade, tier: TierWood, hits: 4, reach: 1, uses: 150},
 	SoftPot - 256:   {name: "soft pot", icon: tile.SoftPot},
+
+	// A sling wears as a tool does: a use is a pebble thrown.
+	Pebble - 256: {name: "pebble", icon: tile.Pebble},
+	Sling - 256:  {name: "sling", icon: tile.Sling, uses: 80},
 }
 
 // MaxFood is how full the player can be.

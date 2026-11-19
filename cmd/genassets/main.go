@@ -187,6 +187,8 @@ var painters = [tile.Count]painter{
 	tile.FireDrill:     fireDrill,
 	tile.HardSpear:     hardSpear,
 	tile.SoftPot:       softPot,
+	tile.Pebble:        pebble,
+	tile.Sling:         sling,
 }
 
 func turfTop(x, y int) (rgb, bool) {

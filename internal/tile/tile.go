@@ -126,6 +126,8 @@ const (
 	FireDrill
 	HardSpear
 	SoftPot
+	Pebble
+	Sling
 
 	// Count is the number of tiles in the strip.
 	Count
