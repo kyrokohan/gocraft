@@ -47,8 +47,8 @@ const (
 
 	Torch
 	KnappingStone
-	Kiln
-	Crate
+	Hearth
+	ClayPot
 	FurBed
 
 	TallFern
@@ -59,6 +59,10 @@ const (
 	RedwoodLog
 	Bone
 	Redrock
+
+	Fire
+	HearthLit
+	CharredLog
 
 	blockCount
 )
@@ -140,16 +144,18 @@ var infos = [256]Info{
 	DryBush:      plant("dry bush", tile.DryBush),
 	Mushroom:     plant("mushroom", tile.Mushroom),
 
-	// A torch stands on the ground as a plant does, and is drawn as one.
+	// A torch stands on the ground as a plant does, and is drawn as one. Set down, it
+	// burns for ever.
 	Torch: glowing(plant("torch", tile.Torch), 14),
 
-	// Standing near a workbench or a kiln lets the player make more.
+	// Standing near a knapping stone lets the player make more. A hearth is a ring of
+	// stones that cooks while it burns: cold, it is this block, and lit, HearthLit.
 	KnappingStone: byPick(solid("knapping stone", tile.KnappingTop, tile.KnappingSide, tile.Stone), 2, 0),
-	Kiln:          byPick(solid("kiln", tile.KilnTop, tile.KilnSide, tile.Cobble), 2.5, 0),
+	Hearth:        byPick(solid("hearth", tile.HearthTop, tile.HearthSide, tile.Cobble), 2.5, 0),
 
-	// A crate keeps things, and a bedroll is where the player sleeps and wakes.
-	Crate:  byAxe(solid("crate", tile.CrateTop, tile.CrateSide, tile.CrateTop), 1.2),
-	FurBed: dig(Info{Name: "fur bed", Top: tile.FurBed, Side: tile.FurBed, Bottom: tile.FurBed, Mat: true}, 0.3),
+	// A clay pot keeps things, and a fur bed is where the player sleeps and wakes.
+	ClayPot: dig(solid("clay pot", tile.PotTop, tile.PotSide, tile.PotTop), 0.5),
+	FurBed:  dig(Info{Name: "fur bed", Top: tile.FurBed, Side: tile.FurBed, Bottom: tile.FurBed, Mat: true}, 0.3),
 
 	// What grows in the old lands. A tall fern fills its cell, and a stump palm's crown
 	// stands on its trunk as a plant does on the ground.
@@ -164,6 +170,13 @@ var infos = [256]Info{
 	// badlands they lie in.
 	Bone:    byPick(cube("bone", tile.Bone), 1.5, 0),
 	Redrock: byPick(solid("red rock", tile.RedrockTop, tile.RedrockSide, tile.RedrockTop), 1.6, TierWood),
+
+	// Fire burns for ever where lightning struck, on the charred wood that is left of
+	// the tree. It stands on what it burns as a plant stands on the ground, and is
+	// walked into, which hurts. No hand breaks it: it goes when what it burns does.
+	Fire:       fixed(glowing(plant("fire", tile.Fire), MaxLight)),
+	HearthLit:  glowing(byPick(solid("hearth", tile.HearthLitTop, tile.HearthLitSide, tile.Cobble), 2.5, 0), 14),
+	CharredLog: byAxe(solid("charred log", tile.CharredTop, tile.CharredSide, tile.CharredTop), 1),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for

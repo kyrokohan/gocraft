@@ -260,6 +260,9 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		}
 		return
 	}
+	if g.drill(keyDown(in.IsDown, 'e') || in.MouseDown(engine.MouseRight), dt) {
+		return
+	}
 	if places && g.aimed && g.useBlock(g.target) {
 		return
 	}
@@ -305,13 +308,15 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		if !ok {
 			return // an empty slot, or a thing that is not a block
 		}
-		// A block goes against the face aimed at, or in the place of a plant aimed at.
+		// A block goes against the face aimed at, or in the place of a plant aimed at,
+		// but for a fire, which nothing takes the place of.
+		gives := func(b world.Block) bool { return b.Info().Plant && !b.Info().Fixed }
 		x, y, z := t.X, t.Y, t.Z
-		if !t.Block.Info().Plant {
+		if !gives(t.Block) {
 			nx, ny, nz := t.Face.Normal()
 			x, y, z = x+nx, y+ny, z+nz
 		}
-		if in := g.world.At(x, y, z); (in != world.Air && in != world.Water && !in.Info().Plant) || g.player.overlaps(x, y, z) {
+		if in := g.world.At(x, y, z); (in != world.Air && in != world.Water && !gives(in)) || g.player.overlaps(x, y, z) {
 			return
 		}
 		// A plant, a torch or a mat stands on solid ground, and not in water.

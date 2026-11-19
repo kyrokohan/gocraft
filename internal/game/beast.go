@@ -756,7 +756,7 @@ func (g *Game) stepBeasts(dt float64) {
 	held := g.items[g.selected]
 	f.sneaking = g.player.Crouched
 	f.bait = g.survival && held.Item.Food() > 0 // in creative there is nothing to lose
-	f.moving, f.hidden, f.hunted = g.paced, g.hidden(), g.survival
+	f.moving, f.hidden, f.hunted = g.paced, g.hidden(), g.survival && firstMorning+g.days >= firstHunt
 	f.meaty = slices.ContainsFunc(g.items[:], func(s world.Stack) bool { return s.Item == world.Meat })
 	f.bright = func(at geometry.Vector3) float64 { return g.sky.Brightness(g.lightAt(at)) }
 	g.sky.Set(timeOfDay(g.days)) // the light they keep out of is the light of this hour

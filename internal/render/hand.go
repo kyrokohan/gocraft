@@ -68,7 +68,7 @@ func (d *Drops) DrawHand(c *engine.Canvas, h Held) {
 	// A swing tips the top of what is held away, as a stroke forward does.
 	m, size := d.plate(h.Item), 0.55
 	turn := mesh.Transform{Yaw: -0.25, Roll: 0.35, Pitch: 0.1 - 0.7*swing}
-	if _, ok := h.Item.Block(); ok {
+	if !flat(h.Item) {
 		m, size = d.cube(h.Item), 0.3
 		turn = mesh.Transform{Yaw: 0.75, Pitch: 0.35 - 0.5*swing}
 	}

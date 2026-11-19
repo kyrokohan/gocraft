@@ -32,9 +32,10 @@ func heard(g *Game) map[sound.Name]int {
 func TestABlockSoundsAsWhatItIsMadeOf(t *testing.T) {
 	for b, want := range map[world.Block]sound.Material{
 		world.Turf: sound.Earth, world.Clay: sound.Earth,
-		world.Stone: sound.Stone, world.CoalOre: sound.Stone, world.Brick: sound.Stone, world.Kiln: sound.Stone,
+		world.Stone: sound.Stone, world.CoalOre: sound.Stone, world.Brick: sound.Stone, world.Hearth: sound.Stone,
 		world.Gravel: sound.Sand, world.Sand: sound.Sand,
-		world.PineLog: sound.Wood, world.Crate: sound.Wood, world.KnappingStone: sound.Stone,
+		world.PineLog: sound.Wood, world.ClayPot: sound.Stone, world.KnappingStone: sound.Stone,
+		world.HearthLit: sound.Stone, world.CharredLog: sound.Wood, world.Fire: sound.Plant,
 		world.RedwoodLog: sound.Wood, world.FernTrunk: sound.Wood, world.Fronds: sound.Plant, world.FanLeaves: sound.Plant,
 		world.TallFern: sound.Plant, world.Bone: sound.Stone, world.Redrock: sound.Stone,
 		world.PineNeedles: sound.Plant, world.Fern: sound.Plant, world.Torch: sound.Plant, world.FurBed: sound.Plant,
@@ -103,7 +104,7 @@ func TestTheBodyIsHeard(t *testing.T) {
 	}
 }
 
-func TestCreaturesAndKilnsAreHeard(t *testing.T) {
+func TestCreaturesAndHearthsAreHeard(t *testing.T) {
 	g := inSurvival(t)
 	withMossback(t, g)
 	g.fauna.all = append(g.fauna.all, claw(22.5, 20.5))
@@ -115,11 +116,11 @@ func TestCreaturesAndKilnsAreHeard(t *testing.T) {
 	}
 
 	// Each is as sure to be heard as can be in as long as it is quiet for, as a rule.
-	g.kilns = map[world.Cell]*world.KilnStore{{X: 18, Y: 6, Z: 20}: {Burn: 5}}
+	g.hearths = map[world.Cell]*world.HearthStore{{X: 18, Y: 6, Z: 20}: {Burn: 5}}
 	hush(g)
 	g.worldSounds(callEvery)
 	if h := heard(g); h[sound.Call] != 1 || h[sound.Growl] != 1 || h[sound.Crackle] != 1 {
-		t.Errorf("a mossback, a quickclaw and a kiln left be: heard %v", g.ears.Playing())
+		t.Errorf("a mossback, a quickclaw and a hearth left be: heard %v", g.ears.Playing())
 	}
 }
 

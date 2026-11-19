@@ -53,10 +53,10 @@ const (
 	Torch
 	KnappingTop
 	KnappingSide
-	KilnTop
-	KilnSide
-	CrateTop
-	CrateSide
+	HearthTop
+	HearthSide
+	PotTop
+	PotSide
 	FurBed
 
 	TallFern
@@ -70,6 +70,11 @@ const (
 	Bone
 	RedrockTop
 	RedrockSide
+	Fire
+	HearthLitTop
+	HearthLitSide
+	CharredSide
+	CharredTop
 
 	// Pictures that are on no block.
 
@@ -113,6 +118,14 @@ const (
 	DiggingStick
 	Club
 	Spear
+	CookedMeat
+	PalmSeeds
+	RoastSeeds
+	Resin
+	UnlitTorch
+	FireDrill
+	HardSpear
+	SoftPot
 
 	// Count is the number of tiles in the strip.
 	Count

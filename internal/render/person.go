@@ -181,17 +181,29 @@ const (
 	heldCube  = 0.22
 )
 
+// flat reports whether an item is held as its picture, and not as a small block: a
+// thing that is not a block, or a block that is drawn as a plant is, as a torch is.
+func flat(item world.Item) bool {
+	b, ok := item.Block()
+	return !ok || b.Info().Plant
+}
+
 // drawHeld draws an item in a hand at a place in the world: a block as a small block,
 // and anything else as its picture, standing up out of the hand and tipped forward as
 // the arm that holds it is.
 func (d *Drops) drawHeld(c *engine.Canvas, cam mesh.Camera, item world.Item, hand geometry.Vector3, yaw, arm float64, lights []mesh.Light) {
 	m, size, at := d.cube(item), heldCube, hand
-	if _, ok := item.Block(); !ok {
+	switch _, tier := item.Tool(); {
+	case !flat(item):
+	case item == world.Torch.Item() || item == world.UnlitTorch:
+		// A torch stands in the middle of its picture, so the hand holds it by its foot.
+		m, size = d.plate(item), heldTool
+	default:
 		// The picture is across the way the person faces, so that it is seen whole from
 		// behind and from in front, with its lower corner in the hand: a tool is drawn
 		// from there up and out, and so it stands clear of the body.
 		m, size = d.plate(item), heldThing
-		if _, tier := item.Tool(); tier > 0 {
+		if tier > 0 {
 			size = heldTool
 		}
 		at = hand.Add(mesh.Camera{Yaw: yaw}.Right().Scale(size / 2))

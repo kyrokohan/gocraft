@@ -155,7 +155,7 @@ func TestOresLeaveWhatIsInThem(t *testing.T) {
 		t.Errorf("crystal ore drops %d %q", n, item.Name())
 	}
 	if item, _ := IronOre.Drop(); item != IronOre.Item() {
-		t.Errorf("iron ore drops %q, wanted itself for the kiln", item.Name())
+		t.Errorf("iron ore drops %q, wanted itself for the hearth", item.Name())
 	}
 }
 

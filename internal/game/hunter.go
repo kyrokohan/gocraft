@@ -15,6 +15,7 @@ import (
 // seconds, light as Sky.Brightness gives it, and these are first guesses.
 const (
 	hunterLit  = 0.315 // the light it will not step into: a torch three blocks away, or the day
+	firstHunt  = 1.5   // the days since the world's first midnight before any hunts the player: the first night is quiet
 	hunterNear = 16.0  // the least distance from the player it comes out at
 	hunterFar  = 36.0  // and the most
 	lairSearch = 8     // blocks above and below the player's feet that a place is looked for in

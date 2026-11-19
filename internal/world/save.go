@@ -66,10 +66,10 @@ type Meta struct {
 	// none, and a herd is found round the player again.
 	Mossbacks []Mossback `json:"mossbacks,omitempty"`
 
-	// Crates and Kilns are what the crates and the kilns of the world hold, wherever
+	// Pots and Hearths are what the pots and the hearths of the world hold, wherever
 	// they are.
-	Crates []CrateStore `json:"crates,omitempty"`
-	Kilns  []KilnStore  `json:"kilns,omitempty"`
+	Pots    []PotStore    `json:"crates,omitempty"`
+	Hearths []HearthStore `json:"kilns,omitempty"`
 
 	// Bed is the bedroll the player last lay on, which it wakes at; nil for none.
 	Bed *Cell `json:"bed,omitempty"`
@@ -77,6 +77,9 @@ type Meta struct {
 	// Look is which of the looks the player's body wears, from 0. A save from before
 	// there was a body has none, and wears the first.
 	Look int `json:"look,omitempty"`
+
+	// Torch is how many seconds the torch in the player's hand has burned.
+	Torch float64 `json:"torch,omitempty"`
 }
 
 // Cell is the place of a block in the world.
@@ -91,17 +94,17 @@ func (c Cell) valid() bool {
 	return c.Y >= 0 && c.Y < Height && abs(c.X) <= 1e9 && abs(c.Z) <= 1e9
 }
 
-// CrateSlots is how many slots a crate has.
-const CrateSlots = 18
+// PotSlots is how many slots a pot has.
+const PotSlots = 18
 
-// CrateStore is what a crate holds, slot by slot.
-type CrateStore struct {
+// PotStore is what a pot holds, slot by slot.
+type PotStore struct {
 	Cell
 	Items []Stack `json:"items"`
 }
 
-// KilnStore is what a kiln holds, and how far it has got with it.
-type KilnStore struct {
+// HearthStore is what a hearth holds, and how far it has got with it.
+type HearthStore struct {
 	Cell
 	In   Stack `json:"in"`   // what is to be cooked
 	Fuel Stack `json:"fuel"` // what is to be burned
@@ -175,7 +178,7 @@ const (
 	maxSlots     = 256
 	maxDrops     = 1 << 14
 	maxMossbacks = 1 << 10
-	maxStores    = 1 << 12 // crates, and kilns
+	maxStores    = 1 << 12 // pots, and hearths
 )
 
 // check returns what is wrong with what a save says beside its blocks, or "".
@@ -194,21 +197,23 @@ func (m Meta) check() string {
 		return fmt.Sprintf("it is played in a way this game does not have: %q", m.Mode)
 	case !finite(m.Health, m.Food, m.Air):
 		return "its player's body is not one"
+	case !finite(m.Torch) || m.Torch < 0:
+		return "its player's torch has burned for no time there is"
 	case len(m.Items) > maxSlots || len(m.Drops) > maxDrops || len(m.Mossbacks) > maxMossbacks || len(m.Beasts) > maxMossbacks ||
-		len(m.Crates) > maxStores || len(m.Kilns) > maxStores:
+		len(m.Pots) > maxStores || len(m.Hearths) > maxStores:
 		return "it holds more things than a game can make"
 	case m.Bed != nil && !m.Bed.valid():
 		return "its player's bed is nowhere"
 	}
-	for _, c := range m.Crates {
-		if !c.valid() || len(c.Items) > CrateSlots || slices.ContainsFunc(c.Items, func(s Stack) bool { return !s.valid() }) {
-			return "one of its crates is not one this game can make"
+	for _, c := range m.Pots {
+		if !c.valid() || len(c.Items) > PotSlots || slices.ContainsFunc(c.Items, func(s Stack) bool { return !s.valid() }) {
+			return "one of its pots is not one this game can make"
 		}
 	}
-	for _, k := range m.Kilns {
+	for _, k := range m.Hearths {
 		if !k.valid() || !k.In.valid() || !k.Fuel.valid() || !k.Out.valid() ||
 			!finite(k.Burn, k.Burns, k.Cooked) || k.Burn < 0 || k.Burns < 0 || k.Cooked < 0 {
-			return "one of its kilns is not one this game can make"
+			return "one of its hearths is not one this game can make"
 		}
 	}
 	for _, s := range m.Items {

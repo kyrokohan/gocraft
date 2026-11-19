@@ -58,6 +58,7 @@ type World struct {
 	height int     // one above the highest layer that has ever held a block
 
 	stale  lightBox // where the light is out of date, since blocks changed there
+	lamp   lamp     // the light that is carried, if there is one
 	queue  []int32  // cells of the window with light to pass on to their neighbors
 	levels []int8   // for skyDown, the sky's light in each column it works on
 

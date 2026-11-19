@@ -10,7 +10,7 @@ import (
 )
 
 // What the game sounds like: steps on what the player walks on, digging, breaking and
-// placing by what a block is made of, the player's body, the creatures, kilns, water
+// placing by what a block is made of, the player's body, the creatures, hearths, water
 // dripping in caves, and the wind outside or the air of a cave all the while.
 
 // The pace of the sounds that come again and again.
@@ -18,7 +18,8 @@ const (
 	stepLength   = 1.6  // blocks walked from one step to the next
 	crouchedStep = 0.4  // how loud a crouched player's step is, of a walking one's
 	digStroke    = 0.25 // seconds from one stroke of digging to the next
-	crackleTime  = 1.0  // seconds of a kiln's crackle, which is played again as it ends
+	crackleTime  = 1.0  // seconds of a hearth's crackle, which is played again as it ends
+	crackleReach = 24.0 // how far off a tree that burns is still heard, in blocks
 	callEvery    = 14.0 // seconds a mossback is quiet for, as a rule
 	dripEvery    = 4.0  // and the water in a cave
 	splashSpeed  = 2.0  // blocks a second down, the least to splash into water at
@@ -40,8 +41,8 @@ func materialOf(b world.Block) sound.Material {
 		return sound.Earth
 	case world.Sand, world.Gravel:
 		return sound.Sand
-	case world.Log, world.PineLog, world.PaleLog, world.Planks, world.Crate, world.StumpPalm,
-		world.FernTrunk, world.RedwoodLog:
+	case world.Log, world.PineLog, world.PaleLog, world.Planks, world.StumpPalm,
+		world.FernTrunk, world.RedwoodLog, world.CharredLog:
 		return sound.Wood
 	case world.Leaves, world.PineNeedles, world.PaleLeaves, world.Fronds, world.FanLeaves:
 		return sound.Plant
@@ -124,7 +125,7 @@ func (g *Game) digSound(before, now float64) {
 }
 
 // worldSounds plays what makes sounds by itself, dt seconds on: the creatures, now and
-// then, the kilns that are burning, and water dripping in a cave.
+// then, the hearths that are burning, and water dripping in a cave.
 func (g *Game) worldSounds(dt float64) {
 	for i := range g.fauna.all {
 		c := &g.fauna.all[i]
@@ -134,8 +135,13 @@ func (g *Game) worldSounds(dt float64) {
 	}
 	if g.crackle -= dt; g.crackle <= 0 {
 		g.crackle = crackleTime
-		for c, k := range g.kilns {
+		for c, k := range g.hearths {
 			if k.Burn > 0 {
+				g.ears.Play(sound.Crackle, cellMid(c.X, c.Y, c.Z), 0.8)
+			}
+		}
+		for _, c := range g.world.Struck(g.player.Pos.X, g.player.Pos.Z, crackleReach) {
+			if g.world.At(c.X, c.Y, c.Z) == world.Fire {
 				g.ears.Play(sound.Crackle, cellMid(c.X, c.Y, c.Z), 0.8)
 			}
 		}

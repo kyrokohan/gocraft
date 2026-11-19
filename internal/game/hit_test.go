@@ -12,8 +12,9 @@ import (
 	"github.com/kyrokohan/skyspear/internal/world"
 )
 
-// midnight is the days of play to the middle of the first night.
-const midnight = 0.7
+// midnight is the days of play to the middle of the second night: the first is quiet,
+// and no hunter comes in it.
+const midnight = 1.7
 
 // withMossback puts a mossback on the test floor three blocks ahead of the player, and
 // turns the player to look at it.
@@ -133,7 +134,7 @@ func TestAnIronBladeKillsAQuickclawInTwoHits(t *testing.T) {
 	}
 }
 
-func TestAKnifeIsMadeAndMossCooksToACake(t *testing.T) {
+func TestAKnifeIsMadeAtAKnappingStone(t *testing.T) {
 	g := inSurvival(t)
 	g.world.Set(22, 6, 22, world.KnappingStone)
 	g.items[0] = world.Stack{Item: world.Flint, Count: 1}
@@ -145,11 +146,5 @@ func TestAKnifeIsMadeAndMossCooksToACake(t *testing.T) {
 	}
 	if g.items[0] != (world.Stack{Item: world.FlintKnife, Count: 1}) {
 		t.Errorf("made %+v", g.items[:3])
-	}
-
-	k := &world.KilnStore{In: world.Stack{Item: world.Moss, Count: 3}, Fuel: world.Stack{Item: world.Coal, Count: 1}}
-	stepKiln(k, cookTime+0.5)
-	if k.Out != (world.Stack{Item: world.MossCake, Count: 1}) || k.In.Count != 0 {
-		t.Errorf("the kiln holds %+v and made %+v, wanted the moss cooked to a cake", k.In, k.Out)
 	}
 }
