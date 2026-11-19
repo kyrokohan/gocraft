@@ -281,6 +281,13 @@ func makeSound(n sound.Name) []float64 {
 			return math.Pow(math.Sin(math.Pi*min(part, 1)), 0.6)
 		}
 		return peakTo(voiced(0.62, pitch, loud, 420, 900), 0.75)
+	case sound.Chirp:
+		// Three quick rising squeaks: a nipper.
+		s := make([]float64, samples(0.3))
+		for i := range 3 {
+			add(s, chirp(1500+200*float64(i), 1.5, 0.07), 1, samples(0.1*float64(i)))
+		}
+		return peakTo(s, 0.5)
 	case sound.Moan:
 		// A breath through a narrow throat that slowly moves, over two low tones that
 		// beat against each other.
