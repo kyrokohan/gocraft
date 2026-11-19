@@ -14,7 +14,7 @@ import (
 	"github.com/kyrokohan/skyspear/internal/tile"
 )
 
-//go:embed img/blocks.png img/title.png img/mossback.png img/gloam.png img/person.png sound/*.wav
+//go:embed img/blocks.png img/title.png img/mossback.png img/gloam.png img/person.png img/bugler.png sound/*.wav
 var files embed.FS
 
 // Levels is how many sizes each tile is kept in: 16, 8, 4, 2 and 1 pixels across. A
@@ -51,6 +51,10 @@ type Set struct {
 	// hide once it is shorn.
 	Mossback *bitmap.Bitmap
 
+	// Bugler is the same for the bugler: BuglerTiles tiles, its back, its side, its
+	// belly, the side of its head, the end of its bill, a leg and its crest.
+	Bugler *bitmap.Bitmap
+
 	// Gloam is the same for the gloam: GloamTiles tiles, its smoke, its face and an arm.
 	Gloam *bitmap.Bitmap
 
@@ -66,6 +70,7 @@ type Set struct {
 // How many tiles the pictures of the creatures have.
 const (
 	MossbackTiles = 6
+	BuglerTiles   = 7
 	GloamTiles    = 3
 	PersonTiles   = 7
 )
@@ -106,6 +111,9 @@ func Load() (*Set, error) {
 		return nil, err
 	}
 	if set.Mossback, err = creature("img/mossback.png", MossbackTiles); err != nil {
+		return nil, err
+	}
+	if set.Bugler, err = creature("img/bugler.png", BuglerTiles); err != nil {
 		return nil, err
 	}
 	if set.Gloam, err = creature("img/gloam.png", GloamTiles); err != nil {

@@ -17,15 +17,15 @@ const midnight = 0.7
 
 // withMossback puts a mossback on the test floor three blocks ahead of the player, and
 // turns the player to look at it.
-func withMossback(t *testing.T, g *Game) *Creature {
+func withMossback(t *testing.T, g *Game) *beast {
 	t.Helper()
-	g.herd.all = []Creature{{Pos: geometry.Vector3{X: 20.5, Y: 6, Z: 23.5}, timer: math.Inf(1), rng: rand.New(rand.NewPCG(1, 2))}}
+	g.fauna.all = []beast{{Pos: geometry.Vector3{X: 20.5, Y: 6, Z: 23.5}, timer: math.Inf(1), rng: rand.New(rand.NewPCG(1, 2))}}
 	g.player.Pitch = -0.35
 	hold(t, g, 1)
 	if !g.preyed || g.prey != (prey{i: 0}) {
 		t.Fatalf("aimed at %+v (%v), wanted the mossback", g.prey, g.preyed)
 	}
-	return &g.herd.all[0]
+	return &g.fauna.all[0]
 }
 
 // withGloam puts a gloam on the test floor three blocks ahead of the player at midnight,
@@ -67,8 +67,8 @@ func TestAMossbackCannotBeKilled(t *testing.T) {
 		c.Pos = geometry.Vector3{X: 20.5, Y: 6, Z: 23.5}
 		hold(t, g, seconds(hitWait)+1, 'q')
 	}
-	if len(g.herd.all) != 1 {
-		t.Errorf("after 20 hits there are %d mossbacks", len(g.herd.all))
+	if len(g.fauna.all) != 1 {
+		t.Errorf("after 20 hits there are %d mossbacks", len(g.fauna.all))
 	}
 }
 
@@ -98,7 +98,7 @@ func TestTheHerdIsSavedAndComesBack(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "world")
 	g := savedGame(t, path)
 	startNew(t, g, true)
-	g.herd.all = []Creature{
+	g.fauna.all = []beast{
 		{Pos: geometry.Vector3{X: 3.5, Y: 70, Z: 4.5}, Yaw: 1, regrow: 100, rng: rand.New(rand.NewPCG(1, 2))},
 		{Pos: geometry.Vector3{X: -6.5, Y: 71, Z: 2.5}, Yaw: -2, rng: rand.New(rand.NewPCG(1, 3))},
 	}
@@ -107,11 +107,11 @@ func TestTheHerdIsSavedAndComesBack(t *testing.T) {
 	}
 
 	back := savedGame(t, path)
-	if len(back.herd.all) != 2 {
-		t.Fatalf("came back with %d mossbacks, wanted 2", len(back.herd.all))
+	if len(back.fauna.all) != 2 {
+		t.Fatalf("came back with %d mossbacks, wanted 2", len(back.fauna.all))
 	}
-	for i, c := range back.herd.all {
-		if want := g.herd.all[i]; c.Pos != want.Pos || c.Yaw != want.Yaw || c.regrow != want.regrow || c.rng == nil {
+	for i, c := range back.fauna.all {
+		if want := g.fauna.all[i]; c.Pos != want.Pos || c.Yaw != want.Yaw || c.regrow != want.regrow || c.rng == nil {
 			t.Errorf("mossback %d came back as %+v, wanted %+v", i, c, want)
 		}
 	}

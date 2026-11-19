@@ -14,8 +14,8 @@ import (
 
 // walker is a creature on the test floor that walks the way it faces and does not
 // change its mind.
-func walker(x, z, yaw float64) *Creature {
-	return &Creature{
+func walker(x, z, yaw float64) *beast {
+	return &beast{
 		Pos:     geometry.Vector3{X: x, Y: 6, Z: z},
 		Yaw:     yaw,
 		walking: true,
@@ -24,8 +24,24 @@ func walker(x, z, yaw float64) *Creature {
 	}
 }
 
+// mossbackWidth is how wide the box is that blocks stop a mossback in.
+func mossbackWidth() float64 {
+	width, _ := render.Size(render.Mossback, false)
+	return width
+}
+
+// only returns the beasts of a kind.
+func only(all []beast, kind render.Kind) (of []beast) {
+	for _, c := range all {
+		if c.kind == kind {
+			of = append(of, c)
+		}
+	}
+	return of
+}
+
 // live steps a creature for a time, and calls each (if it is not nil) after every step.
-func live(c *Creature, w *world.World, seconds float64, each func()) {
+func live(c *beast, w *world.World, seconds float64, each func()) {
 	for range int(math.Round(seconds / frame)) {
 		c.Step(w, frame)
 		if each != nil {
@@ -108,7 +124,7 @@ func TestACreatureTurnsAwayFromAWall(t *testing.T) {
 		turned = turned || c.Yaw != 0
 	})
 
-	if farthest > 24-render.MossbackWidth/2 {
+	if farthest > 24-mossbackWidth()/2 {
 		t.Errorf("the creature got to z=%v, through a wall at 24", farthest)
 	}
 	if !turned {
@@ -174,8 +190,8 @@ func TestAHerdStartsOnGrassRoundThePlayer(t *testing.T) {
 		w := world.Generate(seed)
 		spawn := w.Spawn()
 
-		all := newHerd(w, spawn).all
-		again := newHerd(w, spawn).all
+		all := only(newFauna(w, spawn).all, render.Mossback)
+		again := only(newFauna(w, spawn).all, render.Mossback)
 
 		if len(all) != creatureCount {
 			t.Fatalf("seed %d: %d creatures, wanted %d", seed, len(all), creatureCount)
@@ -200,7 +216,7 @@ func TestAHerdStartsOnGrassRoundThePlayer(t *testing.T) {
 func TestTheHerdGoesWithThePlayer(t *testing.T) {
 	w := world.Generate(2)
 	at := w.Spawn()
-	h := newHerd(w, at)
+	h := newFauna(w, at)
 
 	// The player goes a long way, in one step, and stays there a while.
 	at.X += 600
@@ -226,7 +242,7 @@ func TestTheHerdGoesWithThePlayer(t *testing.T) {
 func TestCreaturesFarFromThePlayerAreNotMoved(t *testing.T) {
 	w := floor()
 	far := walker(20.5, 20.5, 0)
-	h := &herd{all: []Creature{*far}, rng: far.rng, timer: math.Inf(1)}
+	h := &fauna{all: []beast{*far}, rng: far.rng, timer: math.Inf(1)}
 
 	h.step(w, geometry.Vector3{X: 20.5 + creatureAwake + 5, Y: 6, Z: 20.5}, 1)
 
@@ -237,27 +253,27 @@ func TestCreaturesFarFromThePlayerAreNotMoved(t *testing.T) {
 
 func TestCreaturesMoveInPlayAndStandStillInAPause(t *testing.T) {
 	g := onFloor(t)
-	g.herd.all = []Creature{*walker(22.5, 22.5, 0)}
+	g.fauna.all = []beast{*walker(22.5, 22.5, 0)}
 
 	hold(t, g, 10)
-	moved := g.herd.all[0].Pos
+	moved := g.fauna.all[0].Pos
 	if moved.Z <= 22.5 {
 		t.Fatal("the creature did not move in play")
 	}
 
 	press(g, engine.KeyEscape)
 	hold(t, g, 10)
-	if g.herd.all[0].Pos != moved {
+	if g.fauna.all[0].Pos != moved {
 		t.Error("the creature moved while the game was paused")
 	}
 }
 
 func TestACreatureInViewIsDrawn(t *testing.T) {
 	g := onFloor(t) // the player faces +z from 20.5, 20.5
-	g.herd.all = nil
+	g.fauna.all = nil
 	_, without := drawn(t, g)
 
-	g.herd.all = []Creature{*walker(20.5, 23.5, math.Pi)}
+	g.fauna.all = []beast{*walker(20.5, 23.5, math.Pi)}
 	_, with := drawn(t, g)
 
 	n := 0

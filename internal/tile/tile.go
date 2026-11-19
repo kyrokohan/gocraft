@@ -102,6 +102,7 @@ const (
 	IronBlade
 	Moss
 	MossCake
+	Meat
 
 	// Count is the number of tiles in the strip.
 	Count

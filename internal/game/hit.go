@@ -18,11 +18,12 @@ import (
 const hitWait = 0.35
 
 // The boxes a ray through the view meets a creature in: a little larger than the box
-// blocks stop, so that the head and the legs are aimed at too.
+// blocks stop, so that the head and the legs are aimed at too. A beast's is wider than
+// its own box by aimWider.
 const (
-	mossbackAimWidth = 1.1
-	gloamAimWidth    = 0.8
-	gloamAimHeight   = 1.9
+	aimWider       = 1.375
+	gloamAimWidth  = 0.8
+	gloamAimHeight = 1.9
 )
 
 // mossShorn is how much moss a mossback gives.
@@ -39,8 +40,13 @@ type prey struct {
 // before limit.
 func (g *Game) aimCreature(origin, dir geometry.Vector3, limit float64) (p prey, ok bool) {
 	best := limit
-	for i, c := range g.herd.all {
-		if t, hit := rayBox(origin, dir, c.Pos, mossbackAimWidth, render.MossbackHeight); hit && t < best {
+	for i := range g.fauna.all {
+		c := &g.fauna.all[i]
+		if c.dead {
+			continue // it cannot be hit again as it falls
+		}
+		width, height := render.Size(c.kind, c.young)
+		if t, hit := rayBox(origin, dir, c.Pos, width*aimWider, height); hit && t < best {
 			best, p, ok = t, prey{i: i}, true
 		}
 	}
@@ -88,8 +94,10 @@ func (g *Game) strike(p prey) {
 		g.gloams[p.i].hit(from, g.items[g.selected].Item.Damage())
 		g.ears.Play(sound.Hiss, g.gloams[p.i].pos.Add(geometry.Vector3{Y: 1.2}), 1)
 	} else {
-		g.herd.all[p.i].hit(from)
-		g.ears.Play(sound.Cry, g.herd.all[p.i].Pos.Add(geometry.Vector3{Y: 0.8}), 1)
+		c := &g.fauna.all[p.i]
+		c.hit(from, g.items[g.selected].Item.Damage())
+		g.ears.Play(breeds[c.kind].cry, c.voice(), 1)
+		g.fauna.raise(c.herd, from) // its herd runs with it
 	}
 	if g.survival {
 		g.wearOut()
@@ -102,11 +110,12 @@ func (g *Game) shear(p prey) bool {
 	if p.gloam || !g.survival {
 		return false
 	}
-	c := &g.herd.all[p.i]
+	c := &g.fauna.all[p.i]
 	if !c.shear() {
 		return false
 	}
-	at := c.Pos.Add(geometry.Vector3{Y: render.MossbackHeight})
+	_, height := render.Size(c.kind, c.young)
+	at := c.Pos.Add(geometry.Vector3{Y: height})
 	g.ears.Play(sound.Dig(sound.Plant), at, 0.8)
 	g.drops = append(g.drops, drop{Drop: world.Drop{Stack: world.Stack{Item: world.Moss, Count: mossShorn}, Pos: at}})
 	return true

@@ -147,7 +147,7 @@ func TestATorchIsNotPlacedInWaterOrInTheAir(t *testing.T) {
 func TestACreatureInTheDarkIsDrawnDark(t *testing.T) {
 	g := onFloor(t)
 	// One in the open and one shut in a hut of stone.
-	g.herd.all = []Creature{{Pos: geometry.Vector3{X: 10.5, Y: 6, Z: 10.5}}, {Pos: geometry.Vector3{X: 30.5, Y: 6, Z: 30.5}}}
+	g.fauna.all = []beast{{Pos: geometry.Vector3{X: 10.5, Y: 6, Z: 10.5}}, {Pos: geometry.Vector3{X: 30.5, Y: 6, Z: 30.5}}}
 	for y := 6; y <= 8; y++ {
 		for z := 29; z <= 31; z++ {
 			for x := 29; x <= 31; x++ {

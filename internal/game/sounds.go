@@ -127,9 +127,10 @@ func (g *Game) digSound(before, now float64) {
 // worldSounds plays what makes sounds by itself, dt seconds on: the creatures, now and
 // then, the kilns that are burning, and water dripping in a cave.
 func (g *Game) worldSounds(dt float64) {
-	for _, c := range g.herd.all {
-		if g.noises.Float64() < dt/callEvery {
-			g.ears.Play(sound.Call, c.Pos.Add(geometry.Vector3{Y: 0.8}), 0.8)
+	for i := range g.fauna.all {
+		c := &g.fauna.all[i]
+		if b := &breeds[c.kind]; !c.dead && g.noises.Float64() < dt/b.callEvery {
+			g.ears.Play(b.call, c.voice(), 0.8)
 		}
 	}
 	for _, m := range g.gloams {
