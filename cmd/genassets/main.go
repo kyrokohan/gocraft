@@ -133,8 +133,7 @@ var painters = [tile.Count]painter{
 	tile.FanLeaves:     fanLeaves,
 	tile.RedwoodSide:   redwoodSide,
 	tile.RedwoodTop:    redwoodTop,
-	tile.BoneSide:      boneSide,
-	tile.BoneTop:       boneTop,
+	tile.Bone:          bone,
 	tile.RedrockTop:    redrockTop,
 	tile.RedrockSide:   redrockSide,
 
@@ -734,7 +733,7 @@ func redwoodTop(x, y int) (rgb, bool) {
 	return grain(c, 0.04, x, y, 327), true
 }
 
-func boneSide(x, y int) (rgb, bool) {
+func bone(x, y int) (rgb, bool) {
 	// Old ivory, with faint grooves along it and a pit here and there.
 	c := rgb{226, 218, 194}.scale(0.94 + 0.1*hash(x, 0, 328))
 	switch h := hash(x, y, 329); {
@@ -744,19 +743,6 @@ func boneSide(x, y int) (rgb, bool) {
 		c = c.scale(0.86) // a crack
 	}
 	return grain(c, 0.025, x, y, 330), true
-}
-
-func boneTop(x, y int) (rgb, bool) {
-	// Hard bone round a spongy middle.
-	d := max(math.Abs(float64(x)-7.5), math.Abs(float64(y)-7.5))
-	if d > 4.6 {
-		return grain(rgb{226, 218, 194}, 0.03, x, y, 331), true
-	}
-	c := rgb{198, 184, 150}
-	if hash(x, y, 332) < 0.3 {
-		c = c.scale(0.74) // a pore
-	}
-	return grain(c, 0.04, x, y, 333), true
 }
 
 func redrockTop(x, y int) (rgb, bool) {

@@ -67,8 +67,7 @@ const (
 	FanLeaves
 	RedwoodSide
 	RedwoodTop
-	BoneSide
-	BoneTop
+	Bone
 	RedrockTop
 	RedrockSide
 

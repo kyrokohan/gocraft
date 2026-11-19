@@ -162,7 +162,7 @@ var infos = [256]Info{
 
 	// Bone is what the great skeletons are made of, and red rock the ground of the
 	// badlands they lie in.
-	Bone:    byPick(solid("bone", tile.BoneTop, tile.BoneSide, tile.BoneTop), 1.5, 0),
+	Bone:    byPick(cube("bone", tile.Bone), 1.5, 0),
 	Redrock: byPick(solid("red rock", tile.RedrockTop, tile.RedrockSide, tile.RedrockTop), 1.6, TierWood),
 }
 

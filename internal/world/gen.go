@@ -211,6 +211,8 @@ func (t terrain) build() {
 		t.grow(x, z, l)
 	}
 
+	t.landmarks()
+
 	// The trees whose leaves can reach into this chunk: those rooted in it or within
 	// treeReach of it. A tree takes the place of whatever small thing grew at its foot.
 	for gz := floorDiv(z0-treeReach, treeSquare); gz <= floorDiv(z0+ChunkSize-1+treeReach, treeSquare); gz++ {
