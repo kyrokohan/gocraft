@@ -37,9 +37,9 @@ func readPNG(t *testing.T, name string) *image.NRGBA {
 // change to the generator, run `make assets`.
 func TestCommittedPicturesAreCurrent(t *testing.T) {
 	for name, want := range map[string]*image.NRGBA{
-		"blocks.png": drawBlocks(), "title.png": drawTitle(), "mossback.png": drawTiles(mossbackTiles), "gloam.png": drawTiles(gloamTiles),
+		"blocks.png": drawBlocks(), "title.png": drawTitle(), "mossback.png": drawTiles(mossbackTiles),
 		"person.png": drawTiles(personTiles()), "bugler.png": drawTiles(buglerTiles),
-		"nipper.png": drawTiles(nipperTiles),
+		"nipper.png": drawTiles(nipperTiles), "quickclaw.png": drawTiles(quickclawTiles),
 	} {
 		got := readPNG(t, name)
 		if got.Bounds() != want.Bounds() {
@@ -83,7 +83,7 @@ func TestOnlyLeavesGlassPlantsAndPicturesOnNoBlockHaveHoles(t *testing.T) {
 }
 
 func TestACreaturesFaceIsTheSameBothWaysRound(t *testing.T) {
-	for name, face := range map[string]painter{"mossback": mossFace, "gloam": gloamFace} {
+	for name, face := range map[string]painter{"mossback": mossFace} {
 		for y := range size {
 			for x := range size {
 				a, _ := face(x, y)

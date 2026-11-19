@@ -256,3 +256,31 @@ func BenchmarkBeasts(b *testing.B) {
 		beasts.Draw(c, facing, all, noon)
 	}
 }
+
+// The eyes of a quickclaw shine in the dark: they are lit in full when the rest of it
+// is all but black.
+func TestTheEyesOfAQuickclawShineInTheDark(t *testing.T) {
+	bright := func(c *engine.Canvas) (n int) {
+		for y := range c.Height() {
+			for x := range c.Width() {
+				if r, g, b := c.At(x, y).RGB(); r > 200 && g > 150 && b < 130 {
+					n++
+				}
+			}
+		}
+		return n
+	}
+	claw := ahead(3, math.Pi) // facing the camera
+	claw.Kind, claw.Light = Quickclaw, 0.03
+	claw.Pos.Y = facing.Position.Y - 1.5
+
+	_, dull := with(t, world.New(), claw)
+	claw.Glow = true
+	bare, lit := with(t, world.New(), claw)
+	if n := bright(lit) - bright(bare); n < 2 {
+		t.Errorf("%d bright pixels on a quickclaw whose eyes shine, wanted its two eyes", n)
+	}
+	if n := bright(dull) - bright(bare); n != 0 {
+		t.Errorf("%d bright pixels on a quickclaw in the dark whose eyes do not shine", n)
+	}
+}

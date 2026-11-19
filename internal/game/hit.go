@@ -17,23 +17,17 @@ import (
 // hitWait is the least time between two hits, however fast the key repeats.
 const hitWait = 0.35
 
-// The boxes a ray through the view meets a creature in: a little larger than the box
-// blocks stop, so that the head and the legs are aimed at too. A beast's is wider than
-// its own box by aimWider.
-const (
-	aimWider       = 1.375
-	gloamAimWidth  = 0.8
-	gloamAimHeight = 1.9
-)
+// aimWider is how much wider than the box blocks stop is the box a ray through the view
+// meets a beast in, so that the head and the legs are aimed at too.
+const aimWider = 1.375
 
 // mossShorn is how much moss a mossback gives.
 const mossShorn = 2
 
-// prey is a creature the player aims at: a mossback, or a gloam, by its place in its
-// list. It holds for the frame it was found in.
+// prey is a beast the player aims at, by its place in the list of them. It holds for
+// the frame it was found in.
 type prey struct {
-	gloam bool
-	i     int
+	i int
 }
 
 // aimCreature finds the nearest creature a ray from origin along dir, one long, meets
@@ -48,14 +42,6 @@ func (g *Game) aimCreature(origin, dir geometry.Vector3, limit float64) (p prey,
 		width, height := render.Size(c.kind, c.young)
 		if t, hit := rayBox(origin, dir, c.Pos, width*aimWider, height); hit && t < best {
 			best, p, ok = t, prey{i: i}, true
-		}
-	}
-	for i, m := range g.gloams {
-		if m.fade >= gloamBold || m.dying {
-			continue // too faded to be hit
-		}
-		if t, hit := rayBox(origin, dir, m.pos, gloamAimWidth, gloamAimHeight); hit && t < best {
-			best, p, ok = t, prey{gloam: true, i: i}, true
 		}
 	}
 	return p, ok
@@ -90,13 +76,15 @@ func rayBox(origin, dir, pos geometry.Vector3, width, height float64) (float64, 
 func (g *Game) strike(p prey) {
 	g.hitWait, g.swing = hitWait, swingTime
 	from := g.player.Pos
-	if p.gloam {
-		g.gloams[p.i].hit(from, g.items[g.selected].Item.Damage())
-		g.ears.Play(sound.Hiss, g.gloams[p.i].pos.Add(geometry.Vector3{Y: 1.2}), 1)
+	c := &g.fauna.all[p.i]
+	c.hit(from, g.items[g.selected].Item.Damage())
+	g.voice(c, breeds[c.kind].cry, 1)
+	if b := &breeds[c.kind]; b.temper == hunter {
+		// A hunter does not run from a hit, unless it is badly hurt and alone.
+		if c.flee = staggerFor; c.health < hurtPart*b.health && !g.fauna.packNear(p.i, aloneReach) {
+			c.flee = routTime
+		}
 	} else {
-		c := &g.fauna.all[p.i]
-		c.hit(from, g.items[g.selected].Item.Damage())
-		g.voice(c, breeds[c.kind].cry, 1)
 		g.fauna.raise(c.herd, from) // its herd runs with it
 	}
 	if g.survival {
@@ -107,9 +95,6 @@ func (g *Game) strike(p prey) {
 // feed gives the beast aimed at what is in the player's hand, if it will take it. It
 // reports whether it did.
 func (g *Game) feed(p prey) bool {
-	if p.gloam {
-		return false
-	}
 	c := &g.fauna.all[p.i]
 	ate, tamed := c.feed(g.items[g.selected].Item)
 	if !ate {
@@ -132,7 +117,7 @@ func (g *Game) feed(p prey) bool {
 // it down on the mossback's back to be picked up. It reports whether it did. A hand
 // that holds food shears nothing: that is for eating, or for feeding.
 func (g *Game) shear(p prey) bool {
-	if p.gloam || !g.survival || g.items[g.selected].Item.Food() > 0 {
+	if !g.survival || g.items[g.selected].Item.Food() > 0 {
 		return false
 	}
 	c := &g.fauna.all[p.i]

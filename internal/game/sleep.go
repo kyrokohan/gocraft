@@ -10,11 +10,11 @@ import (
 )
 
 // A bedroll is where the player lies down: E on one makes it where the player wakes, from
-// a faint too, and at night sleeps the player through to the morning, unless a gloam is
+// a faint too, and at night sleeps the player through to the morning, unless a hunter is
 // near enough to come for a sleeper.
 
-// sleepGloam is how near a gloam keeps the player from sleeping, in blocks.
-const sleepGloam = 8
+// sleepHunter is how near a hunter keeps the player from sleeping, in blocks.
+const sleepHunter = 8
 
 // noticeTime is how many seconds a notice stays on the screen.
 const noticeTime = 3.0
@@ -35,25 +35,15 @@ func (g *Game) lieDown(c world.Cell) {
 	switch {
 	case day:
 		g.tell("you will wake here")
-	case g.gloamWithin(sleepGloam):
-		g.tell("you will wake here, but you cannot sleep with a gloam near")
+	case g.hunterWithin(sleepHunter):
+		g.tell("you will wake here, but you cannot sleep with a hunter near")
 	default:
 		// The clock goes on to the next morning, the hour a world begins at, and the
-		// night's gloams are gone with it.
+		// night's hunters are gone with it.
 		g.days += math.Mod(firstMorning-t+1, 1)
-		g.gloams = nil
+		g.fauna.dismiss()
 		g.tell("you slept till morning, and will wake here")
 	}
-}
-
-// gloamWithin reports whether a gloam is within a distance of the player.
-func (g *Game) gloamWithin(d float64) bool {
-	for _, m := range g.gloams {
-		if !m.dying && m.pos.Sub(g.player.Pos).Length() <= d {
-			return true
-		}
-	}
-	return false
 }
 
 // bedPlace returns where the player wakes at its bedroll, if it has one that is still

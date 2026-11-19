@@ -76,8 +76,13 @@ func (g *Game) drawHUD(fb *engine.FrameBuffer, c *engine.Canvas) {
 	}
 
 	mode := ""
-	if g.player.Flying {
+	switch {
+	case g.player.Flying:
 		mode = "  flying"
+	case g.hidden():
+		mode = "  hidden"
+	case g.player.Crouched:
+		mode = "  crouched"
 	}
 	p := g.player.Pos
 	status := fmt.Sprintf(" %.0f fps  %d %d %d%s  Esc: menu ", g.stats.FPS,

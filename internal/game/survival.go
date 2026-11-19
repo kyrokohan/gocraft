@@ -97,7 +97,7 @@ func (g *Game) wake() {
 	g.player = Player{Pos: pos, Yaw: g.player.Yaw}
 	g.renew()
 	g.aimed, g.preyed, g.digging = false, false, 0
-	g.gloams = nil // they lose the player
+	g.fauna.dismiss() // the hunters lose the player
 }
 
 // eat eats one of what is in the slot in use, if it is food and the player has room for
