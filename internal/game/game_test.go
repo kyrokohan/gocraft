@@ -87,7 +87,7 @@ func onFloor(t *testing.T) *Game {
 	}
 	g.Play()
 	g.player = *standing()
-	g.herd.all = nil // the floor is stone, so there are none, but a test may count on it
+	g.fauna.all = nil // the floor is stone, so there are none, but a test may count on it
 	return g
 }
 

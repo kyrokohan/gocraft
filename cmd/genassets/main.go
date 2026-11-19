@@ -162,6 +162,7 @@ var painters = [tile.Count]painter{
 	tile.IronBlade:    blade(ironHead),
 	tile.Moss:         mossClump,
 	tile.MossCake:     mossCake,
+	tile.Meat:         meat,
 }
 
 func turfTop(x, y int) (rgb, bool) {
@@ -1210,6 +1211,22 @@ func mossClump(x, y int) (rgb, bool) {
 	return grain(c, 0.06, x, y, 166), true
 }
 
+// meat is a cut of raw meat: red, marbled with fat, with the end of a bone in it.
+func meat(x, y int) (rgb, bool) {
+	dx, dy := (float64(x)-7.5)/6.5, (float64(y)-8.5)/4.8
+	switch d := dx*dx + dy*dy; {
+	case x >= 12 && y >= 3 && y <= 6 && x <= 14:
+		return rgb{232, 224, 204}, true // the bone
+	case d > 1:
+		return rgb{}, false
+	case d > 0.78:
+		return grain(rgb{224, 206, 190}, 0.04, x, y, 171), true // a rim of fat
+	case blotch(x, y, 4, 172) > 0.66:
+		return grain(rgb{226, 150, 140}, 0.05, x, y, 173), true // marbling
+	}
+	return grain(rgb{178, 52, 50}, 0.08, x, y, 174), true
+}
+
 // mossCake is a round cake seen a little from above: a sponge with moss on its top that
 // runs down its side here and there.
 func mossCake(x, y int) (rgb, bool) {
@@ -1333,7 +1350,7 @@ func inRows(strip *image.NRGBA, perRow int) *image.NRGBA {
 
 // drawPreview is every picture, enlarged, one above the other.
 func drawPreview() *image.NRGBA {
-	pictures := []*image.NRGBA{enlarge(inRows(drawBlocks(), 13), 6), enlarge(drawTitle(), 6), enlarge(drawTiles(mossbackTiles), 12), enlarge(drawTiles(gloamTiles), 12), enlarge(inRows(drawTiles(personTiles()), 7), 12)}
+	pictures := []*image.NRGBA{enlarge(inRows(drawBlocks(), 13), 6), enlarge(drawTitle(), 6), enlarge(drawTiles(mossbackTiles), 12), enlarge(drawTiles(gloamTiles), 12), enlarge(inRows(drawTiles(personTiles()), 7), 12), enlarge(drawTiles(buglerTiles), 12)}
 	w, h := 0, 0
 	for _, p := range pictures {
 		w, h = max(w, p.Bounds().Dx()), h+p.Bounds().Dy()+12
@@ -1386,6 +1403,9 @@ func run() error {
 		return err
 	}
 	if err := writePNG(filepath.Join(*out, "person.png"), drawTiles(personTiles())); err != nil {
+		return err
+	}
+	if err := writePNG(filepath.Join(*out, "bugler.png"), drawTiles(buglerTiles)); err != nil {
 		return err
 	}
 	if *preview != "" {

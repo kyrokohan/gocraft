@@ -58,6 +58,10 @@ type Meta struct {
 	// Drops are the things lying on the ground to be picked up.
 	Drops []Drop `json:"drops,omitempty"`
 
+	// Beasts are the animals round the player, of every kind. A save from before there
+	// were kinds has its mossbacks in Mossbacks, and none here.
+	Beasts []Beast `json:"beasts,omitempty"`
+
 	// Mossbacks are the animals round the player. A save from before they were kept has
 	// none, and a herd is found round the player again.
 	Mossbacks []Mossback `json:"mossbacks,omitempty"`
@@ -129,6 +133,27 @@ type Drop struct {
 }
 
 // Mossback is a mossback as a save holds it.
+// Beast is an animal as a save holds it.
+type Beast struct {
+	// Kind is the name of its kind. One of a kind this version of the game does not
+	// have is left out when the world is opened.
+	Kind string           `json:"kind"`
+	Pos  geometry.Vector3 `json:"pos"`
+	Yaw  float64          `json:"yaw"`
+
+	// Young is true for one that is not grown, and Herd is which herd it goes with: 0
+	// for none.
+	Young bool `json:"young,omitempty"`
+	Herd  int  `json:"herd,omitempty"`
+
+	// Health is the points of harm it can still take, for a kind that can be hurt.
+	Health float64 `json:"health,omitempty"`
+
+	// Regrow is as a Mossback's.
+	Regrow float64 `json:"regrow,omitempty"`
+}
+
+// Mossback is a mossback as a save from before there were other beasts holds it.
 type Mossback struct {
 	Pos geometry.Vector3 `json:"pos"`
 	Yaw float64          `json:"yaw"`
@@ -164,7 +189,7 @@ func (m Meta) check() string {
 		return fmt.Sprintf("it is played in a way this game does not have: %q", m.Mode)
 	case !finite(m.Health, m.Food, m.Air):
 		return "its player's body is not one"
-	case len(m.Items) > maxSlots || len(m.Drops) > maxDrops || len(m.Mossbacks) > maxMossbacks ||
+	case len(m.Items) > maxSlots || len(m.Drops) > maxDrops || len(m.Mossbacks) > maxMossbacks || len(m.Beasts) > maxMossbacks ||
 		len(m.Crates) > maxStores || len(m.Kilns) > maxStores:
 		return "it holds more things than a game can make"
 	case m.Bed != nil && !m.Bed.valid():
@@ -194,6 +219,11 @@ func (m Meta) check() string {
 	for _, a := range m.Mossbacks {
 		if !finite(a.Pos.X, a.Pos.Y, a.Pos.Z, a.Yaw, a.Regrow) || a.Regrow < 0 {
 			return "one of its mossbacks is nowhere"
+		}
+	}
+	for _, a := range m.Beasts {
+		if !finite(a.Pos.X, a.Pos.Y, a.Pos.Z, a.Yaw, a.Regrow, a.Health) || a.Regrow < 0 || a.Health < 0 || a.Herd < 0 {
+			return "one of its beasts is nowhere"
 		}
 	}
 	return ""

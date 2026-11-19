@@ -94,7 +94,16 @@ func (m *Mixer) Ambient(wind, cave float64) {
 func (m *Mixer) Play(n Name, at geometry.Vector3, gain float64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	left, right := m.ears(at)
+	left, right := m.ears(at, Hearing)
+	m.start(n, left*gain, right*gain)
+}
+
+// PlayFar is Play for a sound that carries: it is heard from as far as hearing, and
+// fades to nothing there. A call across a valley is one.
+func (m *Mixer) PlayFar(n Name, at geometry.Vector3, gain, hearing float64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	left, right := m.ears(at, hearing)
 	m.start(n, left*gain, right*gain)
 }
 
@@ -105,15 +114,16 @@ func (m *Mixer) PlayNear(n Name, gain float64) {
 	m.start(n, gain*math.Sqrt2/2, gain*math.Sqrt2/2)
 }
 
-// ears returns how loud a sound at a place is in each ear: less the farther it is, and
-// more in the ear on its side, with the two together as loud wherever it is.
-func (m *Mixer) ears(at geometry.Vector3) (left, right float64) {
+// ears returns how loud a sound at a place is in each ear, if it can be heard from as
+// far as hearing: less the farther it is, and more in the ear on its side, with the two
+// together as loud wherever it is.
+func (m *Mixer) ears(at geometry.Vector3, hearing float64) (left, right float64) {
 	to := at.Sub(m.ear)
 	d := to.Length()
-	if d >= Hearing {
+	if d >= hearing {
 		return 0, 0
 	}
-	near := 1 - d/Hearing
+	near := 1 - d/hearing
 	gain := near * near
 	side := 0.0 // from -1, to the left, to 1, to the right
 	if flat := (geometry.Vector3{X: to.X, Z: to.Z}); flat.Length() > 1e-9 {

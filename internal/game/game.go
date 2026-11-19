@@ -115,9 +115,9 @@ type Game struct {
 	clouds *render.Clouds
 	sky    *render.Sky // at the time of day, which days says
 	days   float64     // how long the world has been played, in days of the game
-	herd   *herd
-	moss   *render.Mossbacks
-	poses  []render.Mossback // the creatures as they are drawn, kept between frames
+	fauna  *fauna
+	beasts *render.Beasts
+	poses  []render.Beast // the beasts as they are drawn, kept between frames
 
 	// The player's body, which is seen from behind: what draws it, the body as it is
 	// drawn, kept between frames, which look it wears, how far the player has walked
@@ -222,7 +222,7 @@ func New(opts Options) (*Game, error) {
 		return nil, err
 	}
 	g := &Game{
-		opts: opts, set: set, rend: render.New(set), moss: render.NewMossbacks(set), look: render.NewDrops(set),
+		opts: opts, set: set, rend: render.New(set), beasts: render.NewBeasts(set), look: render.NewDrops(set),
 		folk:   render.NewPeople(set),
 		shades: render.NewGloams(set),
 		exact:  true, box: mesh.Cube(1), settings: loadSettings(opts.Settings),
@@ -264,7 +264,7 @@ func (g *Game) use(w *world.World, s world.Meta) {
 	g.world = w
 	g.clouds = render.NewClouds(g.world.Seed)
 	g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
-	g.herd = herdFrom(g.world, s.Mossbacks, g.player.Pos)
+	g.fauna = faunaFrom(g.world, s, g.player.Pos)
 	g.gloams, g.bits = nil, nil
 	g.selected = min(max(s.Slot, 0), hotbarSlots-1)
 	g.days = s.Days
@@ -301,7 +301,7 @@ func (g *Game) Save() error {
 	for _, d := range g.drops {
 		m.Drops = append(m.Drops, d.Drop)
 	}
-	m.Mossbacks = g.herd.saved()
+	m.Beasts = g.fauna.saved()
 	m.Crates, m.Kilns = g.savedStores()
 	m.Bed = g.bed
 	return g.world.Save(g.opts.SavePath, m)
@@ -357,7 +357,7 @@ func (g *Game) newWorld(seed int64) {
 	}
 	g.clouds = render.NewClouds(seed)
 	g.player = Player{Pos: g.world.Spawn()}
-	g.herd = newHerd(g.world, g.player.Pos)
+	g.fauna = newFauna(g.world, g.player.Pos)
 	g.selected, g.aimed, g.saved, g.days = 0, false, false, 0
 	g.drops, g.gloams, g.bits = nil, nil, nil
 	g.loadStores(world.Meta{})
@@ -455,7 +455,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		g.player.Step(g.world, c, dt)
 		g.pace(from)
 		g.stepSounds(from, wasWet, fell)
-		g.herd.step(g.world, g.player.Pos, dt)
+		g.stepBeasts(dt)
 		g.worldSounds(dt)
 		g.flash = max(g.flash-dt, 0)
 		g.swing = max(g.swing-dt, 0)
@@ -617,12 +617,12 @@ func (g *Game) changeSetting(i, by int) {
 // player's own body is among them when the view is from behind it.
 func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera, body bool) {
 	g.poses = g.poses[:0]
-	for i := range g.herd.all {
-		pose := g.herd.all[i].Pose()
+	for i := range g.fauna.all {
+		pose := g.fauna.all[i].Pose()
 		pose.Light = g.sky.Brightness(g.lightAt(pose.Pos.Add(geometry.Vector3{Y: 0.5})))
 		g.poses = append(g.poses, pose)
 	}
-	g.moss.Draw(c, cam, g.poses, g.sky)
+	g.beasts.Draw(c, cam, g.poses, g.sky)
 
 	if g.cast = g.cast[:0]; body {
 		g.cast = append(g.cast, g.body())

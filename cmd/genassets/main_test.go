@@ -38,7 +38,7 @@ func readPNG(t *testing.T, name string) *image.NRGBA {
 func TestCommittedPicturesAreCurrent(t *testing.T) {
 	for name, want := range map[string]*image.NRGBA{
 		"blocks.png": drawBlocks(), "title.png": drawTitle(), "mossback.png": drawTiles(mossbackTiles), "gloam.png": drawTiles(gloamTiles),
-		"person.png": drawTiles(personTiles()),
+		"person.png": drawTiles(personTiles()), "bugler.png": drawTiles(buglerTiles),
 	} {
 		got := readPNG(t, name)
 		if got.Bounds() != want.Bounds() {
@@ -70,7 +70,7 @@ func TestOnlyLeavesGlassPlantsAndPicturesOnNoBlockHaveHoles(t *testing.T) {
 			tile.Berries, tile.Cracks, tile.Stick, tile.Coal, tile.CopperBar, tile.IronBar, tile.CrystalShard, tile.Fruit, tile.BerryLoaf,
 			tile.WoodPick, tile.WoodAxe, tile.WoodShovel, tile.StonePick, tile.StoneAxe, tile.StoneShovel,
 			tile.CopperPick, tile.CopperAxe, tile.CopperShovel, tile.IronPick, tile.IronAxe, tile.IronShovel,
-			tile.WoodBlade, tile.StoneBlade, tile.CopperBlade, tile.IronBlade, tile.Moss, tile.MossCake,
+			tile.WoodBlade, tile.StoneBlade, tile.CopperBlade, tile.IronBlade, tile.Moss, tile.MossCake, tile.Meat,
 		}, tile.ID(id))
 		if seeThrough && holes == 0 {
 			t.Errorf("tile %d should have holes and has none", id)

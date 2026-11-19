@@ -40,6 +40,8 @@ const (
 	Moss
 	MossCake
 
+	Meat // raw, from a beast that died
+
 	itemEnd
 )
 
@@ -112,6 +114,8 @@ var things = [itemEnd - 256]thing{
 	IronBlade - 256:   {name: "iron blade", icon: tile.IronBlade, tool: Blade, tier: TierIron},
 	Moss - 256:        {name: "moss", icon: tile.Moss},
 	MossCake - 256:    {name: "moss cake", icon: tile.MossCake, food: 8},
+
+	Meat - 256: {name: "raw meat", icon: tile.Meat, food: 5},
 }
 
 // MaxFood is how full the player can be.

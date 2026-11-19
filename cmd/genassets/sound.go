@@ -265,6 +265,22 @@ func makeSound(n sound.Name) []float64 {
 		pitch := func(t float64) float64 { return 260 + 80*math.Sin(math.Pi*t/0.35) - 60*t }
 		loud := func(t float64) float64 { return math.Sin(math.Pi * t / 0.35) }
 		return peakTo(voiced(0.35, pitch, loud, 700, 1500), 0.65)
+	case sound.Horn:
+		// A long low note through a hollow crest, that swells, wavers and falls away: a
+		// bugler to its herd.
+		pitch := func(t float64) float64 {
+			return (92 + 10*math.Sin(math.Pi*t/1.6)) * (1 + 0.012*math.Sin(2*math.Pi*4.5*t))
+		}
+		loud := func(t float64) float64 { return math.Pow(math.Sin(math.Pi*min(t/1.6, 1)), 0.7) }
+		return peakTo(voiced(1.6, pitch, loud, 240, 520), 0.7)
+	case sound.Alarm:
+		// Two short blasts, higher and harder: a bugler that has seen something.
+		pitch := func(t float64) float64 { return 168 + 30*math.Sin(math.Pi*math.Mod(t, 0.32)/0.28) }
+		loud := func(t float64) float64 {
+			part := math.Mod(t, 0.32) / 0.28
+			return math.Pow(math.Sin(math.Pi*min(part, 1)), 0.6)
+		}
+		return peakTo(voiced(0.62, pitch, loud, 420, 900), 0.75)
 	case sound.Moan:
 		// A breath through a narrow throat that slowly moves, over two low tones that
 		// beat against each other.

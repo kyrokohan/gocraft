@@ -4,11 +4,11 @@
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
 
-**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old and you are a cave person in it. The beasts and the tools have not turned yet. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
+**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first herds of buglers walk it. The hunters and the tools have not come yet. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
 
 ![A cave person with a pick, seen from behind, before the skeleton of a great beast, drawn in terminal cells](docs/shot.png)
 
-Walk a world with no end, made from a seed, in lands older than grass: a prairie of ferns and horsetails, a jungle of tree ferns, a highland of umbrella pines, gold fan-leaf trees and redwoods, and red badlands that rise in mesas, where the skeletons of great beasts lie. Round them are seas and shores, snowy tundra and bare crags, with caves and ores under them, drifting clouds over them and mossbacks grazing on the moss. The sun crosses the sky and sets, the stars come out, and the caves are dark until you bring a torch: in survival, the gloam gathers in the dark and comes for you. You are a cave person, seen through your own eyes or from behind your shoulder. Play it in survival, where you dig what you need, carry it, eat and stay alive, or in creative, with every block and nothing to fear. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art and the sounds are original, and made by code in this repo.
+Walk a world with no end, made from a seed, in lands older than grass: a prairie of ferns and horsetails, a jungle of tree ferns, a highland of umbrella pines, gold fan-leaf trees and redwoods, and red badlands that rise in mesas, where the skeletons of great beasts lie. Round them are seas and shores, snowy tundra and bare crags, with caves and ores under them, drifting clouds over them, mossbacks grazing on the moss, and herds of buglers that call to each other through the crests on their heads. The sun crosses the sky and sets, the stars come out, and the caves are dark until you bring a torch: in survival, the gloam gathers in the dark and comes for you. You are a cave person, seen through your own eyes or from behind your shoulder. Play it in survival, where you dig what you need, carry it, eat and stay alive, or in creative, with every block and nothing to fear. Break blocks and place your own, with the keys or the mouse, look round by dragging, and find the world as you left it the next time. The art and the sounds are original, and made by code in this repo.
 
 ## Install and run
 
@@ -70,7 +70,13 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 - **A crate keeps things.** E on a crate opens its 18 slots over yours. What is in a crate or a kiln falls out when you break it.
 - **A bedroll** lies flat on the ground. E on one makes it where you wake, after a faint too. At night it also sleeps you through to the morning, unless a gloam is within eight blocks. A broken bedroll is forgotten, and you wake where you first began.
 - **Tools.** A pick, an axe and a shovel in wood, stone, copper and iron. The right tool digs its blocks two to six times faster: a pick stone and ore, an axe wood, a shovel earth, sand and snow. Some blocks leave nothing without a pick good enough: stone and coal need any pick, copper and iron ore a stone one, crystal a copper one. Without it they take three times as long and crumble. A tool wears by a block broken, a bar on its slot shows what is left, and it is gone when it is worn out. Tools are one to a slot.
-- **Creatures.** A creature in front of a block is aimed at before it. Q or a click hits it, again every third of a second while held, and knocks it back. A mossback cannot be hurt: it runs. E on a mossback shears its moss, which grows back in five minutes. A blade hits hardest, from 3 points in wood to 6 in iron, any other tool 2 and a hand 1; a hit wears the tool in hand.
+- **Beasts.** A beast in front of a block is aimed at before it. Q or a click hits it, again every third of a second while held, and knocks it back. A blade hits hardest, from 3 points in wood to 6 in iron, any other tool 2 and a hand 1; a hit wears the tool in hand.
+- **Mossbacks** graze alone on the moss. One cannot be hurt: it runs. E on a mossback shears its moss, which grows back in five minutes.
+- **Buglers** go in herds of five to eight on the prairie and in the highland, three blocks tall, with their young, half as big, in the middle. A herd keeps together. Come within nine blocks of one, or within four crouched, and it gives its alarm and the whole herd runs from you, faster than you can. A running bugler that runs you down takes 3 points and throws you. A bugler has 16 points of health and keeps its hurts, and the herd runs each time you hit one.
+- **Meat.** A beast that dies sinks, fades and leaves raw meat: a bugler three pieces. Raw meat is food, 5 points a piece.
+
+![A herd of buglers on the fern prairie, seen through a stand of horsetails](docs/herd.png)
+
 - **The gloam.** In survival, a gloam gathers out of the dark where no light falls, at night under the sky or in a cave, 12 to 28 blocks from you, and up to three at once. It drifts after you, slower than you walk, and its touch takes 2 points a second. Light undoes it: by day, or within two or three blocks of a torch, it fades away, and it does not gather within about five. It has 12 points of health, so an iron blade undoes it in two hits and a bare hand in twelve. Gloams are not saved, and none come in creative.
 - **Fainting.** At no health you faint, and wake at your bedroll or where a new player starts, whole again and with everything you carried.
 - **Creative.** Every block on the I screen, as many as you want, broken at once and dropping nothing. Nothing hurts and you can fly.
@@ -92,7 +98,7 @@ The world is saved when you choose **Save and leave**, which goes back to the li
 - **A world saved before the land turned old** (by `v0.2.0` or earlier) is listed as from an older version and does not open: some of its blocks are now other things. It is left untouched, and the game that made it still installs from its tag.
 - **Worlds made under the old name** are still in `gocraft/worlds` in your config folder, untouched. `skyspear -worlds` with that folder lists them, as from an older version.
 - **The one world of the first version** (`gocraft/world.sav`) cannot be played by this one. It is left where it is, untouched.
-- The mossbacks are saved, where they stood and with their moss shorn or grown.
+- The beasts are saved: what kind each is, where it stood, its herd and its health, and a mossback's moss, shorn or grown.
 
 ## Settings
 
@@ -115,11 +121,11 @@ Two things draw into one frame, and glonk holds them together.
 
 - **The blocks are rays.** Every pixel of glonk's half-block `Canvas` sends a ray through the grid of blocks and takes the color of the tile it lands on. That is quick, it lets a far block be drawn from a smaller copy of its tile so that it does not flicker, and it does water exactly: you see the bottom through it. A plant is two pictures that cross in its cell, and a bedroll one picture lying flat in its cell; the rays meet those too. The rays are the ones `Camera.RayPixels` gives, they end at the camera's `Far`, they fade by `Fog.Apply`, and they store glonk's depth with `Canvas.SetDepth`.
 - **Soft shadows where blocks meet.** A face is darker toward the solid blocks beside the cell in front of it, and darkest in a corner shut on both sides. The shade is worked out at the four corners of a face, once for all the pixels on it, and blended across it; it fades out between 24 and 32 blocks away, where it can no longer be seen.
-- **The things are glonk meshes.** The clouds are see-through slabs (`Material.Opacity`), a mossback is six boxes with a picture on their faces (`Material.Texture`), the gloam is six more whose eyes are lit in full and which are seen through as it fades, a thing on the ground is a small turning cube with its block's tiles, and the bits that fly from a block you break are tiny cubes of the same. glonk lights them, fades them by the same fog, and hides them behind any block that is nearer, through the depth the rays stored. The outline round the block you aim at is a cube's edges drawn with `DrawOnSurfacePixels`, and the cracks on a block you dig are drawn by the rays, from a picture of cracks that grow out from the middle. What you hold is drawn last, with a camera of its own, low on the right: a block as a small block, and a tool as its picture on a plate whose holes are `Material.Texture` holes. It is drawn so near that its depth is less than any block's can be, so it never sinks into a wall.
+- **The things are glonk meshes.** The clouds are see-through slabs (`Material.Opacity`), a beast is a list of boxes with its picture on their faces (`Material.Texture`): six for a mossback and ten for a bugler, whose young are the same boxes made half the size, the gloam is six more whose eyes are lit in full and which are seen through as it fades, a thing on the ground is a small turning cube with its block's tiles, and the bits that fly from a block you break are tiny cubes of the same. glonk lights them, fades them by the same fog, and hides them behind any block that is nearer, through the depth the rays stored. The outline round the block you aim at is a cube's edges drawn with `DrawOnSurfacePixels`, and the cracks on a block you dig are drawn by the rays, from a picture of cracks that grow out from the middle. What you hold is drawn last, with a camera of its own, low on the right: a block as a small block, and a tool as its picture on a plate whose holes are `Material.Texture` holes. It is drawn so near that its depth is less than any block's can be, so it never sinks into a wall.
 - **Your body is glonk meshes too, and the camera steps back to see it.** A cave person is six boxes with a picture on their faces: a head that tips with your view, a trunk, and arms and legs that swing as you walk. From behind, the camera sits four blocks back from a point at your right shoulder, along the way you look, so your body does not hide what you aim at. A ray from that point stops the camera short of the first solid block, so it never looks through a wall, and with less than a block of room behind you the eyes see instead. What you aim at is what the crosshair or the pointer shows: the camera's ray, begun where it passes you, so nothing behind your back is aimed at and your reach stays your body's.
 - **Light is worked out once, not per pixel.** Each cell holds a level from 0 to 15 of light from the sky and one of light from torches and glowing crystal, and a face is drawn as bright as the cell in front of it. The hour then says how bright and what color each level looks: white by day, warm at sunset, dim blue by night, and always warm by a torch. The creatures are lit by the cell they stand in, and the clouds by the hour.
 
-On one core of an Apple M5 Pro, at 240 by 134 pixels, the blocks take 2.5 to 4 ms, the clouds 0.3 ms and twelve mossbacks 0.1 ms; a whole frame with the HUD 5 ms. The soft shadows add under 0.2 ms. At 400 by 110 cells a frame takes 13 ms, well inside the 33 ms of a frame at 30 a second, so the rays run on one core.
+On one core of an Apple M5 Pro, at 240 by 134 pixels, the blocks take 2.5 to 4 ms, the clouds 0.3 ms, twelve mossbacks 0.1 ms and thirty beasts of both kinds 0.3 ms; a whole frame with the HUD 5 ms. The soft shadows add under 0.2 ms. At 400 by 110 cells a frame takes 13 ms, well inside the 33 ms of a frame at 30 a second, so the rays run on one core.
 
 ## A world with no end
 
@@ -149,7 +155,7 @@ glonk also runs the loop and the terminal, reads the keys, the mouse and what is
 
 ## Sound
 
-Every sound is heard from where it is made: quieter the farther it is, gone at 24 blocks, and louder in the ear on its side. Your steps sound as the ground you walk on, and digging, breaking and placing as the block, in seven kinds: earth, stone, sand, wood, plants, glass and snow. You hear water you fall into, what you pick up or make, being hurt and eating; mossbacks to themselves and when hit, gloams in the dark, a kiln's fire, and water dripping in caves. Under all of it the wind blows as much as the sky reaches you, and fades into the low air of a cave where it does not.
+Every sound is heard from where it is made: quieter the farther it is, gone at 24 blocks, and louder in the ear on its side. A bugler's voice carries three times as far, so you hear a herd before you see it. Your steps sound as the ground you walk on, and digging, breaking and placing as the block, in seven kinds: earth, stone, sand, wood, plants, glass and snow. You hear water you fall into, what you pick up or make, being hurt and eating; mossbacks to themselves and when hit, the long horn of a bugler and the two blasts of its alarm, gloams in the dark, a kiln's fire, and water dripping in caves. Under all of it the wind blows as much as the sky reaches you, and fades into the low air of a cave where it does not.
 
 A small mixer of the game's own plays up to 16 sounds at once, each a little higher or lower at random so that steps do not sound the same, bends the loudest moments so that many at once do not crack, and brings the wind and the cave air up and down slowly. [oto](https://github.com/ebitengine/oto) v3.5.1 plays what it makes, with no C compiler needed on macOS, Linux or Windows. With no sound device the game plays on in silence and the title says why. On Linux oto plays through PulseAudio, which PipeWire also serves.
 
@@ -162,7 +168,7 @@ afplay internal/assets/sound/step-wood.wav    # listen to one, on a Mac
 
 ## Pictures
 
-`internal/assets/img` holds the five pictures the game uses: a strip of 85 tiles (the blocks', the cracks', and the pictures of the things that are not blocks: tools, blades, bars, food and the rest), the title, the mossback's six tiles, the gloam's three, and the cave person's seven in each of six looks. All are drawn by `cmd/genassets` from a fixed hash, so they come out the same every time:
+`internal/assets/img` holds the six pictures the game uses: a strip of 86 tiles (the blocks', the cracks', and the pictures of the things that are not blocks: tools, blades, bars, food and the rest), the title, the mossback's six tiles, the bugler's seven, the gloam's three, and the cave person's seven in each of six looks. All are drawn by `cmd/genassets` from a fixed hash, so they come out the same every time:
 
 ```
 make assets                                   # draw them again
@@ -175,7 +181,7 @@ A test fails if the pictures in the repo are not what the generator draws.
 
 ```
 make check    # formatting, vet, and tests with the race detector
-make bench    # the time to draw the blocks, the clouds, the creatures and a whole frame
+make bench    # the time to draw the blocks, the clouds, the beasts and a whole frame
 ```
 
 The race detector needs cgo. Where there is no C compiler, run `make check RACE=`.
@@ -183,8 +189,8 @@ The race detector needs cgo. Where there is no C compiler, run `make check RACE=
 | Package | Purpose |
 |---|---|
 | `internal/world` | the blocks round the player in a sliding window and their light, the land a seed makes, rays through the grid, items, saved worlds |
-| `internal/render` | the blocks drawn by rays into a glonk `Canvas`, the sky at each hour, and the clouds, creatures, cave people and things on the ground drawn into it as glonk meshes |
-| `internal/game` | the game glonk runs: the player and its body, the view from behind it, the creatures, digging and building, what is carried and what is made from it, the mouse, the HUD, the bag, the list of worlds, the settings, the title and pause menus, and what makes a sound when |
+| `internal/render` | the blocks drawn by rays into a glonk `Canvas`, the sky at each hour, and the clouds, beasts, cave people and things on the ground drawn into it as glonk meshes |
+| `internal/game` | the game glonk runs: the player and its body, the view from behind it, the table of beasts and how each kind lives, digging and building, what is carried and what is made from it, the mouse, the HUD, the bag, the list of worlds, the settings, the title and pause menus, and what makes a sound when |
 | `internal/sound` | the names of the sounds, the mixer that places each in the world, and the speaker that plays it with oto |
 | `internal/assets` | the pictures and the sounds, read once at start-up, each block tile in five sizes |
 | `internal/tile` | the names of the tiles in the strip |
@@ -197,7 +203,8 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - Flowing water, and shadows cast to the side by the sun: its light falls straight down.
 - Soft shadows from leaves and glass: only blocks that let no light through cast them.
 - Torches on walls: a torch stands on the ground, as a plant does.
-- More kinds of creature, and anything a gloam leaves when it is undone.
+- More kinds of beast: nippers and quickclaws come next, and the giants after.
+- Cooking meat, and the hides and bones of what you hunt.
 - The I screen needs a terminal about 25 rows tall in creative, and 21 rows tall and 90 columns wide in survival; a kiln needs 25 rows, and a crate 29.
 - A crate or a kiln does not open in creative, where every block is at hand.
 - A view that follows the mouse without a button held.
