@@ -75,24 +75,32 @@ func rayBox(origin, dir, pos geometry.Vector3, width, height float64) (float64, 
 // strike hits the creature aimed at with what is in hand, which wears a tool.
 func (g *Game) strike(p prey) {
 	g.hitWait, g.swing = hitWait, swingTime
-	from := g.player.Pos
-	c := &g.fauna.all[p.i]
 	held := g.items[g.selected].Item
-	if c.hit(from, held.Damage()) {
-		c.carved = held.Carves()
+	g.wound(p.i, held.Damage(), held.Knock(), held.Carves())
+	if g.survival {
+		g.wearOut()
 	}
-	c.push = c.push.Scale(held.Knock()) // a club sends it farther
+}
+
+// wound is a beast hit by the player, with what is in hand or with a thing thrown: it
+// takes points of harm, is knocked back, as many times as far as a hand knocks it, and
+// cries out. A herd runs with it, and a hunter only staggers, unless it is badly hurt
+// and alone. A kill that is carved leaves more.
+func (g *Game) wound(i int, points, knock float64, carves bool) {
+	from := g.player.Pos
+	c := &g.fauna.all[i]
+	if c.hit(from, points) {
+		c.carved = carves
+	}
+	c.push = c.push.Scale(knock) // a club sends it farther
 	g.voice(c, breeds[c.kind].cry, 1)
 	if b := &breeds[c.kind]; b.temper == hunter {
 		// A hunter does not run from a hit, unless it is badly hurt and alone.
-		if c.flee = staggerFor; c.health < hurtPart*b.health && !g.fauna.packNear(p.i, aloneReach) {
+		if c.flee = staggerFor; c.health < hurtPart*b.health && !g.fauna.packNear(i, aloneReach) {
 			c.flee = routTime
 		}
 	} else {
 		g.fauna.raise(c.herd, from) // its herd runs with it
-	}
-	if g.survival {
-		g.wearOut()
 	}
 }
 

@@ -67,6 +67,8 @@ var recipes = func() []recipe {
 		{world.DiggingStick, 1, []need{of(world.Stick, 2)}, byHand},
 		{world.Club, 1, []need{anyLog}, byHand},
 		{world.Spear, 1, []need{of(world.Stick, 3)}, byHand},
+		{world.Sling, 1, []need{of(world.Cord, 2), of(world.Hide, 1)}, byHand},
+		{world.Pebble, 4, []need{of(world.Gravel.Item(), 1)}, byHand},
 		{world.FurBed.Item(), 1, []need{of(world.Hide, 3), of(world.Moss, 6)}, byHand},
 
 		// Fire: a ring of stones to keep it in, a drill to make it with, and torches to
