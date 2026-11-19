@@ -41,6 +41,8 @@ const (
 	Eat
 	Call    // a mossback, to itself
 	Cry     // a mossback hit
+	Horn    // a bugler, to its herd: a long low call through its crest
+	Alarm   // a bugler that takes alarm, or is hit
 	Moan    // a gloam
 	Hiss    // a gloam hit
 	Crackle // a kiln's fire
@@ -59,7 +61,7 @@ func Place(m Material) Name { return Name(m)*perMaterial + placeOf }
 var materialNames = [materials]string{"earth", "stone", "sand", "wood", "plant", "glass", "snow"}
 
 var otherNames = [Count - Splash]string{
-	"splash", "pickup", "hurt", "eat", "call", "cry", "moan", "hiss", "crackle", "drip", "wind", "cave",
+	"splash", "pickup", "hurt", "eat", "call", "cry", "horn", "alarm", "moan", "hiss", "crackle", "drip", "wind", "cave",
 }
 
 // File is the name of the sound's file: step-wood.wav, say, or splash.wav.
