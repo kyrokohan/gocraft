@@ -72,8 +72,8 @@ func grain(base rgb, amount float64, x, y, seed int) rgb {
 type painter func(x, y int) (c rgb, ok bool)
 
 var painters = [tile.Count]painter{
-	tile.GrassTop:  grassTop,
-	tile.GrassSide: grassSide,
+	tile.TurfTop:   turfTop,
+	tile.TurfSide:  turfSide,
 	tile.Dirt:      dirt,
 	tile.Stone:     stone,
 	tile.Sand:      sand,
@@ -102,14 +102,14 @@ var painters = [tile.Count]painter{
 	tile.PaleLogSide:   paleLogSide,
 	tile.PaleLogTop:    paleLogTop,
 	tile.PaleLeaves:    paleLeaves,
-	tile.CactusSide:    cactusSide,
-	tile.CactusTop:     cactusTop,
+	tile.StumpPalmSide: stumpPalmSide,
+	tile.StumpPalmTop:  stumpPalmTop,
 	tile.Ice:           ice,
-	tile.TallGrass:     tallGrass,
+	tile.Fern:          frond(&fernPic, rgb{50, 104, 50}, rgb{88, 154, 66}, 92),
 	tile.RedFlower:     flower(rgb{214, 58, 52}, rgb{244, 208, 72}),
 	tile.YellowFlower:  flower(rgb{244, 206, 60}, rgb{226, 132, 44}),
 	tile.Bush:          bush,
-	tile.Reed:          reed,
+	tile.Horsetail:     horsetail,
 	tile.DryBush:       dryBush,
 	tile.Mushroom:      mushroom,
 	tile.Torch:         torch,
@@ -124,6 +124,18 @@ var painters = [tile.Count]painter{
 	tile.CrateTop:      crateTop,
 	tile.CrateSide:     crateSide,
 	tile.Bedroll:       bedroll,
+
+	tile.TallFern:      frond(&tallFernPic, rgb{46, 100, 48}, rgb{80, 148, 62}, 310),
+	tile.PalmCrown:     palmCrown,
+	tile.FernTrunkSide: fernTrunkSide,
+	tile.FernTrunkTop:  fernTrunkTop,
+	tile.Fronds:        frondLeaves,
+	tile.FanLeaves:     fanLeaves,
+	tile.RedwoodSide:   redwoodSide,
+	tile.RedwoodTop:    redwoodTop,
+	tile.Bone:          bone,
+	tile.RedrockTop:    redrockTop,
+	tile.RedrockSide:   redrockSide,
 
 	tile.Stick:        stick,
 	tile.Coal:         coal,
@@ -152,13 +164,16 @@ var painters = [tile.Count]painter{
 	tile.MossCake:     mossCake,
 }
 
-func grassTop(x, y int) (rgb, bool) {
-	c := grain(rgb{86, 160, 70}, 0.10, x, y, 1)
-	switch h := hash(x, y, 2); {
-	case h < 0.10:
-		c = c.scale(1.2) // a blade catching the light
-	case h > 0.90:
-		c = c.scale(0.8)
+func turfTop(x, y int) (rgb, bool) {
+	// Cushions of moss, with a dead frond lying on them here and there. There is no
+	// grass in the old lands.
+	c := rgb{72, 126, 60}.scale(0.84 + 0.34*blotch(x, y, 4, 1))
+	c = grain(c, 0.07, x, y, 2)
+	switch h := hash(x, y, 300); {
+	case h < 0.045:
+		return grain(rgb{116, 92, 60}, 0.08, x, y, 301), true
+	case h > 0.92:
+		c = c.scale(1.22) // a tip catching the light
 	}
 	return c, true
 }
@@ -174,12 +189,12 @@ func dirt(x, y int) (rgb, bool) {
 	return c, true
 }
 
-func grassSide(x, y int) (rgb, bool) {
-	depth := 3 + int(hash(x, 0, 5)*3) // the turf hangs 3 to 5 pixels down
+func turfSide(x, y int) (rgb, bool) {
+	depth := 3 + int(hash(x, 0, 5)*3) // the moss hangs 3 to 5 pixels down
 	if y >= depth {
 		return dirt(x, y)
 	}
-	c, _ := grassTop(x, y)
+	c, _ := turfTop(x, y)
 	if y == depth-1 {
 		c = c.scale(0.78)
 	}
@@ -532,20 +547,24 @@ func paleLeaves(x, y int) (rgb, bool) {
 	return c, true
 }
 
-func cactusSide(x, y int) (rgb, bool) {
-	c := rgb{76, 142, 78}
-	if x%4 == 0 {
-		c = c.scale(0.74) // a furrow between two ribs
+func stumpPalmSide(x, y int) (rgb, bool) {
+	// The trunk is armored with the feet of old leaves, in diamonds.
+	c := rgb{126, 96, 62}
+	switch up, down := (x+y)%8, (x-y+size)%8; {
+	case up == 0 || down == 0:
+		c = c.scale(0.6) // the line between two of them
+	case up >= 3 && up <= 5 && down >= 3 && down <= 5:
+		c = c.scale(1.18) // the middle of a diamond
 	}
-	if x%4 == 2 && hash(x, y, 85) < 0.22 {
-		return rgb{226, 226, 190}, true // a spine
-	}
-	return grain(c, 0.05, x, y, 86), true
+	return grain(c, 0.07, x, y, 85), true
 }
 
-func cactusTop(x, y int) (rgb, bool) {
+func stumpPalmTop(x, y int) (rgb, bool) {
 	d := max(math.Abs(float64(x)-7.5), math.Abs(float64(y)-7.5))
-	c := rgb{76, 142, 78}.scale(1.25 - 0.05*d)
+	if d > 5.6 {
+		return grain(rgb{104, 78, 50}, 0.08, x, y, 86), true // the armor, seen end on
+	}
+	c := rgb{206, 186, 132}.scale(1.1 - 0.04*d) // soft pith
 	return grain(c, 0.05, x, y, 87), true
 }
 
@@ -560,13 +579,196 @@ func ice(x, y int) (rgb, bool) {
 // The plants are drawn as they stand: the bottom row of the tile is the ground. Most of
 // a plant's tile is holes.
 
-func tallGrass(x, y int) (rgb, bool) {
-	height := 5 + int(hash(x, 0, 90)*9) // each column is a blade of its own height
-	if hash(x, 1, 91) < 0.3 || size-1-y >= height {
+// A fern's picture is a few fronds that arch from one foot, in the middle of the bottom
+// row. Each frond is a rib with leaflets along it.
+const (
+	noFrond = iota
+	frondRib
+	frondLeaf
+)
+
+// fronds returns the picture of a fern whose fronds end at tips.
+func fronds(tips [][2]float64) (pic [size][size]uint8) {
+	const footX, footY = 7.5, 15.5
+	inside := func(x, y int) bool { return x >= 0 && x < size && y >= 0 && y < size }
+	for _, tip := range tips {
+		// The rib leaves the foot going up, and leans out toward its tip.
+		bendX, bendY := footX+(tip[0]-footX)*0.25, tip[1]-1
+		for i := range 49 {
+			t := float64(i) / 48
+			a, b, c := (1-t)*(1-t), 2*(1-t)*t, t*t
+			x, y := int(a*footX+b*bendX+c*tip[0]), int(a*footY+b*bendY+c*tip[1])
+			if !inside(x, y) {
+				continue
+			}
+			pic[y][x] = frondRib
+			if t < 0.3 {
+				continue // the stalk is bare near the foot
+			}
+			// Leaflets stand off the rib on both sides: above and below it where it
+			// runs level, left and right of it where it climbs.
+			run := 2*(1-t)*(bendX-footX) + 2*t*(tip[0]-bendX)
+			rise := 2*(1-t)*(bendY-footY) + 2*t*(tip[1]-bendY)
+			for _, side := range [2]int{-1, 1} {
+				lx, ly := x, y+side
+				if math.Abs(rise) > math.Abs(run) {
+					lx, ly = x+side, y
+				}
+				if inside(lx, ly) && pic[ly][lx] == noFrond && (lx+ly)%2 == 0 {
+					pic[ly][lx] = frondLeaf
+				}
+			}
+		}
+	}
+	return pic
+}
+
+var fernPic = fronds([][2]float64{{1, 10}, {3.5, 6.5}, {6.5, 5}, {9.5, 5}, {12.5, 6.5}, {15, 10}})
+
+// frond returns the painter of a fern's picture in two greens, lighter toward the tips.
+func frond(pic *[size][size]uint8, rib, leaf rgb, seed int) painter {
+	return func(x, y int) (rgb, bool) {
+		c := leaf
+		switch pic[y][x] {
+		case noFrond:
+			return rgb{}, false
+		case frondRib:
+			c = rib
+		}
+		c = c.scale(0.82 + 0.4*float64(size-1-y)/float64(size))
+		return grain(c, 0.07, x, y, seed), true
+	}
+}
+
+var (
+	tallFernPic  = fronds([][2]float64{{0.5, 6}, {2.5, 2}, {5.5, 0.5}, {8, 3}, {10.5, 0.5}, {13.5, 2}, {15.5, 6}})
+	palmCrownPic = fronds([][2]float64{{0.5, 9}, {1.5, 4}, {5, 1}, {11, 1}, {14.5, 4}, {15.5, 9}})
+)
+
+func palmCrown(x, y int) (rgb, bool) {
+	// Stiff dark leaves spread from the top of the trunk, round a cone in their middle.
+	if (x == 7 || x == 8) && y >= 10 || (x == 6 || x == 9) && y >= 12 && y <= 14 {
+		return grain(rgb{184, 128, 62}, 0.1, x, y, 311), true
+	}
+	return frond(&palmCrownPic, rgb{40, 92, 54}, rgb{62, 132, 70}, 312)(x, y)
+}
+
+func fernTrunkSide(x, y int) (rgb, bool) {
+	// A tree fern's trunk is a mat of dark roots, with the stubs of old fronds in it.
+	c := rgb{82, 60, 44}.scale(0.76 + 0.48*hash(x, 0, 313))
+	if hash(x/2, y/2, 314) < 0.1 {
+		c = rgb{128, 100, 70} // a stub
+	}
+	return grain(c, 0.1, x, y, 315), true
+}
+
+func fernTrunkTop(x, y int) (rgb, bool) {
+	d := max(math.Abs(float64(x)-7.5), math.Abs(float64(y)-7.5))
+	if d > 5.6 {
+		return grain(rgb{74, 54, 40}, 0.1, x, y, 316), true
+	}
+	c := rgb{150, 122, 84}
+	if (x+y)%3 == 0 {
+		c = rgb{112, 86, 58} // strands, seen end on
+	}
+	return grain(c, 0.06, x, y, 317), true
+}
+
+func frondLeaves(x, y int) (rgb, bool) {
+	// Leaflets in rows that slant away from a rib on both sides of it.
+	rib := x%8 == 3
+	slant := (x + abs(x%8-3) + 2*y) % 4
+	if !rib && (slant == 3 || hash(x, y, 318) < 0.12) {
 		return rgb{}, false
 	}
-	c := rgb{84, 150, 62}.scale(0.8 + 0.5*float64(size-1-y)/float64(size)) // lighter toward the tip
-	return grain(c, 0.08, x, y, 92), true
+	c := grain(rgb{70, 144, 58}, 0.1, x, y, 319)
+	switch {
+	case rib:
+		c = c.scale(0.7)
+	case slant == 0:
+		c = c.scale(1.24)
+	}
+	return c, true
+}
+
+func fanLeaves(x, y int) (rgb, bool) {
+	// Small fans, gold where the year has turned them and green where it has not.
+	if hash(x, y, 320) < 0.2 {
+		return rgb{}, false
+	}
+	c := rgb{216, 178, 54}.mix(rgb{150, 170, 62}, ramp(0.45, 0.75, blotch(x, y, 4, 321)))
+	c = grain(c, 0.08, x, y, 322)
+	switch h := hash(x, y, 323); {
+	case h < 0.14:
+		c = c.scale(1.2)
+	case h > 0.88:
+		c = c.scale(0.78)
+	}
+	return c, true
+}
+
+// ramp returns 0 below lo, 1 above hi, and a straight rise between.
+func ramp(lo, hi, v float64) float64 {
+	return min(max((v-lo)/(hi-lo), 0), 1)
+}
+
+func redwoodSide(x, y int) (rgb, bool) {
+	// Thick red bark in ridges two pixels wide, with a deep furrow between them.
+	c := rgb{134, 70, 46}.scale(0.84 + 0.3*hash(x/2, 0, 324))
+	if x%4 == 3 {
+		c = c.scale(0.58)
+	}
+	return grain(c, 0.08, x, y, 325), true
+}
+
+func redwoodTop(x, y int) (rgb, bool) {
+	d := max(math.Abs(float64(x)-7.5), math.Abs(float64(y)-7.5))
+	if d > 6.6 {
+		return grain(rgb{112, 58, 40}, 0.08, x, y, 326), true
+	}
+	c := rgb{202, 124, 86}
+	if int(d)%2 == 1 {
+		c = rgb{172, 96, 66}
+	}
+	return grain(c, 0.04, x, y, 327), true
+}
+
+func bone(x, y int) (rgb, bool) {
+	// Old ivory, with faint grooves along it and a pit here and there.
+	c := rgb{226, 218, 194}.scale(0.94 + 0.1*hash(x, 0, 328))
+	switch h := hash(x, y, 329); {
+	case h < 0.04:
+		c = c.scale(0.78)
+	case (x+3*y)%16 == 5 && h < 0.7:
+		c = c.scale(0.86) // a crack
+	}
+	return grain(c, 0.025, x, y, 330), true
+}
+
+func redrockTop(x, y int) (rgb, bool) {
+	// Dry red earth, cracked.
+	c := grain(rgb{178, 98, 64}, 0.07, x, y, 334)
+	switch {
+	case (x+y/3)%7 == 0 && hash(x/2, y/2, 335) < 0.7, (y+x/4)%8 == 0 && hash(x/3, y, 336) < 0.5:
+		c = c.scale(0.68)
+	case hash(x, y, 337) < 0.06:
+		c = c.scale(1.16)
+	}
+	return c, true
+}
+
+// strata are the beds of the red rock, from the top of a tile to its bottom.
+var strata = [size]rgb{
+	{178, 98, 64}, {178, 98, 64}, {178, 98, 64}, {226, 198, 152},
+	{208, 144, 90}, {208, 144, 90}, {208, 144, 90}, {134, 72, 58},
+	{134, 72, 58}, {178, 98, 64}, {178, 98, 64}, {178, 98, 64},
+	{226, 198, 152}, {208, 144, 90}, {208, 144, 90}, {208, 144, 90},
+}
+
+func redrockSide(x, y int) (rgb, bool) {
+	// The beds rise and fall a little along the face, and meet again at its edges.
+	wave := int(math.Round(0.8 * math.Sin(float64(x)*math.Pi/8)))
+	return grain(strata[(y+wave+size)%size], 0.05, x, y, 338), true
 }
 
 // flower returns the painter of a flower with petals of one color round a middle of
@@ -607,17 +809,19 @@ func bush(x, y int) (rgb, bool) {
 	return grain(rgb{52, 110, 56}, 0.14, x, y, 96), true
 }
 
-func reed(x, y int) (rgb, bool) {
-	// A few stalks of different heights, each with a brown head.
-	for i, stalk := range []int{2, 6, 9, 13} {
-		top := 1 + int(hash(i, 0, 97)*5)
-		if x != stalk || y < top {
-			continue
+func horsetail(x, y int) (rgb, bool) {
+	// Three jointed stalks that run the height of the tile, so that one horsetail
+	// stands on another. At each joint a ring of thin leaves points up and out.
+	for _, stalk := range []int{3, 8, 13} {
+		joint := (y + stalk) % 4 // each stalk has its joints at its own heights
+		switch d := abs(x - stalk); {
+		case d == 0 && joint == 0:
+			return rgb{58, 84, 52}, true
+		case d == 0:
+			return grain(rgb{112, 162, 86}, 0.06, x, y, 98), true
+		case d == 1 && joint == 3, d == 2 && joint == 2:
+			return rgb{136, 182, 96}, true // a leaf of the ring
 		}
-		if y < top+3 {
-			return rgb{122, 86, 52}, true
-		}
-		return grain(rgb{128, 164, 84}, 0.06, x, y, 98), true
 	}
 	return rgb{}, false
 }
@@ -1065,7 +1269,7 @@ const (
 // titleTiles is what each letter of the title is built from: SKY out of cold tiles,
 // SPEAR out of earth.
 var titleTiles = [len(titleText)]tile.ID{
-	tile.Ice, tile.Snow, tile.Stone, tile.SandstoneSide, tile.Sand, tile.Dirt, tile.LogSide, tile.GrassTop,
+	tile.Ice, tile.Snow, tile.Stone, tile.SandstoneSide, tile.Sand, tile.Dirt, tile.LogSide, tile.TurfTop,
 }
 
 // drawTitle draws the name of the game in letters built from little blocks, each letter

@@ -7,7 +7,7 @@ import (
 )
 
 func TestABlockIsTheItemOfItsNumber(t *testing.T) {
-	for b := Grass; b < blockCount; b++ {
+	for b := Turf; b < blockCount; b++ {
 		got, ok := b.Item().Block()
 		if !ok || got != b || !b.Item().Known() || b.Item().Name() != b.Info().Name || b.Item().Icon() != b.Info().Top {
 			t.Errorf("%v as an item is %v, %v, named %q", b.Info().Name, got, ok, b.Item().Name())
@@ -39,13 +39,13 @@ func TestABrokenBlockDropsWhatItIsMadeOf(t *testing.T) {
 		count int
 	}{
 		{Dirt, Dirt.Item(), 1},
-		{Grass, Dirt.Item(), 1},
+		{Turf, Dirt.Item(), 1},
 		{Stone, Cobble.Item(), 1},
 		{Log, Log.Item(), 1},
 		{Torch, Torch.Item(), 1},
 		{Bush, Berries, 2},
 		{Leaves, NoItem, 0},
-		{TallGrass, NoItem, 0},
+		{Fern, NoItem, 0},
 	} {
 		if item, count := tc.block.Drop(); item != tc.item || count != tc.count {
 			t.Errorf("%v drops %d of %q, wanted %d of %q", tc.block.Info().Name, count, item.Name(), tc.count, tc.item.Name())
@@ -56,7 +56,7 @@ func TestABrokenBlockDropsWhatItIsMadeOf(t *testing.T) {
 // Every block takes a time to dig: none for a plant, a little for leaves, and more
 // for stone than for dirt.
 func TestBlocksTakeTimeToDig(t *testing.T) {
-	for b := Grass; b < blockCount; b++ {
+	for b := Turf; b < blockCount; b++ {
 		info := b.Info()
 		switch {
 		case b == Water || info.Fixed:
@@ -127,7 +127,7 @@ func TestTheRightToolDigsFasterAndSomeBlocksNeedOne(t *testing.T) {
 		{IronOre, StonePick, 3, true},
 		{CrystalOre, StonePick, 1, false},
 		{CrystalOre, CopperPick, 4, true},
-		{TallGrass, NoItem, 1, true},
+		{Fern, NoItem, 1, true},
 	} {
 		seconds, yields := tc.block.DigWith(tc.hand)
 		want := tc.block.Info().Dig / tc.faster

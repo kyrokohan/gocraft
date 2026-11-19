@@ -28,9 +28,9 @@ func TestABrokenBlockThrowsBitsThatFallAndAreGone(t *testing.T) {
 
 func TestAPlantLeavesNoBitsAndThereAreNeverTooMany(t *testing.T) {
 	g := lookingDown(t)
-	g.shatter(20, 6, 21, world.TallGrass)
+	g.shatter(20, 6, 21, world.Fern)
 	if len(g.bits) != 0 {
-		t.Errorf("tall grass threw %d bits", len(g.bits))
+		t.Errorf("a fern threw %d bits", len(g.bits))
 	}
 	for i := range 2 * maxBits / bitsABreak {
 		g.shatter(i, 5, 0, world.Dirt)

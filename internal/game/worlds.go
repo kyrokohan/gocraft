@@ -51,12 +51,15 @@ func readWorlds(dir string) []savedWorld {
 			continue
 		}
 		w := savedWorld{name: e.Name(), path: path, when: info.ModTime(), about: "cannot be read"}
-		if m, err := world.Peek(path); err == nil {
+		switch m, err := world.Peek(path); {
+		case err == nil:
 			mode := m.Mode
 			if mode == "" {
 				mode = world.Creative
 			}
 			w.about = fmt.Sprintf("%s, day %d", mode, int(math.Floor(firstMorning+m.Days))+1)
+		case errors.Is(err, world.ErrOlder):
+			w.about = "from an older version"
 		}
 		list = append(list, w)
 	}
@@ -92,6 +95,9 @@ func (g *Game) playWorld(w savedWorld) {
 	opened, s, err := world.Open(w.path)
 	if err != nil {
 		g.note = "that world cannot be read: " + reason(err)
+		if errors.Is(err, world.ErrOlder) {
+			g.note = "that world is from an older version of the game, which this one cannot play"
+		}
 		g.show(onTitle)
 		return
 	}

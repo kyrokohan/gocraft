@@ -10,7 +10,7 @@ type Block uint8
 
 const (
 	Air Block = iota
-	Grass
+	Turf
 	Dirt
 	Stone
 	Sand
@@ -35,13 +35,13 @@ const (
 	PineNeedles
 	PaleLog
 	PaleLeaves
-	Cactus
+	StumpPalm
 	Ice
-	TallGrass
+	Fern
 	RedFlower
 	YellowFlower
 	Bush
-	Reed
+	Horsetail
 	DryBush
 	Mushroom
 
@@ -50,6 +50,15 @@ const (
 	Kiln
 	Crate
 	Bedroll
+
+	TallFern
+	PalmCrown
+	FernTrunk
+	Fronds
+	FanLeaves
+	RedwoodLog
+	Bone
+	Redrock
 
 	blockCount
 )
@@ -95,7 +104,7 @@ type Info struct {
 
 var infos = [256]Info{
 	Air:       {Name: "air"},
-	Grass:     byShovel(solid("grass", tile.GrassTop, tile.GrassSide, tile.Dirt), 0.6),
+	Turf:      byShovel(solid("mossy earth", tile.TurfTop, tile.TurfSide, tile.Dirt), 0.6),
 	Dirt:      byShovel(cube("dirt", tile.Dirt), 0.5),
 	Stone:     byPick(cube("stone", tile.Stone), 2, TierWood),
 	Sand:      byShovel(cube("sand", tile.Sand), 0.5),
@@ -120,14 +129,14 @@ var infos = [256]Info{
 	PineNeedles: dig(leaves("pine needles", tile.PineNeedles), 0.2),
 	PaleLog:     byAxe(solid("pale log", tile.PaleLogTop, tile.PaleLogSide, tile.PaleLogTop), 1.5),
 	PaleLeaves:  dig(leaves("pale leaves", tile.PaleLeaves), 0.2),
-	Cactus:      byAxe(solid("cactus", tile.CactusTop, tile.CactusSide, tile.CactusTop), 0.4),
+	StumpPalm:   byAxe(solid("stump palm", tile.StumpPalmTop, tile.StumpPalmSide, tile.StumpPalmTop), 0.4),
 	Ice:         byPick(cube("ice", tile.Ice), 0.5, 0),
 
-	TallGrass:    plant("tall grass", tile.TallGrass),
+	Fern:         plant("fern", tile.Fern),
 	RedFlower:    plant("red flower", tile.RedFlower),
 	YellowFlower: plant("yellow flower", tile.YellowFlower),
 	Bush:         plant("bush", tile.Bush),
-	Reed:         plant("reed", tile.Reed),
+	Horsetail:    plant("horsetail", tile.Horsetail),
 	DryBush:      plant("dry bush", tile.DryBush),
 	Mushroom:     plant("mushroom", tile.Mushroom),
 
@@ -141,6 +150,20 @@ var infos = [256]Info{
 	// A crate keeps things, and a bedroll is where the player sleeps and wakes.
 	Crate:   byAxe(solid("crate", tile.CrateTop, tile.CrateSide, tile.CrateTop), 1.2),
 	Bedroll: dig(Info{Name: "bedroll", Top: tile.Bedroll, Side: tile.Bedroll, Bottom: tile.Bedroll, Mat: true}, 0.3),
+
+	// What grows in the old lands. A tall fern fills its cell, and a stump palm's crown
+	// stands on its trunk as a plant does on the ground.
+	TallFern:   plant("tall fern", tile.TallFern),
+	PalmCrown:  plant("stump palm crown", tile.PalmCrown),
+	FernTrunk:  byAxe(solid("tree fern trunk", tile.FernTrunkTop, tile.FernTrunkSide, tile.FernTrunkTop), 1.2),
+	Fronds:     dig(leaves("fronds", tile.Fronds), 0.2),
+	FanLeaves:  dig(leaves("fan leaves", tile.FanLeaves), 0.2),
+	RedwoodLog: byAxe(solid("redwood log", tile.RedwoodTop, tile.RedwoodSide, tile.RedwoodTop), 2),
+
+	// Bone is what the great skeletons are made of, and red rock the ground of the
+	// badlands they lie in.
+	Bone:    byPick(cube("bone", tile.Bone), 1.5, 0),
+	Redrock: byPick(solid("red rock", tile.RedrockTop, tile.RedrockSide, tile.RedrockTop), 1.6, TierWood),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for

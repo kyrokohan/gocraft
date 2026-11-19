@@ -40,7 +40,7 @@ var hudDim = engine.Cell{Foreground: engine.RGB(92, 96, 112), Background: hudGro
 // palette is every item a creative player can take: every block, but water, which is
 // not built with, and deepstone, which is the floor of the world.
 var palette = func() (items []world.Item) {
-	for b := world.Grass; b.Known(); b++ {
+	for b := world.Turf; b.Known(); b++ {
 		if b != world.Water && b != world.Deepstone {
 			items = append(items, b.Item())
 		}

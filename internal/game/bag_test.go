@@ -121,7 +121,7 @@ func TestTheCreativeBagHasEveryBlockToPutOnTheHotbar(t *testing.T) {
 	if text, _ := drawn(t, g); !contains(text, "every block") {
 		t.Errorf("the creative bag is not drawn:\n%s", text)
 	}
-	for b := world.Grass; b.Known(); b++ {
+	for b := world.Turf; b.Known(); b++ {
 		found := false
 		for r := range g.bagRows() - 1 {
 			for c := range hotbarSlots {

@@ -278,9 +278,15 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		if g.survival {
 			g.wear(t.Block)
 		}
-		if above := g.world.At(t.X, t.Y+1, t.Z); above.Info().Stands() {
-			g.world.Set(t.X, t.Y+1, t.Z, world.Air) // a plant or a mat goes with the ground it stood on
-			g.leave(t.X, t.Y+1, t.Z, above)
+		// A plant or a mat goes with the ground it stood on, and so does a plant that
+		// stood on that one: a stand of horsetails falls whole.
+		for y := t.Y + 1; ; y++ {
+			above := g.world.At(t.X, y, t.Z)
+			if !above.Info().Stands() {
+				break
+			}
+			g.world.Set(t.X, y, t.Z, world.Air)
+			g.leave(t.X, y, t.Z, above)
 		}
 	case places:
 		b, ok := g.items[g.selected].Item.Block()

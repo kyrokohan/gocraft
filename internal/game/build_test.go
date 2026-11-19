@@ -230,9 +230,9 @@ func TestNothingIsOutlinedWhenNothingIsAimedAt(t *testing.T) {
 
 func TestAPlantDoesNotStopThePlayerAndCanBePicked(t *testing.T) {
 	g := lookingDown(t)
-	g.world.Set(20, 6, 21, world.TallGrass) // on the block the player aims at
+	g.world.Set(20, 6, 21, world.Fern) // on the block the player aims at
 	hold(t, g, 1)
-	if !g.aimed || g.target.Block != world.TallGrass {
+	if !g.aimed || g.target.Block != world.Fern {
 		t.Fatalf("aimed %v at %+v, wanted the plant", g.aimed, g.target)
 	}
 
@@ -242,7 +242,7 @@ func TestAPlantDoesNotStopThePlayerAndCanBePicked(t *testing.T) {
 	}
 
 	g = lookingDown(t)
-	g.world.Set(20, 6, 21, world.TallGrass)
+	g.world.Set(20, 6, 21, world.Fern)
 	hold(t, g, 1, 'q')
 	if got := g.world.At(20, 6, 21); got != world.Air {
 		t.Errorf("after Q the plant is %v, wanted it picked", got.Info().Name)
@@ -283,5 +283,26 @@ func TestBreakingTheGroundTakesThePlantOnIt(t *testing.T) {
 	if g.world.At(20, 6, 22) != world.Air || g.world.At(20, 7, 22) != world.Air {
 		t.Errorf("after the block was broken it is %v with %v on it, wanted both gone",
 			g.world.At(20, 6, 22).Info().Name, g.world.At(20, 7, 22).Info().Name)
+	}
+}
+
+// A horsetail stands on a horsetail, so breaking the foot of a stand, or the ground under
+// it, takes all of it.
+func TestBreakingTheFootOfAStandOfPlantsTakesAllOfIt(t *testing.T) {
+	g := lookingDown(t)
+	for y := 6; y <= 8; y++ {
+		g.world.Set(20, y, 21, world.Horsetail)
+	}
+	g.world.Set(20, 9, 21, world.Stone) // not a plant: it stays
+
+	hold(t, g, 1, 'q')
+
+	for y := 6; y <= 8; y++ {
+		if got := g.world.At(20, y, 21); got != world.Air {
+			t.Errorf("the horsetail at layer %d is still %s", y, got.Info().Name)
+		}
+	}
+	if got := g.world.At(20, 9, 21); got != world.Stone {
+		t.Errorf("the stone over the stand is %s, wanted it left", got.Info().Name)
 	}
 }

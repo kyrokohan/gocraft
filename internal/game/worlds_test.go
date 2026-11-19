@@ -356,3 +356,35 @@ func TestAFieldTakesWhatIsTypedAndPasted(t *testing.T) {
 		t.Errorf("after Backspace %q, wanted mywörld tw", f.text)
 	}
 }
+
+// A world saved by an older version of the game is listed as that, and not as damaged,
+// and choosing it says why it does not open.
+func TestAWorldOfAnOlderVersionIsListedAsSuch(t *testing.T) {
+	dir := t.TempDir()
+	saveWorld(t, dir, "ancient", world.Survival, 0, time.Now())
+	path := filepath.Join(dir, "ancient", "world.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := strings.Replace(string(data), `"version": 3`, `"version": 2`, 1)
+	if old == string(data) {
+		t.Fatal("the test did not change the file")
+	}
+	if err := os.WriteFile(path, []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	g := listing(t, dir)
+	text, _ := drawn(t, g)
+	if !strings.Contains(text, "from an older version") || strings.Contains(text, "cannot be read") {
+		t.Errorf("the list does not say the world is from an older version:\n%s", text)
+	}
+
+	press(g, engine.KeyEnter) // ancient
+	press(g, engine.KeyEnter) // Play
+	text, _ = drawn(t, g)
+	if g.screen == playing || !strings.Contains(text, "older version of the game") {
+		t.Errorf("screen %d: choosing the world did not say why it does not open:\n%s", g.screen, text)
+	}
+}

@@ -182,7 +182,7 @@ func TestAHerdStartsOnGrassRoundThePlayer(t *testing.T) {
 		}
 		for i, c := range all {
 			x, y, z := int(math.Floor(c.Pos.X)), int(c.Pos.Y), int(math.Floor(c.Pos.Z))
-			if at := w.At(x, y, z); w.At(x, y-1, z) != world.Grass || (at != world.Air && !at.Info().Plant) || w.At(x, y+1, z) != world.Air {
+			if at := w.At(x, y, z); w.At(x, y-1, z) != world.Turf || (at != world.Air && !at.Info().Plant) || w.At(x, y+1, z) != world.Air {
 				t.Errorf("seed %d: creature %d at %v is not on grass with room above", seed, i, c.Pos)
 			}
 			if d := c.Pos.Distance(spawn); d < 3 || d > 80 {

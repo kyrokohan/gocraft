@@ -196,7 +196,7 @@ func (m Meta) check() string {
 }
 
 const (
-	saveVersion = 2
+	saveVersion = 3
 	metaName    = "world.json"
 	chunkFolder = "chunks"
 	chunkMagic  = "GCCHUNK1" // opens every chunk file; its last character is the version of the layout
@@ -208,6 +208,10 @@ const (
 
 // errBadSave is wrapped by every error for a file that is not a save this game can use.
 var errBadSave = errors.New("not a usable save")
+
+// ErrOlder is wrapped by the error for a world that an older version of the game saved.
+// Such a world is whole, but its blocks and things are not the ones this game has.
+var ErrOlder = errors.New("it was saved by an older version of the game")
 
 func isNotExist(err error) bool {
 	return errors.Is(err, fs.ErrNotExist)
@@ -418,6 +422,9 @@ func Peek(dir string) (Meta, error) {
 	var m Meta
 	if err := json.Unmarshal(data, &m); err != nil {
 		return bad("it cannot be read: " + err.Error())
+	}
+	if m.Version < saveVersion {
+		return Meta{}, fmt.Errorf("%s: %w: %w", path, errBadSave, ErrOlder)
 	}
 	if why := m.check(); why != "" {
 		return bad(why)
