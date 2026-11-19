@@ -296,6 +296,7 @@ func (g *Game) Save() error {
 		Health: g.health,
 		Food:   g.food,
 		Air:    g.air,
+		Look:   g.worn,
 	}
 	for _, d := range g.drops {
 		m.Drops = append(m.Drops, d.Drop)
@@ -317,6 +318,7 @@ func (g *Game) loadPlayer(s world.Meta) {
 		g.items = creativeStart()
 	}
 	g.health, g.food, g.air = min(s.Health, maxHealth), min(max(s.Food, 0), maxFood), min(max(s.Air, 0), maxAir)
+	g.worn = min(max(s.Look, 0), assets.PersonLooks-1)
 	g.peak = g.player.Pos.Y
 	g.drops = g.drops[:0]
 	for _, d := range s.Drops {
@@ -443,6 +445,9 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		}
 		if keyDown(in.Started, 'v') {
 			g.switchView()
+		}
+		if keyDown(in.Started, 'l') {
+			g.nextLook()
 		}
 		c := readControls(in)
 		c.toggleFly = c.toggleFly && !g.survival // only in creative can the player fly

@@ -1,11 +1,13 @@
 package game
 
 import (
+	"fmt"
 	"math"
 
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
 
+	"github.com/kyrokohan/skyspear/internal/assets"
 	"github.com/kyrokohan/skyspear/internal/render"
 	"github.com/kyrokohan/skyspear/internal/world"
 )
@@ -74,6 +76,13 @@ func (g *Game) room(from, along geometry.Vector3, far float64) float64 {
 			return max(min(hit.T-behindGap, far), 0)
 		}
 	}
+}
+
+// nextLook changes the look the player's body wears to the one after it, and says
+// which it is: through the eyes the body is not seen.
+func (g *Game) nextLook() {
+	g.worn = (g.worn + 1) % assets.PersonLooks
+	g.tell(fmt.Sprintf("look %d of %d", g.worn+1, assets.PersonLooks))
 }
 
 // pace notes how far the player walked this frame from where it was, for the swing of
