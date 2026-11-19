@@ -293,9 +293,10 @@ func BenchmarkFrame(b *testing.B) {
 		name   string
 		days   float64
 		gloams int
-	}{{"day", 0, 0}, {"night", 0.7, 0}, {"night with gloams", 0.7, gloamMost}} {
+		view   string
+	}{{"day", 0, 0, viewEyes}, {"day from behind", 0, 0, viewBehind}, {"night", 0.7, 0, viewEyes}, {"night with gloams", 0.7, gloamMost, viewEyes}} {
 		b.Run(c.name, func(b *testing.B) {
-			g.days, g.gloams = c.days, nil
+			g.days, g.gloams, g.settings.View = c.days, nil, c.view
 			for i := range c.gloams {
 				at := g.player.Pos.Add(ahead.Scale(4 + 2*float64(i)))
 				at.Y = float64(g.world.Ground(int(math.Floor(at.X)), int(math.Floor(at.Z))) + 1)
