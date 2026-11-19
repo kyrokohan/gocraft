@@ -9,8 +9,8 @@ import (
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
 
-	"github.com/kyrokohan/gocraft/internal/assets"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/assets"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 func newRenderer(t testing.TB) *Renderer {

@@ -5,8 +5,8 @@ import (
 
 	"glonk.dev/geometry"
 
-	"github.com/kyrokohan/gocraft/internal/sound"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/sound"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // The player's body in survival. Health and food are points; air is seconds of breath.

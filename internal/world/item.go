@@ -1,6 +1,6 @@
 package world
 
-import "github.com/kyrokohan/gocraft/internal/tile"
+import "github.com/kyrokohan/skyspear/internal/tile"
 
 // Item is a kind of thing the player can carry. From 1 to 255 an item is the block of
 // that number, and from 256 up it is a thing that is not a block. The numbers are

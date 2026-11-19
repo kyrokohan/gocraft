@@ -245,7 +245,7 @@ func pack(blocks []Block) []byte {
 // written.
 func unpack(data []byte, blocks []Block) error {
 	if len(data) < len(chunkMagic) || string(data[:len(chunkMagic)]) != chunkMagic {
-		return fmt.Errorf("%w: it does not start as a gocraft chunk of this version does", errBadSave)
+		return fmt.Errorf("%w: it does not start as a chunk of this version does", errBadSave)
 	}
 	zr, err := gzip.NewReader(bytes.NewReader(data[len(chunkMagic):]))
 	if err != nil {

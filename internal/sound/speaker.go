@@ -21,7 +21,7 @@ func Open(m *Mixer) (*Speaker, error) {
 		ChannelCount:    2,
 		Format:          oto.FormatFloat32LE,
 		BufferSize:      60 * time.Millisecond, // little enough that a sound comes with what makes it
-		ApplicationName: "gocraft",
+		ApplicationName: "skyspear",
 	})
 	if err != nil {
 		return nil, err

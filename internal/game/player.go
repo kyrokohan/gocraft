@@ -8,8 +8,8 @@ import (
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
 
-	"github.com/kyrokohan/gocraft/internal/render"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/render"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // The player's body and how it moves. Distances are in blocks, times in seconds.

@@ -6,7 +6,7 @@ import (
 
 	"glonk.dev/geometry"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 const frame = 1.0 / 30

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kyrokohan/gocraft/internal/sound"
+	"github.com/kyrokohan/skyspear/internal/sound"
 )
 
 // The sounds are made here too, from the same fixed hash: noise shaped by filters and

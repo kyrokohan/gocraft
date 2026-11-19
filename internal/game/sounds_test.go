@@ -10,8 +10,8 @@ import (
 	"glonk.dev/engine"
 	"glonk.dev/geometry"
 
-	"github.com/kyrokohan/gocraft/internal/sound"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/sound"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // hush gives the game a new mixer, playing nothing and listening where the player is, so

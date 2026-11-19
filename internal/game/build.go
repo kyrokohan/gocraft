@@ -5,8 +5,8 @@ import (
 
 	"glonk.dev/engine"
 
-	"github.com/kyrokohan/gocraft/internal/sound"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/sound"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // reach is how far away the player can break and place blocks.

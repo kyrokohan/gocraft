@@ -6,7 +6,7 @@ import (
 
 	"glonk.dev/engine"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // The size of the frame in these tests, in cells.

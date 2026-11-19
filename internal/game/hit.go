@@ -5,9 +5,9 @@ import (
 
 	"glonk.dev/geometry"
 
-	"github.com/kyrokohan/gocraft/internal/render"
-	"github.com/kyrokohan/gocraft/internal/sound"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/render"
+	"github.com/kyrokohan/skyspear/internal/sound"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // The player hits a creature it aims at with what breaks a block, Q or a click, and

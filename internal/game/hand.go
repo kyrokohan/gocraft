@@ -3,7 +3,7 @@ package game
 import (
 	"math"
 
-	"github.com/kyrokohan/gocraft/internal/render"
+	"github.com/kyrokohan/skyspear/internal/render"
 )
 
 // swingTime is how many seconds a swing of the hand takes.

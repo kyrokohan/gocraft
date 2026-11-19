@@ -7,7 +7,7 @@ import (
 	"glonk.dev/engine"
 	"glonk.dev/geometry"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // shut builds a box of stone round the facing camera and the wall in front of it, so

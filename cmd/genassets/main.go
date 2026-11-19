@@ -1,4 +1,4 @@
-// Command genassets draws gocraft's pictures: the strip of block tiles, the title and
+// Command genassets draws Skyspear's pictures: the strip of block tiles, the title and
 // the creatures; and it makes the game's sounds.
 // Everything is drawn by the code in this file, from a fixed hash, so the pictures are
 // the same every run and nothing is downloaded or copied from anywhere.
@@ -18,7 +18,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kyrokohan/gocraft/internal/tile"
+	"github.com/kyrokohan/skyspear/internal/tile"
 )
 
 const size = tile.Size
@@ -1044,17 +1044,17 @@ func drawBlocks() *image.NRGBA {
 
 // font is the letters of the title, 5 by 7.
 var font = map[rune][7]string{
-	'G': {" ### ", "#   #", "#    ", "# ###", "#   #", "#   #", " ### "},
-	'O': {" ### ", "#   #", "#   #", "#   #", "#   #", "#   #", " ### "},
-	'C': {" ### ", "#   #", "#    ", "#    ", "#    ", "#   #", " ### "},
-	'R': {"#### ", "#   #", "#   #", "#### ", "# #  ", "#  # ", "#   #"},
+	'S': {" ####", "#    ", "#    ", " ### ", "    #", "    #", "#### "},
+	'K': {"#   #", "#  # ", "# #  ", "##   ", "# #  ", "#  # ", "#   #"},
+	'Y': {"#   #", "#   #", " # # ", "  #  ", "  #  ", "  #  ", "  #  "},
+	'P': {"#### ", "#   #", "#   #", "#### ", "#    ", "#    ", "#    "},
+	'E': {"#####", "#    ", "#    ", "#### ", "#    ", "#    ", "#####"},
 	'A': {" ### ", "#   #", "#   #", "#####", "#   #", "#   #", "#   #"},
-	'F': {"#####", "#    ", "#    ", "#### ", "#    ", "#    ", "#    "},
-	'T': {"#####", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "  #  "},
+	'R': {"#### ", "#   #", "#   #", "#### ", "# #  ", "#  # ", "#   #"},
 }
 
 const (
-	titleText  = "GOCRAFT"
+	titleText  = "SKYSPEAR"
 	titleBlock = 4 // pixels across each little block a letter is built from
 
 	// titleCols and titleRows are the size of the title counted in those blocks.
@@ -1062,9 +1062,10 @@ const (
 	titleRows = 7
 )
 
-// titleTiles is what each letter of the title is built from.
+// titleTiles is what each letter of the title is built from: SKY out of cold tiles,
+// SPEAR out of earth.
 var titleTiles = [len(titleText)]tile.ID{
-	tile.GrassTop, tile.Dirt, tile.Stone, tile.Brick, tile.Planks, tile.LogSide, tile.Sand,
+	tile.Ice, tile.Snow, tile.Stone, tile.SandstoneSide, tile.Sand, tile.Dirt, tile.LogSide, tile.GrassTop,
 }
 
 // drawTitle draws the name of the game in letters built from little blocks, each letter

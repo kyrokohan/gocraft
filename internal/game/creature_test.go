@@ -8,8 +8,8 @@ import (
 	"glonk.dev/engine"
 	"glonk.dev/geometry"
 
-	"github.com/kyrokohan/gocraft/internal/render"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/render"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // walker is a creature on the test floor that walks the way it faces and does not

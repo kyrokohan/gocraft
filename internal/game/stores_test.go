@@ -9,7 +9,7 @@ import (
 	"glonk.dev/engine"
 	"glonk.dev/geometry"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 func TestAKilnCooksAPieceAtATimeWhileItHasFuel(t *testing.T) {

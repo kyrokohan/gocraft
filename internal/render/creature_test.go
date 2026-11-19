@@ -7,8 +7,8 @@ import (
 	"glonk.dev/engine"
 	"glonk.dev/geometry"
 
-	"github.com/kyrokohan/gocraft/internal/assets"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/assets"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 func newMossbacks(t testing.TB) *Mossbacks {

@@ -9,7 +9,7 @@ import (
 	"glonk.dev/engine"
 	"glonk.dev/widget"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // The look of everything drawn over the world: light text and frames on a dark ground,

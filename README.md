@@ -1,8 +1,10 @@
-# gocraft
+# Skyspear
 
-[![ci](https://github.com/kyrokohan/gocraft/actions/workflows/ci.yml/badge.svg)](https://github.com/kyrokohan/gocraft/actions/workflows/ci.yml)
+[![ci](https://github.com/kyrokohan/skyspear/actions/workflows/ci.yml/badge.svg)](https://github.com/kyrokohan/skyspear/actions/workflows/ci.yml)
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
+
+**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
 
 ![A snowy shore with pines, a lake and a mossback, drawn in terminal cells](docs/shot.png)
 
@@ -11,11 +13,13 @@ Walk a world with no end, made from a seed: seas and shores, plains in flower, f
 ## Install and run
 
 ```
-go install github.com/kyrokohan/gocraft@latest
-gocraft
+go install github.com/kyrokohan/skyspear@latest
+skyspear
 ```
 
 Or from a clone of this repo, `go run .`. Requires Go 1.27.2 or newer. The pictures and the sounds are built into the program, so it runs from any folder.
+
+The game as it was under its old name still installs, as `gocraft`: `go install github.com/kyrokohan/gocraft@v0.1.0`.
 
 - **Use a terminal that reports key releases:** Ghostty, kitty, WezTerm, foot, iTerm2 or Alacritty. There you can walk and turn at once. In other terminals (Apple's Terminal, for one) only one key stays held at a time, which is playable but clumsy, and the game says so on screen. This is how glonk reads keys; see its README.
 - **A bigger window is a sharper picture.** Every cell is two pixels, one above the other, so 200 by 60 cells is a picture of 200 by 120 pixels.
@@ -78,17 +82,18 @@ The title lists your worlds, the last played first, with how each is played and 
 
 The world is saved when you choose **Save and leave**, which goes back to the list, and also on **Quit**, Ctrl-C or when the window closes.
 
-- A world is a folder of `gocraft/worlds` in your config folder (`~/Library/Application Support` on macOS, `~/.config` on Linux), named as you named the world; `-worlds` names another folder of worlds. A world saved before there was a list is there as **world**. It holds `world.json` (the seed, the mode, the day and the hour, where you were, what you carry, how your body is, what lies on the ground, what the crates and the kilns hold, and your bedroll) and one small file for each chunk you changed. The rest of the world is made again from the seed.
+- A world is a folder of `skyspear/worlds` in your config folder (`~/Library/Application Support` on macOS, `~/.config` on Linux), named as you named the world; `-worlds` names another folder of worlds. A world saved before there was a list is there as **world**. It holds `world.json` (the seed, the mode, the day and the hour, where you were, what you carry, how your body is, what lies on the ground, what the crates and the kilns hold, and your bedroll) and one small file for each chunk you changed. The rest of the world is made again from the seed.
 - Every file is written beside the old one and then put in its place, so a write that fails leaves the old file.
 - A world whose `world.json` cannot be read is listed as such and does not open, so it is never written over. It can still be deleted.
 - `-world folder` plays the one world in that folder, with no list, as the game did before: the title offers **Continue**, **New world** asks before it takes the place of the saved world, and a `world.json` there that cannot be read stops the game with an error.
 - A chunk file that cannot be read does not stop the game. The chunk is made again from the seed, a line on screen says so, and the file is never written over, so what you build in that chunk is not kept.
+- **Worlds made under the old name** are still in `gocraft/worlds` in your config folder, untouched. `skyspear -worlds` with that folder lists them.
 - **The one world of the first version** (`gocraft/world.sav`) cannot be played by this one. It is left where it is, untouched.
 - The mossbacks are saved, where they stood and with their moss shorn or grown. A world saved before they were finds a new herd round you.
 
 ## Settings
 
-**Settings**, on the title and the pause menu, has the mouse speed (how far a drag turns the view), the view distance (32, 48 or 64 blocks: less is a little faster), the field of view (50° to 90°) and the volume (0% to 100%). Left and Right, or a click, change a line. They are kept in `gocraft/settings.json` in your config folder, apart from any world.
+**Settings**, on the title and the pause menu, has the mouse speed (how far a drag turns the view), the view distance (32, 48 or 64 blocks: less is a little faster), the field of view (50° to 90°) and the volume (0% to 100%). Left and Right, or a click, change a line. They are kept in `skyspear/settings.json` in your config folder, apart from any world.
 
 ## Flags
 
@@ -175,7 +180,7 @@ The race detector needs cgo. Where there is no C compiler, run `make check RACE=
 | `internal/tile` | the names of the tiles in the strip |
 | `cmd/genassets` | draws the pictures and makes the sounds |
 
-gocraft uses glonk v0.12.0, and oto v3.5.1 for sound.
+Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 
 ## Not in yet
 

@@ -1,4 +1,4 @@
-// Package assets holds gocraft's pictures and sounds and reads them once at start-up.
+// Package assets holds Skyspear's pictures and sounds and reads them once at start-up.
 // They are made by cmd/genassets; run `make assets` to make them again.
 package assets
 
@@ -10,8 +10,8 @@ import (
 
 	"glonk.dev/bitmap"
 
-	"github.com/kyrokohan/gocraft/internal/sound"
-	"github.com/kyrokohan/gocraft/internal/tile"
+	"github.com/kyrokohan/skyspear/internal/sound"
+	"github.com/kyrokohan/skyspear/internal/tile"
 )
 
 //go:embed img/blocks.png img/title.png img/mossback.png img/gloam.png sound/*.wav

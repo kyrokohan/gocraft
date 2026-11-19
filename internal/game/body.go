@@ -5,7 +5,7 @@ import (
 
 	"glonk.dev/geometry"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // A body is a box that stands on blocks and is stopped by them: the player's, and a

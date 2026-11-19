@@ -1,4 +1,4 @@
-// Package game is the gocraft game itself: what engine.Run drives.
+// Package game is the Skyspear game itself: what engine.Run drives.
 package game
 
 import (
@@ -14,10 +14,10 @@ import (
 	"glonk.dev/mesh"
 	"glonk.dev/widget"
 
-	"github.com/kyrokohan/gocraft/internal/assets"
-	"github.com/kyrokohan/gocraft/internal/render"
-	"github.com/kyrokohan/gocraft/internal/sound"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/assets"
+	"github.com/kyrokohan/skyspear/internal/render"
+	"github.com/kyrokohan/skyspear/internal/sound"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 const (

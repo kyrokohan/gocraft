@@ -1,4 +1,4 @@
-module github.com/kyrokohan/gocraft
+module github.com/kyrokohan/skyspear
 
 go 1.27.2
 

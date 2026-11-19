@@ -7,7 +7,7 @@ import (
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 func TestAFaceIsDarkerInTheCornersOfTheBlocksBesideIt(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 
 	"glonk.dev/engine"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // savedGame is a game with a save file, in a folder of the test's own.

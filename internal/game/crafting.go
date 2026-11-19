@@ -8,8 +8,8 @@ import (
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
 
-	"github.com/kyrokohan/gocraft/internal/sound"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/sound"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // Things are made from what the player carries, by a list of what can be made: a few

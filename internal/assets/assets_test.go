@@ -3,8 +3,8 @@ package assets
 import (
 	"testing"
 
-	"github.com/kyrokohan/gocraft/internal/sound"
-	"github.com/kyrokohan/gocraft/internal/tile"
+	"github.com/kyrokohan/skyspear/internal/sound"
+	"github.com/kyrokohan/skyspear/internal/tile"
 )
 
 func holes(pixels []uint32) int {
