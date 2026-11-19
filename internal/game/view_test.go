@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"glonk.dev/engine"
@@ -244,5 +245,18 @@ func TestTheBodyIsDrawnFromBehindAndTheHandThroughTheEyes(t *testing.T) {
 	g = fromBehind(t, onFloor(t))
 	if corner, rest := changed(frames(g)); corner != 0 || rest == 0 {
 		t.Errorf("from behind, what is held changed %d pixels in the corner and %d on the body, wanted none and some", corner, rest)
+	}
+}
+
+func TestThePauseMenuNamesTheKeysOfTheBody(t *testing.T) {
+	g := onFloor(t)
+	if err := press(g, engine.KeyEscape); err != nil {
+		t.Fatal(err)
+	}
+	text, _ := drawn(t, g)
+	for _, want := range []string{"V       view from behind", "C         crouch", "L       next look"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("the pause menu does not show %q:\n%s", want, text)
+		}
 	}
 }
