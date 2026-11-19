@@ -60,7 +60,7 @@ func (g *Game) point(in *engine.Input) (slot int) {
 // aim finds the block or the creature the player aims at, if one is in reach: under the
 // pointer while the mouse is in use, and in the middle of the view otherwise.
 func (g *Game) aim() {
-	cam := g.eyes()
+	cam, behind := g.viewed()
 	direction := cam.Look()
 	if g.pointing {
 		// glonk's ray through the pointer's cell reaches one deep, and the reach is a
@@ -69,7 +69,15 @@ func (g *Game) aim() {
 			direction = d.Normalize()
 		}
 	}
-	g.target, g.aimed = g.world.Target(cam.Position, direction, reach)
+	origin := cam.Position
+	if behind {
+		// The ray is the camera's, so that what is aimed at is what is seen under the
+		// crosshair or the pointer. But it starts where it passes the player: nothing
+		// between the camera and the player is aimed at, and the reach is the player's.
+		passes := g.player.head().Sub(origin).Dot(cam.Look()) / direction.Dot(cam.Look())
+		origin = origin.Add(direction.Scale(passes))
+	}
+	g.target, g.aimed = g.world.Target(origin, direction, reach)
 
 	// A creature in front of the block, or in reach where there is none, is aimed at in
 	// its place.
@@ -77,7 +85,7 @@ func (g *Game) aim() {
 	if g.aimed {
 		limit = g.target.T
 	}
-	if g.prey, g.preyed = g.aimCreature(cam.Position, direction, limit); g.preyed {
+	if g.prey, g.preyed = g.aimCreature(origin, direction, limit); g.preyed {
 		g.aimed = false
 	}
 }

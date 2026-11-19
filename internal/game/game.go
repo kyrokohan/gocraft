@@ -119,6 +119,15 @@ type Game struct {
 	moss   *render.Mossbacks
 	poses  []render.Mossback // the creatures as they are drawn, kept between frames
 
+	// The player's body, which is seen from behind: what draws it, the body as it is
+	// drawn, kept between frames, which look it wears, how far the player has walked
+	// in all, and whether it walked this frame.
+	folk   *render.People
+	cast   []render.Person
+	worn   int
+	strode float64
+	paced  bool
+
 	// The gloams, in survival, and when a place is next looked for to gather one.
 	gloams    []gloam
 	gloamWait float64
@@ -214,6 +223,7 @@ func New(opts Options) (*Game, error) {
 	}
 	g := &Game{
 		opts: opts, set: set, rend: render.New(set), moss: render.NewMossbacks(set), look: render.NewDrops(set),
+		folk:   render.NewPeople(set),
 		shades: render.NewGloams(set),
 		exact:  true, box: mesh.Cube(1), settings: loadSettings(opts.Settings),
 		ears: sound.NewMixer(set.Sounds), noises: rand.New(rand.NewPCG(1, 0x736f756e)),
@@ -431,10 +441,14 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		if keyDown(in.Started, 't') {
 			g.days += quarterDay
 		}
+		if keyDown(in.Started, 'v') {
+			g.switchView()
+		}
 		c := readControls(in)
 		c.toggleFly = c.toggleFly && !g.survival // only in creative can the player fly
 		from, wasWet, fell := g.player.Pos, inWater(g.world, g.player.Pos), -g.player.velY
 		g.player.Step(g.world, c, dt)
+		g.pace(from)
 		g.stepSounds(from, wasWet, fell)
 		g.herd.step(g.world, g.player.Pos, dt)
 		g.worldSounds(dt)
@@ -594,8 +608,9 @@ func (g *Game) changeSetting(i, by int) {
 }
 
 // drawThings draws what glonk draws into the world, over the blocks: the creatures,
-// which are solid, and then the clouds, which are seen through and so come last.
-func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera) {
+// which are solid, and then the clouds, which are seen through and so come last. The
+// player's own body is among them when the view is from behind it.
+func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera, body bool) {
 	g.poses = g.poses[:0]
 	for i := range g.herd.all {
 		pose := g.herd.all[i].Pose()
@@ -603,6 +618,11 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera) {
 		g.poses = append(g.poses, pose)
 	}
 	g.moss.Draw(c, cam, g.poses, g.sky)
+
+	if g.cast = g.cast[:0]; body {
+		g.cast = append(g.cast, g.body())
+	}
+	g.folk.Draw(c, cam, g.cast, g.sky, g.look)
 
 	g.lying = g.lying[:0]
 	for _, d := range g.drops {
@@ -637,7 +657,7 @@ func (g *Game) lightAt(p geometry.Vector3) world.Light {
 // where the light of the sky does not reach the eye, so that a cave fades into the dark
 // and not into the color of the sky outside it.
 func (g *Game) camera() mesh.Camera {
-	cam := g.eyes()
+	cam, _ := g.viewed()
 	cam.Fog = g.fogAt(cam)
 	return cam
 }
@@ -669,20 +689,21 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		cam.Fog = g.fogAt(cam)
 		cam.Yaw, cam.Pitch = g.spin, 0.15
 		g.rend.Draw(c, g.world, cam, g.sky)
-		g.drawThings(c, cam)
+		g.drawThings(c, cam, false)
 		g.drawTitle(fb, c)
 		return
 	}
 
 	// The blocks first, by rays, and then what glonk draws into the same canvas: the
 	// depth the rays stored hides it where a block is nearer.
-	cam := g.camera()
+	cam, behind := g.viewed()
+	cam.Fog = g.fogAt(cam)
 	if g.digging > 0 && g.aimed {
 		seconds, _ := g.digTime(g.target.Block)
 		g.rend.Crack = render.Crack{X: g.target.X, Y: g.target.Y, Z: g.target.Z, Part: g.digging / seconds}
 	}
 	g.rend.Draw(c, g.world, cam, g.sky)
-	g.drawThings(c, cam)
+	g.drawThings(c, cam, behind)
 	if g.aimed && (g.screen == playing || g.screen == paused) {
 		// The outline lies on the faces of the block, which the rays have drawn with
 		// their depth, so glonk draws it whole there and hides it behind what is nearer.
@@ -691,8 +712,9 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		}
 		g.box.DrawOnSurfacePixels(c, cam, hudPick.Foreground)
 	}
-	if g.screen != inBag {
-		g.look.DrawHand(c, g.inHand()) // last, over everything in the world
+	if g.screen != inBag && !behind {
+		// Last, over everything in the world. From behind it is in the body's hand.
+		g.look.DrawHand(c, g.inHand())
 	}
 	if g.flash > 0 {
 		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(200, 20, 20), 0.4*g.flash/hurtFlash)
