@@ -9,8 +9,8 @@ import (
 	"glonk.dev/engine"
 	"glonk.dev/geometry"
 
-	"github.com/kyrokohan/gocraft/internal/render"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/render"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 func TestANewWorldBeginsInTheMorning(t *testing.T) {

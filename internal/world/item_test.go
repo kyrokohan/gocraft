@@ -3,7 +3,7 @@ package world
 import (
 	"testing"
 
-	"github.com/kyrokohan/gocraft/internal/tile"
+	"github.com/kyrokohan/skyspear/internal/tile"
 )
 
 func TestABlockIsTheItemOfItsNumber(t *testing.T) {

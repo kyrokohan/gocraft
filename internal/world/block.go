@@ -2,7 +2,7 @@
 // rays through the grid, and saving it.
 package world
 
-import "github.com/kyrokohan/gocraft/internal/tile"
+import "github.com/kyrokohan/skyspear/internal/tile"
 
 // Block is the kind of block in one cell of the world. The numbers are written into
 // save files, so a kind keeps its number: add new ones at the end.

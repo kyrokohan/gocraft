@@ -5,8 +5,8 @@ import (
 
 	"glonk.dev/geometry"
 
-	"github.com/kyrokohan/gocraft/internal/assets"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/assets"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // sum is the brightness of a canvas, added up over every pixel.

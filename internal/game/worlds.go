@@ -17,7 +17,7 @@ import (
 	"glonk.dev/engine"
 	"glonk.dev/widget"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // The title lists the worlds in Options.Worlds, the last played first: one is chosen to

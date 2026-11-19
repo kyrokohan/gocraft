@@ -5,7 +5,7 @@ import (
 
 	"glonk.dev/engine"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 func TestIOpensTheBagAndClosesIt(t *testing.T) {

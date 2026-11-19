@@ -9,7 +9,7 @@ import (
 	"glonk.dev/geometry"
 	"glonk.dev/widget"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // A crate and a kiln are stores: blocks with slots of their own, which E opens in the bag

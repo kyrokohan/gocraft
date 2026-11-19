@@ -8,8 +8,8 @@ import (
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
 
-	"github.com/kyrokohan/gocraft/internal/render"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/render"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // How a mossback lives. Distances are in blocks, times in seconds.

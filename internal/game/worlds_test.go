@@ -11,7 +11,7 @@ import (
 
 	"glonk.dev/engine"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // listing is a game whose title lists the worlds in a folder of the test's own, with

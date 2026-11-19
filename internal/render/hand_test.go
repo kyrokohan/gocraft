@@ -5,8 +5,8 @@ import (
 
 	"glonk.dev/engine"
 
-	"github.com/kyrokohan/gocraft/internal/assets"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/assets"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 func TestWhatIsHeldIsDrawnLowOnTheRightOverAWallJustAhead(t *testing.T) {

@@ -16,9 +16,9 @@ import (
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
 
-	"github.com/kyrokohan/gocraft/internal/assets"
-	"github.com/kyrokohan/gocraft/internal/tile"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/assets"
+	"github.com/kyrokohan/skyspear/internal/tile"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // ViewDistance is how deep into the view the world is drawn, in blocks: the Far of the

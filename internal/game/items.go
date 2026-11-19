@@ -3,7 +3,7 @@ package game
 import (
 	"slices"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // What the player carries: the hotbar, on the keys 1 to 9, and the pack behind it.

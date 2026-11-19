@@ -3,7 +3,7 @@ package game
 import (
 	"testing"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 func TestThingsPickedUpStackAndFillTheHotbarFirst(t *testing.T) {

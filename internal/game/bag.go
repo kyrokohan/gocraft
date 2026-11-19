@@ -6,7 +6,7 @@ import (
 	"glonk.dev/engine"
 	"glonk.dev/widget"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // The bag is the screen of what the player carries, opened with I: rows of slots like

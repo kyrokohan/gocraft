@@ -1,4 +1,4 @@
-// Command gocraft is a block-building game that runs in the terminal.
+// Command skyspear is a block-building game that runs in the terminal.
 package main
 
 import (
@@ -12,13 +12,13 @@ import (
 
 	"glonk.dev/engine"
 
-	"github.com/kyrokohan/gocraft/internal/game"
-	"github.com/kyrokohan/gocraft/internal/sound"
+	"github.com/kyrokohan/skyspear/internal/game"
+	"github.com/kyrokohan/skyspear/internal/sound"
 )
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "gocraft:", err)
+		fmt.Fprintln(os.Stderr, "skyspear:", err)
 		os.Exit(1)
 	}
 }
@@ -26,7 +26,7 @@ func main() {
 func run() error {
 	seed := flag.Int64("seed", 0, "the number a new world is made from; 0 takes one from the clock")
 	worldPath := flag.String("world", "", "play only the world saved in this folder, with no list of worlds")
-	worldsPath := flag.String("worlds", "", "the folder of the worlds the title lists (default: gocraft/worlds in your config folder)")
+	worldsPath := flag.String("worlds", "", "the folder of the worlds the title lists (default: skyspear/worlds in your config folder)")
 	mouse := flag.Bool("mouse", true, "aim, break and place with the mouse; false leaves the pointer to the terminal, to select text")
 	shot := flag.String("shot", "", "draw one frame of play into this PNG file and quit; nothing is loaded or saved")
 	mute := flag.Bool("mute", false, "play with no sound, and leave the sound device alone")
@@ -46,16 +46,17 @@ func run() error {
 	opts := game.Options{Seed: *seed, SavePath: *worldPath, Worlds: *worldsPath}
 	dir, dirErr := os.UserConfigDir()
 	if dirErr == nil {
-		opts.Settings = filepath.Join(dir, "gocraft", "settings.json")
+		opts.Settings = filepath.Join(dir, "skyspear", "settings.json")
 	}
 	if opts.SavePath == "" && opts.Worlds == "" {
 		if dirErr != nil {
 			return fmt.Errorf("no folder to save worlds in (%w): name one with -worlds", dirErr)
 		}
-		opts.Worlds = filepath.Join(dir, "gocraft", "worlds")
+		opts.Worlds = filepath.Join(dir, "skyspear", "worlds")
 
-		// The first version of the game kept its one world in a file beside this
-		// folder. It is not read and not touched; the title says that it is there.
+		// The first version of the game, then called gocraft, kept its one world in a
+		// file in its own folder. It is not read and not touched; the title says that
+		// it is there.
 		if old := filepath.Join(dir, "gocraft", "world.sav"); isFile(old) {
 			opts.OldSave = old
 		}

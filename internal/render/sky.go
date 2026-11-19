@@ -6,7 +6,7 @@ import (
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // The time of day runs from 0 to 1: midnight at 0, the sun rising at a quarter, noon at

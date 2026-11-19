@@ -7,8 +7,8 @@ import (
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
 
-	"github.com/kyrokohan/gocraft/internal/tile"
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/tile"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // Held is what the player holds, as it is drawn low on the right of the view.

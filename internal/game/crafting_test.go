@@ -5,7 +5,7 @@ import (
 
 	"glonk.dev/engine"
 
-	"github.com/kyrokohan/gocraft/internal/world"
+	"github.com/kyrokohan/skyspear/internal/world"
 )
 
 // recipeFor returns the recipe of an item, if it can be made where the player stands.

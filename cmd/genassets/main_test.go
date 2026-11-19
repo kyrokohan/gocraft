@@ -11,8 +11,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/kyrokohan/gocraft/internal/sound"
-	"github.com/kyrokohan/gocraft/internal/tile"
+	"github.com/kyrokohan/skyspear/internal/sound"
+	"github.com/kyrokohan/skyspear/internal/tile"
 )
 
 func readPNG(t *testing.T, name string) *image.NRGBA {
