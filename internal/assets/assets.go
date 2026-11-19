@@ -14,7 +14,7 @@ import (
 	"github.com/kyrokohan/skyspear/internal/tile"
 )
 
-//go:embed img/blocks.png img/title.png img/mossback.png img/gloam.png sound/*.wav
+//go:embed img/blocks.png img/title.png img/mossback.png img/gloam.png img/person.png sound/*.wav
 var files embed.FS
 
 // Levels is how many sizes each tile is kept in: 16, 8, 4, 2 and 1 pixels across. A
@@ -54,6 +54,11 @@ type Set struct {
 	// Gloam is the same for the gloam: GloamTiles tiles, its smoke, its face and an arm.
 	Gloam *bitmap.Bitmap
 
+	// Person is the same for the cave person, once for each look, one look after
+	// another: PersonTiles tiles each, the face, the hair, the front, the back and a
+	// side of the hide, an arm and a leg.
+	Person *bitmap.Bitmap
+
 	// Sounds are the game's sounds, by their names: samples from -1 to 1 at sound.Rate.
 	Sounds [sound.Count][]float32
 }
@@ -62,7 +67,11 @@ type Set struct {
 const (
 	MossbackTiles = 6
 	GloamTiles    = 3
+	PersonTiles   = 7
 )
+
+// PersonLooks is how many looks a cave person can have.
+const PersonLooks = 6
 
 // Load reads the pictures built into the program.
 func Load() (*Set, error) {
@@ -100,6 +109,9 @@ func Load() (*Set, error) {
 		return nil, err
 	}
 	if set.Gloam, err = creature("img/gloam.png", GloamTiles); err != nil {
+		return nil, err
+	}
+	if set.Person, err = creature("img/person.png", PersonTiles*PersonLooks); err != nil {
 		return nil, err
 	}
 	for n := range sound.Count {
