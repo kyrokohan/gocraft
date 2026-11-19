@@ -53,10 +53,10 @@ const (
 	Torch
 	KnappingTop
 	KnappingSide
-	KilnTop
-	KilnSide
-	CrateTop
-	CrateSide
+	HearthTop
+	HearthSide
+	PotTop
+	PotSide
 	FurBed
 
 	TallFern

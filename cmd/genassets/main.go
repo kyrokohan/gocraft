@@ -119,10 +119,10 @@ var painters = [tile.Count]painter{
 
 	tile.KnappingTop:  knappingTop,
 	tile.KnappingSide: knappingSide,
-	tile.KilnTop:      kilnTop,
-	tile.KilnSide:     kilnSide,
-	tile.CrateTop:     crateTop,
-	tile.CrateSide:    crateSide,
+	tile.HearthTop:    hearthTop,
+	tile.HearthSide:   hearthSide,
+	tile.PotTop:       potTop,
+	tile.PotSide:      potSide,
 	tile.FurBed:       furBed,
 
 	tile.TallFern:      frond(&tallFernPic, rgb{46, 100, 48}, rgb{80, 148, 62}, 310),
@@ -904,7 +904,7 @@ func cracks(x, y int) (rgb, bool) {
 	return rgb{float64(crackSteps[y][x]) * 255 / 14, 0, 0}, true
 }
 
-func kilnTop(x, y int) (rgb, bool) {
+func hearthTop(x, y int) (rgb, bool) {
 	// Cobble round a flue, warm at the bottom.
 	dx, dy := float64(x)-7.5, float64(y)-7.5
 	switch d := dx*dx + dy*dy; {
@@ -916,7 +916,7 @@ func kilnTop(x, y int) (rgb, bool) {
 	return cobble(x, y)
 }
 
-func kilnSide(x, y int) (rgb, bool) {
+func hearthSide(x, y int) (rgb, bool) {
 	// Cobble with an arched mouth and the embers in it.
 	dx, dy := float64(x)-7.5, float64(y)-9
 	inside := math.Abs(dx) < 4 && y >= 9 || dx*dx+dy*dy < 16
@@ -931,17 +931,17 @@ func kilnSide(x, y int) (rgb, bool) {
 	return cobble(x, y)
 }
 
-// crateTop is the lid of a crate: boards in a frame, with a nail at each corner.
-func crateTop(x, y int) (rgb, bool) {
-	if c, ok := crateFrame(x, y); ok {
+// potTop is the lid of a pot: boards in a frame, with a nail at each corner.
+func potTop(x, y int) (rgb, bool) {
+	if c, ok := potFrame(x, y); ok {
 		return c, true
 	}
 	return planks(x, y)
 }
 
-// crateSide is a side of a crate: boards in a frame, braced from corner to corner.
-func crateSide(x, y int) (rgb, bool) {
-	if c, ok := crateFrame(x, y); ok {
+// potSide is a side of a pot: boards in a frame, braced from corner to corner.
+func potSide(x, y int) (rgb, bool) {
+	if c, ok := potFrame(x, y); ok {
 		return c, true
 	}
 	if d := x - y; d >= -1 && d <= 0 {
@@ -953,8 +953,8 @@ func crateSide(x, y int) (rgb, bool) {
 	return planks(x, y)
 }
 
-// crateFrame is the dark frame round each face of a crate, with its nails.
-func crateFrame(x, y int) (rgb, bool) {
+// potFrame is the dark frame round each face of a pot, with its nails.
+func potFrame(x, y int) (rgb, bool) {
 	edge := func(v int) bool { return v <= 1 || v >= size-2 }
 	switch {
 	case (x == 1 || x == size-2) && (y == 1 || y == size-2):

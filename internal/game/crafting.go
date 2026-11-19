@@ -14,7 +14,7 @@ import (
 
 // Things are made from what the player carries, by a list of what can be made: a few
 // things by hand, and more standing near a knapping stone. There are no patterns to lay out.
-// What is cooked, a kiln makes in its own slots (stores.go).
+// What is cooked, a hearth makes in its own slots (stores.go).
 
 // station is where a recipe is made.
 type station uint8
@@ -74,7 +74,7 @@ var recipes = func() []recipe {
 		{world.HandAxe, 1, []need{of(world.Flint, 2)}, atBench},
 		{world.FlintKnife, 1, []need{of(world.Flint, 1), of(world.Stick, 1), of(world.Cord, 1)}, atBench},
 		{world.FlintPick, 1, []need{of(world.Flint, 3), of(world.Stick, 2), of(world.Cord, 1)}, atBench},
-		{world.Kiln.Item(), 1, []need{of(cobble, 8)}, atBench},
+		{world.Hearth.Item(), 1, []need{of(cobble, 8)}, atBench},
 	}
 }()
 

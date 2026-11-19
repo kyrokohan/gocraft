@@ -161,13 +161,13 @@ type Game struct {
 	digAt    [3]int  // the block being dug, in survival
 	digging  float64 // for how long it has been dug
 
-	// The crates and the kilns of the world, by their cells, the one open in the bag, if
+	// The pots and the hearths of the world, by their cells, the one open in the bag, if
 	// any, and the bedroll the player wakes at.
-	crates map[world.Cell]*world.CrateStore
-	kilns  map[world.Cell]*world.KilnStore
-	opened world.Block // a crate or a kiln, or Air while the bag is the player's alone
-	at     world.Cell  // where that is
-	bed    *world.Cell
+	pots    map[world.Cell]*world.PotStore
+	hearths map[world.Cell]*world.HearthStore
+	opened  world.Block // a pot or a hearth, or Air while the bag is the player's alone
+	at      world.Cell  // where that is
+	bed     *world.Cell
 
 	notice     string  // a line over play, of what was just done
 	noticeLeft float64 // seconds it stays
@@ -182,7 +182,7 @@ type Game struct {
 	back     screen // the screen the settings go back to
 
 	// The sounds: the mixer they are played into, the chances they are played by, how far
-	// the player has walked since its last step, and until the kilns crackle again.
+	// the player has walked since its last step, and until the hearths crackle again.
 	ears    *sound.Mixer
 	noises  *rand.Rand
 	walked  float64
@@ -295,7 +295,7 @@ func (g *Game) Save() error {
 		m.Drops = append(m.Drops, d.Drop)
 	}
 	m.Beasts = g.fauna.saved()
-	m.Crates, m.Kilns = g.savedStores()
+	m.Pots, m.Hearths = g.savedStores()
 	m.Bed = g.bed
 	return g.world.Save(g.opts.SavePath, m)
 }
@@ -461,13 +461,13 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		}
 		g.stepDrops(dt)
 		g.stepBits(dt)
-		g.stepKilns(dt)
+		g.stepHearths(dt)
 		g.noticeLeft = max(g.noticeLeft-dt, 0)
 		g.build(in, dt)
 		return nil
 	}
 	if g.screen == inBag {
-		g.stepKilns(dt) // a kiln that is open is seen to cook
+		g.stepHearths(dt) // a hearth that is open is seen to cook
 		g.useBag(in, escape)
 		return nil
 	}

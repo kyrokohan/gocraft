@@ -47,8 +47,8 @@ const (
 
 	Torch
 	KnappingStone
-	Kiln
-	Crate
+	Hearth
+	ClayPot
 	FurBed
 
 	TallFern
@@ -143,13 +143,13 @@ var infos = [256]Info{
 	// A torch stands on the ground as a plant does, and is drawn as one.
 	Torch: glowing(plant("torch", tile.Torch), 14),
 
-	// Standing near a workbench or a kiln lets the player make more.
+	// Standing near a workbench or a hearth lets the player make more.
 	KnappingStone: byPick(solid("knapping stone", tile.KnappingTop, tile.KnappingSide, tile.Stone), 2, 0),
-	Kiln:          byPick(solid("kiln", tile.KilnTop, tile.KilnSide, tile.Cobble), 2.5, 0),
+	Hearth:        byPick(solid("hearth", tile.HearthTop, tile.HearthSide, tile.Cobble), 2.5, 0),
 
-	// A crate keeps things, and a bedroll is where the player sleeps and wakes.
-	Crate:  byAxe(solid("crate", tile.CrateTop, tile.CrateSide, tile.CrateTop), 1.2),
-	FurBed: dig(Info{Name: "fur bed", Top: tile.FurBed, Side: tile.FurBed, Bottom: tile.FurBed, Mat: true}, 0.3),
+	// A pot keeps things, and a bedroll is where the player sleeps and wakes.
+	ClayPot: byAxe(solid("pot", tile.PotTop, tile.PotSide, tile.PotTop), 1.2),
+	FurBed:  dig(Info{Name: "fur bed", Top: tile.FurBed, Side: tile.FurBed, Bottom: tile.FurBed, Mat: true}, 0.3),
 
 	// What grows in the old lands. A tall fern fills its cell, and a stump palm's crown
 	// stands on its trunk as a plant does on the ground.

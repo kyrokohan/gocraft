@@ -12,16 +12,16 @@ import (
 	"github.com/kyrokohan/skyspear/internal/world"
 )
 
-// A crate and a kiln are stores: blocks with slots of their own, which E opens in the bag
-// above the player's things, in survival. A crate keeps what is put in it. A kiln cooks
+// A pot and a hearth are stores: blocks with slots of their own, which E opens in the bag
+// above the player's things, in survival. A pot keeps what is put in it. A hearth cooks
 // what is put in it, a piece at a time, as long as it has fuel: an ore to a bar, sand to
-// glass, clay to brick, berries to a loaf and moss to a cake. Every kiln cooks wherever it
+// glass, clay to brick, berries to a loaf and moss to a cake. Every hearth cooks wherever it
 // is while the world is played, with nobody to watch it.
 
-// cookTime is how many seconds a kiln takes to cook one piece.
+// cookTime is how many seconds a hearth takes to cook one piece.
 const cookTime = 6.0
 
-// cook is what a kiln makes: one of makes from n of from.
+// cook is what a hearth makes: one of makes from n of from.
 type cook struct {
 	from  world.Item
 	n     int
@@ -35,7 +35,7 @@ var cooks = []cook{
 	{world.Moss, 3, world.MossCake},
 }
 
-// burnTime is how many seconds a piece of an item burns in a kiln: 0 for what is not
+// burnTime is how many seconds a piece of an item burns in a hearth: 0 for what is not
 // fuel.
 func burnTime(item world.Item) float64 {
 	switch item {
@@ -51,14 +51,14 @@ func burnTime(item world.Item) float64 {
 	return 0
 }
 
-// cooksFrom reports whether a kiln cooks anything from an item.
+// cooksFrom reports whether a hearth cooks anything from an item.
 func cooksFrom(item world.Item) bool {
 	return slices.ContainsFunc(cooks, func(c cook) bool { return c.from == item })
 }
 
-// cookIn returns what a kiln can cook from what is in it: there is enough of it, and
+// cookIn returns what a hearth can cook from what is in it: there is enough of it, and
 // room for what it makes.
-func cookIn(k *world.KilnStore) (cook, bool) {
+func cookIn(k *world.HearthStore) (cook, bool) {
 	for _, c := range cooks {
 		if k.In.Item != c.from {
 			continue
@@ -69,10 +69,10 @@ func cookIn(k *world.KilnStore) (cook, bool) {
 	return cook{}, false
 }
 
-// stepKiln moves a kiln on by dt seconds. While there is something it can cook, it burns
+// stepHearth moves a hearth on by dt seconds. While there is something it can cook, it burns
 // a piece of fuel after another, and what it has cooked stays cooked when the fuel runs
 // out; taking away what it was cooking starts the next one afresh.
-func stepKiln(k *world.KilnStore, dt float64) {
+func stepHearth(k *world.HearthStore, dt float64) {
 	for dt > 0 {
 		step := min(dt, 0.25) // so that a long step lights the next piece of fuel in time
 		dt -= step
@@ -102,36 +102,36 @@ func takeFrom(s *world.Stack, n int) {
 	}
 }
 
-// stepKilns moves every kiln on by dt seconds.
-func (g *Game) stepKilns(dt float64) {
-	for _, k := range g.kilns {
-		stepKiln(k, dt)
+// stepHearths moves every hearth on by dt seconds.
+func (g *Game) stepHearths(dt float64) {
+	for _, k := range g.hearths {
+		stepHearth(k, dt)
 	}
 }
 
-// crate returns the store of the crate at a cell, which is empty if nothing was ever put
+// pot returns the store of the pot at a cell, which is empty if nothing was ever put
 // in it.
-func (g *Game) crate(c world.Cell) *world.CrateStore {
-	s, ok := g.crates[c]
+func (g *Game) pot(c world.Cell) *world.PotStore {
+	s, ok := g.pots[c]
 	if !ok {
-		s = &world.CrateStore{Cell: c, Items: make([]world.Stack, world.CrateSlots)}
-		g.crates[c] = s
+		s = &world.PotStore{Cell: c, Items: make([]world.Stack, world.PotSlots)}
+		g.pots[c] = s
 	}
 	return s
 }
 
-// kiln returns the store of the kiln at a cell, which is cold and empty if nothing was
+// hearth returns the store of the hearth at a cell, which is cold and empty if nothing was
 // ever put in it.
-func (g *Game) kiln(c world.Cell) *world.KilnStore {
-	s, ok := g.kilns[c]
+func (g *Game) hearth(c world.Cell) *world.HearthStore {
+	s, ok := g.hearths[c]
 	if !ok {
-		s = &world.KilnStore{Cell: c}
-		g.kilns[c] = s
+		s = &world.HearthStore{Cell: c}
+		g.hearths[c] = s
 	}
 	return s
 }
 
-// openStore opens the bag with the slots of a crate or a kiln over the player's own, and
+// openStore opens the bag with the slots of a pot or a hearth over the player's own, and
 // the keys on its first slot.
 func (g *Game) openStore(b world.Block, c world.Cell) {
 	g.openBag()
@@ -139,50 +139,50 @@ func (g *Game) openStore(b world.Block, c world.Cell) {
 }
 
 // storeRows is how many rows at the top of the bag are the slots of the block opened: a
-// crate's two, a kiln's one, or none.
+// pot's two, a hearth's one, or none.
 func (g *Game) storeRows() int {
 	switch g.opened {
-	case world.Crate:
-		return world.CrateSlots / hotbarSlots
-	case world.Kiln:
+	case world.ClayPot:
+		return world.PotSlots / hotbarSlots
+	case world.Hearth:
 		return 1
 	}
 	return 0
 }
 
-// The columns of a kiln's row: what it cooks, its fuel, and, past a column that shows how
+// The columns of a hearth's row: what it cooks, its fuel, and, past a column that shows how
 // far it is, what it has made.
 const (
-	kilnIn   = 0
-	kilnFuel = 1
-	kilnOut  = 3
+	hearthIn   = 0
+	hearthFuel = 1
+	hearthOut  = 3
 )
 
 // storeSlot returns the slot of the block opened at a row and a column of its rows, or
-// nil where a kiln's row has none.
+// nil where a hearth's row has none.
 func (g *Game) storeSlot(row, col int) *world.Stack {
-	if g.opened == world.Crate {
-		return &g.crate(g.at).Items[row*hotbarSlots+col]
+	if g.opened == world.ClayPot {
+		return &g.pot(g.at).Items[row*hotbarSlots+col]
 	}
-	k := g.kiln(g.at)
+	k := g.hearth(g.at)
 	switch col {
-	case kilnIn:
+	case hearthIn:
 		return &k.In
-	case kilnFuel:
+	case hearthFuel:
 		return &k.Fuel
-	case kilnOut:
+	case hearthOut:
 		return &k.Out
 	}
 	return nil
 }
 
-// takes reports whether what is in hand can be put down in a slot: a kiln takes only
+// takes reports whether what is in hand can be put down in a slot: a hearth takes only
 // what it cooks where it cooks, only fuel where it burns, and nothing where it makes.
 func (g *Game) takes(s *world.Stack) bool {
-	if g.opened != world.Kiln || g.hand.Count == 0 {
+	if g.opened != world.Hearth || g.hand.Count == 0 {
 		return true
 	}
-	k := g.kiln(g.at)
+	k := g.hearth(g.at)
 	switch s {
 	case &k.In:
 		return cooksFrom(g.hand.Item)
@@ -192,17 +192,17 @@ func (g *Game) takes(s *world.Stack) bool {
 	return false
 }
 
-// spill puts down what a crate or a kiln held when it is broken, and forgets it.
+// spill puts down what a pot or a hearth held when it is broken, and forgets it.
 func (g *Game) spill(c world.Cell) {
 	var held []world.Stack
-	if s, ok := g.crates[c]; ok {
+	if s, ok := g.pots[c]; ok {
 		held = s.Items
 	}
-	if k, ok := g.kilns[c]; ok {
+	if k, ok := g.hearths[c]; ok {
 		held = []world.Stack{k.In, k.Fuel, k.Out}
 	}
-	delete(g.crates, c)
-	delete(g.kilns, c)
+	delete(g.pots, c)
+	delete(g.hearths, c)
 	for _, s := range held {
 		if s.Count > 0 && g.survival {
 			g.drops = append(g.drops, drop{Drop: world.Drop{Stack: s, Pos: cellMiddle(c)}})
@@ -210,35 +210,35 @@ func (g *Game) spill(c world.Cell) {
 	}
 }
 
-// loadStores takes the crates, the kilns and the bed from a save.
+// loadStores takes the pots, the hearths and the bed from a save.
 func (g *Game) loadStores(s world.Meta) {
-	g.crates, g.kilns, g.bed = map[world.Cell]*world.CrateStore{}, map[world.Cell]*world.KilnStore{}, s.Bed
-	for _, c := range s.Crates {
-		items := make([]world.Stack, world.CrateSlots)
+	g.pots, g.hearths, g.bed = map[world.Cell]*world.PotStore{}, map[world.Cell]*world.HearthStore{}, s.Bed
+	for _, c := range s.Pots {
+		items := make([]world.Stack, world.PotSlots)
 		copy(items, c.Items)
-		g.crates[c.Cell] = &world.CrateStore{Cell: c.Cell, Items: items}
+		g.pots[c.Cell] = &world.PotStore{Cell: c.Cell, Items: items}
 	}
-	for _, k := range s.Kilns {
-		g.kilns[k.Cell] = &k
+	for _, k := range s.Hearths {
+		g.hearths[k.Cell] = &k
 	}
 }
 
-// savedStores returns the crates and the kilns as a save holds them: those that hold
+// savedStores returns the pots and the hearths as a save holds them: those that hold
 // anything, in the order of their cells, so that a save of the same world is the same.
-func (g *Game) savedStores() (crates []world.CrateStore, kilns []world.KilnStore) {
-	for _, c := range g.crates {
+func (g *Game) savedStores() (pots []world.PotStore, hearths []world.HearthStore) {
+	for _, c := range g.pots {
 		if slices.ContainsFunc(c.Items, func(s world.Stack) bool { return s.Count > 0 }) {
-			crates = append(crates, *c)
+			pots = append(pots, *c)
 		}
 	}
-	for _, k := range g.kilns {
+	for _, k := range g.hearths {
 		if k.In.Count > 0 || k.Fuel.Count > 0 || k.Out.Count > 0 || k.Burn > 0 {
-			kilns = append(kilns, *k)
+			hearths = append(hearths, *k)
 		}
 	}
-	slices.SortFunc(crates, func(a, b world.CrateStore) int { return compareCells(a.Cell, b.Cell) })
-	slices.SortFunc(kilns, func(a, b world.KilnStore) int { return compareCells(a.Cell, b.Cell) })
-	return crates, kilns
+	slices.SortFunc(pots, func(a, b world.PotStore) int { return compareCells(a.Cell, b.Cell) })
+	slices.SortFunc(hearths, func(a, b world.HearthStore) int { return compareCells(a.Cell, b.Cell) })
+	return pots, hearths
 }
 
 // cellMiddle is where a thing put down in a cell lies to begin with, before it falls.
@@ -251,14 +251,14 @@ func compareCells(a, b world.Cell) int {
 }
 
 // useBlock does what E does to a block aimed at, when that is not to build against it:
-// it opens a crate or a kiln, in survival, and lies down on a bedroll. It reports whether
+// it opens a pot or a hearth, in survival, and lies down on a bedroll. It reports whether
 // it did.
 func (g *Game) useBlock(t world.Hit) bool {
 	c := world.Cell{X: t.X, Y: t.Y, Z: t.Z}
 	switch {
 	case t.Block == world.FurBed:
 		g.lieDown(c)
-	case (t.Block == world.Crate || t.Block == world.Kiln) && g.survival:
+	case (t.Block == world.ClayPot || t.Block == world.Hearth) && g.survival:
 		g.openStore(t.Block, c)
 	default:
 		return false
@@ -266,31 +266,31 @@ func (g *Game) useBlock(t world.Hit) bool {
 	return true
 }
 
-// kilnHot is the look of the fire of a kiln and of what it has cooked.
-var kilnHot = engine.Cell{Foreground: engine.RGB(244, 140, 52), Background: hudGround}
+// hearthHot is the look of the fire of a hearth and of what it has cooked.
+var hearthHot = engine.Cell{Foreground: engine.RGB(244, 140, 52), Background: hudGround}
 
-// drawKiln draws a kiln's row of the bag with its top left corner at (x, y): what it
+// drawHearth draws a hearth's row of the bag with its top left corner at (x, y): what it
 // cooks and its fuel; then an arrow that fills as a piece cooks, over the fire, which
 // goes down as a piece of fuel burns; then what it has made, and what it does.
-func (g *Game) drawKiln(fb *engine.FrameBuffer, c *engine.Canvas, x, y int, k *world.KilnStore) {
+func (g *Game) drawHearth(fb *engine.FrameBuffer, c *engine.Canvas, x, y int, k *world.HearthStore) {
 	g.drawRow(fb, c, x, y, []world.Stack{k.In, k.Fuel})
-	g.drawRow(fb, c, x+kilnOut*slotPitch, y, []world.Stack{k.Out})
+	g.drawRow(fb, c, x+hearthOut*slotPitch, y, []world.Stack{k.Out})
 
-	mid, w := x+(kilnOut-1)*slotPitch+1, slotPitch-1
+	mid, w := x+(hearthOut-1)*slotPitch+1, slotPitch-1
 	for row := y + 1; row < y+barHeight-1; row++ {
 		for i := range w {
 			fb.Set(mid+i, row, hudFill)
 		}
 	}
 	bar := func(row int, part float64, full, empty rune) {
-		on, off := kilnHot, hudDim
+		on, off := hearthHot, hudDim
 		on.Character, off.Character = full, empty
 		widget.Bar{Value: part, Full: on, Empty: off}.Draw(fb, mid, row, w)
 	}
 	bar(y+1, k.Cooked/cookTime, '━', '─')
 	arrow := hudDim
 	if k.Burn > 0 {
-		arrow = kilnHot
+		arrow = hearthHot
 	}
 	arrow.Character = '▶'
 	fb.Set(mid+w-1, y+1, arrow)
@@ -314,7 +314,7 @@ func (g *Game) drawKiln(fb *engine.FrameBuffer, c *engine.Canvas, x, y int, k *w
 	if k.Burn > 0 {
 		lines[2] = "burning"
 	}
-	tx := x + (kilnOut+1)*slotPitch + 2
+	tx := x + (hearthOut+1)*slotPitch + 2
 	for i, line := range lines {
 		widget.Label{Text: line, Style: hudText}.Draw(fb, tx, y+1+i, barWidth-(tx-x)-1)
 	}

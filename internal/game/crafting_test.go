@@ -32,7 +32,7 @@ func TestALogIsMadeIntoSticksByHandAndNothingMakesPlanks(t *testing.T) {
 	if g.craft(r) {
 		t.Error("sticks were made with no log left")
 	}
-	for _, old := range []world.Item{world.Planks.Item(), world.WoodPick, world.StonePick, world.CopperPick, world.IronPick, world.Crate.Item()} {
+	for _, old := range []world.Item{world.Planks.Item(), world.WoodPick, world.StonePick, world.CopperPick, world.IronPick, world.ClayPot.Item()} {
 		for _, r := range recipes {
 			if r.makes == old {
 				t.Errorf("%s can still be made", old.Name())

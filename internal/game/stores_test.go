@@ -11,158 +11,158 @@ import (
 	"github.com/kyrokohan/skyspear/internal/world"
 )
 
-func TestAKilnCooksAPieceAtATimeWhileItHasFuel(t *testing.T) {
-	k := &world.KilnStore{
+func TestAHearthCooksAPieceAtATimeWhileItHasFuel(t *testing.T) {
+	k := &world.HearthStore{
 		In:   world.Stack{Item: world.Clay.Item(), Count: 3},
 		Fuel: world.Stack{Item: world.Planks.Item(), Count: 1}, // a piece and a half
 	}
 
-	stepKiln(k, cookTime-0.1)
+	stepHearth(k, cookTime-0.1)
 	if k.Out.Count != 0 || k.Fuel.Count != 0 || k.Burn == 0 {
 		t.Fatalf("before a piece is cooked: made %+v, fuel %+v burning %v", k.Out, k.Fuel, k.Burn)
 	}
-	stepKiln(k, 6)
+	stepHearth(k, 6)
 	if k.Out != (world.Stack{Item: world.Brick.Item(), Count: 1}) || k.In.Count != 2 {
 		t.Fatalf("after the planks burned: made %+v from %+v, wanted one brick", k.Out, k.In)
 	}
 	if k.Burn != 0 || !near(k.Cooked, 1.5*cookTime-cookTime) {
 		t.Fatalf("the fire has %v left and the next piece %v cooked: wanted no fire, and half a piece kept", k.Burn, k.Cooked)
 	}
-	stepKiln(k, 60)
+	stepHearth(k, 60)
 	if k.Out.Count != 1 {
 		t.Fatalf("with no fuel, it made %+v", k.Out)
 	}
 
 	k.Fuel = world.Stack{Item: world.Coal, Count: 1}
-	stepKiln(k, cookTime/2+0.1)
+	stepHearth(k, cookTime/2+0.1)
 	if k.Out.Count != 2 {
 		t.Fatalf("coal did not finish the half-cooked piece: made %+v", k.Out)
 	}
-	stepKiln(k, 10)
+	stepHearth(k, 10)
 	if k.Out.Count != 3 || k.In.Count != 0 || k.Cooked != 0 || k.Burn == 0 {
 		t.Errorf("made %+v from what is left, %+v, with the fire at %v: wanted all of it cooked and the coal still burning", k.Out, k.In, k.Burn)
 	}
-	stepKiln(k, 60)
+	stepHearth(k, 60)
 	if k.Burn != 0 {
 		t.Errorf("the fire is at %v a minute on, wanted the coal burned out", k.Burn)
 	}
 }
 
-func TestAKilnWaitsForEnoughAndForRoom(t *testing.T) {
-	k := &world.KilnStore{
+func TestAHearthWaitsForEnoughAndForRoom(t *testing.T) {
+	k := &world.HearthStore{
 		In:   world.Stack{Item: world.Berries, Count: 2},
 		Fuel: world.Stack{Item: world.Coal, Count: 3},
 	}
-	stepKiln(k, 30)
+	stepHearth(k, 30)
 	if k.Out.Count != 0 || k.Fuel.Count != 3 {
 		t.Errorf("from 2 berries it made %+v and burned %d coal: a loaf needs 3, and nothing should burn", k.Out, 3-k.Fuel.Count)
 	}
 
 	k.In = world.Stack{Item: world.Sand.Item(), Count: 5}
 	k.Out = world.Stack{Item: world.Brick.Item(), Count: 1}
-	stepKiln(k, 30)
+	stepHearth(k, 30)
 	if k.Out.Item != world.Brick.Item() || k.In.Count != 5 {
 		t.Errorf("with brick where the glass goes, it made %+v", k.Out)
 	}
 }
 
-func TestAKilnTakesOnlyWhatItCooksAndBurns(t *testing.T) {
+func TestAHearthTakesOnlyWhatItCooksAndBurns(t *testing.T) {
 	g := inSurvival(t)
 	at := world.Cell{X: 22, Y: 6, Z: 22}
-	g.world.Set(at.X, at.Y, at.Z, world.Kiln)
-	g.openStore(world.Kiln, at)
-	k := g.kiln(at)
+	g.world.Set(at.X, at.Y, at.Z, world.Hearth)
+	g.openStore(world.Hearth, at)
+	k := g.hearth(at)
 
 	g.hand = world.Stack{Item: world.Berries, Count: 5}
-	if g.pickCell(0, kilnFuel); k.Fuel.Count != 0 {
+	if g.pickCell(0, hearthFuel); k.Fuel.Count != 0 {
 		t.Errorf("berries went in as fuel")
 	}
-	if g.pickCell(0, kilnIn); k.In != (world.Stack{Item: world.Berries, Count: 5}) || g.hand.Count != 0 {
-		t.Errorf("berries to cook: the kiln holds %+v and the hand %+v", k.In, g.hand)
+	if g.pickCell(0, hearthIn); k.In != (world.Stack{Item: world.Berries, Count: 5}) || g.hand.Count != 0 {
+		t.Errorf("berries to cook: the hearth holds %+v and the hand %+v", k.In, g.hand)
 	}
 	g.hand = world.Stack{Item: world.Dirt.Item(), Count: 1}
-	if g.pickCell(0, kilnIn); k.In.Item != world.Berries {
+	if g.pickCell(0, hearthIn); k.In.Item != world.Berries {
 		t.Errorf("dirt went in to cook, which nothing is cooked from")
 	}
 	g.hand = world.Stack{Item: world.PineLog.Item(), Count: 2}
-	if g.pickCell(0, kilnFuel); k.Fuel.Count != 2 {
+	if g.pickCell(0, hearthFuel); k.Fuel.Count != 2 {
 		t.Errorf("a log did not go in as fuel: %+v", k.Fuel)
 	}
 
 	k.Out = world.Stack{Item: world.BerryLoaf, Count: 2}
 	g.hand = world.Stack{Item: world.BerryLoaf, Count: 1}
-	if g.pickCell(0, kilnOut); g.hand.Count != 3 || k.Out.Count != 0 {
-		t.Errorf("taking what it made: the hand holds %+v and the kiln %+v", g.hand, k.Out)
+	if g.pickCell(0, hearthOut); g.hand.Count != 3 || k.Out.Count != 0 {
+		t.Errorf("taking what it made: the hand holds %+v and the hearth %+v", g.hand, k.Out)
 	}
-	if g.pickCell(0, kilnOut); g.hand.Count != 3 || k.Out.Count != 0 {
-		t.Errorf("something was put where the kiln puts what it makes")
+	if g.pickCell(0, hearthOut); g.hand.Count != 3 || k.Out.Count != 0 {
+		t.Errorf("something was put where the hearth puts what it makes")
 	}
 
 	text, _ := drawn(t, g)
-	for _, want := range []string{"kiln", "your things", "makes berry loaf", "burns wood or coal"} {
+	for _, want := range []string{"hearth", "your things", "makes berry loaf", "burns wood or coal"} {
 		if !strings.Contains(text, want) {
-			t.Errorf("the kiln does not show %q:\n%s", want, text)
+			t.Errorf("the hearth does not show %q:\n%s", want, text)
 		}
 	}
 }
 
-func TestTheKeysStepOverWhereAKilnHasNoSlot(t *testing.T) {
+func TestTheKeysStepOverWhereAHearthHasNoSlot(t *testing.T) {
 	g := inSurvival(t)
-	g.openStore(world.Kiln, world.Cell{X: 22, Y: 6, Z: 22})
+	g.openStore(world.Hearth, world.Cell{X: 22, Y: 6, Z: 22})
 
 	var cols []int
 	for range 4 {
 		press(g, engine.KeyRight)
 		cols = append(cols, g.cursor%hotbarSlots)
 	}
-	if want := []int{kilnFuel, kilnOut, kilnIn, kilnFuel}; !slices.Equal(cols, want) {
+	if want := []int{hearthFuel, hearthOut, hearthIn, hearthFuel}; !slices.Equal(cols, want) {
 		t.Errorf("Right went to the columns %v, wanted %v", cols, want)
 	}
 	press(g, engine.KeyDown)
 	for range 3 {
-		press(g, engine.KeyRight) // to column 4 of the pack, under no slot of the kiln
+		press(g, engine.KeyRight) // to column 4 of the pack, under no slot of the hearth
 	}
 	press(g, engine.KeyUp)
-	if g.cursor != kilnOut {
-		t.Errorf("Up from under no slot went to %d, wanted what the kiln made", g.cursor)
+	if g.cursor != hearthOut {
+		t.Errorf("Up from under no slot went to %d, wanted what the hearth made", g.cursor)
 	}
 }
 
-func TestACrateKeepsWhatIsPutInItAndSpillsItWhenBroken(t *testing.T) {
+func TestAPotKeepsWhatIsPutInItAndSpillsItWhenBroken(t *testing.T) {
 	g := inSurvival(t)
 	at := world.Cell{X: 22, Y: 6, Z: 22}
-	g.world.Set(at.X, at.Y, at.Z, world.Crate)
+	g.world.Set(at.X, at.Y, at.Z, world.ClayPot)
 	g.items[0] = world.Stack{Item: world.Cobble.Item(), Count: 10}
 
-	if !g.useBlock(world.Hit{X: at.X, Y: at.Y, Z: at.Z, Block: world.Crate}) || g.screen != inBag || g.cursor != 0 {
-		t.Fatalf("E on a crate: screen %d with the keys on %d, wanted the bag on the crate's first slot", g.screen, g.cursor)
+	if !g.useBlock(world.Hit{X: at.X, Y: at.Y, Z: at.Z, Block: world.ClayPot}) || g.screen != inBag || g.cursor != 0 {
+		t.Fatalf("E on a pot: screen %d with the keys on %d, wanted the bag on the pot's first slot", g.screen, g.cursor)
 	}
 	text, _ := drawn(t, g)
-	if !strings.Contains(text, "crate") || !strings.Contains(text, "your things") {
-		t.Errorf("the crate is not shown over the player's things:\n%s", text)
+	if !strings.Contains(text, "pot") || !strings.Contains(text, "your things") {
+		t.Errorf("the pot is not shown over the player's things:\n%s", text)
 	}
 	hotbar := g.bagRows() - 1
 	g.pickCell(hotbar, 0)
-	g.pickCell(1, 4) // the crate's second row
+	g.pickCell(1, 4) // the pot's second row
 	press(g, 'i')
-	if c := g.crate(at); c.Items[hotbarSlots+4] != (world.Stack{Item: world.Cobble.Item(), Count: 10}) || g.items[0].Count != 0 {
-		t.Fatalf("the crate holds %+v", c.Items)
+	if c := g.pot(at); c.Items[hotbarSlots+4] != (world.Stack{Item: world.Cobble.Item(), Count: 10}) || g.items[0].Count != 0 {
+		t.Fatalf("the pot holds %+v", c.Items)
 	}
 
-	crates, _ := g.savedStores()
-	if len(crates) != 1 || crates[0].Cell != at {
-		t.Errorf("saved %+v, wanted the one crate", crates)
+	pots, _ := g.savedStores()
+	if len(pots) != 1 || pots[0].Cell != at {
+		t.Errorf("saved %+v, wanted the one pot", pots)
 	}
 	g.spill(at)
-	if len(g.crates) != 0 || len(g.drops) != 1 || g.drops[0].Stack != (world.Stack{Item: world.Cobble.Item(), Count: 10}) {
-		t.Errorf("broken: %d crates kept and %+v put down, wanted the cobble put down", len(g.crates), g.drops)
+	if len(g.pots) != 0 || len(g.drops) != 1 || g.drops[0].Stack != (world.Stack{Item: world.Cobble.Item(), Count: 10}) {
+		t.Errorf("broken: %d pots kept and %+v put down, wanted the cobble put down", len(g.pots), g.drops)
 	}
 }
 
-func TestACrateOrAKilnDoesNotOpenInCreative(t *testing.T) {
+func TestAPotOrAHearthDoesNotOpenInCreative(t *testing.T) {
 	g := onFloor(t) // creative
-	if g.useBlock(world.Hit{X: 22, Y: 6, Z: 22, Block: world.Crate}) || g.screen != playing {
-		t.Errorf("a crate opened in creative: screen %d", g.screen)
+	if g.useBlock(world.Hit{X: 22, Y: 6, Z: 22, Block: world.ClayPot}) || g.screen != playing {
+		t.Errorf("a pot opened in creative: screen %d", g.screen)
 	}
 }
 
@@ -170,9 +170,9 @@ func TestStoresAndTheBedAreSavedAndComeBack(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "world")
 	g := inSurvival(t)
 	g.opts.SavePath = path
-	g.crate(world.Cell{X: 1, Y: 6, Z: 2}).Items[3] = world.Stack{Item: world.Coal, Count: 4}
-	g.crate(world.Cell{X: 3, Y: 6, Z: 2}) // empty, so not saved
-	*g.kiln(world.Cell{X: 5, Y: 6, Z: 2}) = world.KilnStore{
+	g.pot(world.Cell{X: 1, Y: 6, Z: 2}).Items[3] = world.Stack{Item: world.Coal, Count: 4}
+	g.pot(world.Cell{X: 3, Y: 6, Z: 2}) // empty, so not saved
+	*g.hearth(world.Cell{X: 5, Y: 6, Z: 2}) = world.HearthStore{
 		Cell: world.Cell{X: 5, Y: 6, Z: 2}, In: world.Stack{Item: world.Clay.Item(), Count: 2}, Burn: 3, Burns: 9, Cooked: 1,
 	}
 	g.bed = &world.Cell{X: 7, Y: 6, Z: 2}
@@ -182,11 +182,11 @@ func TestStoresAndTheBedAreSavedAndComeBack(t *testing.T) {
 
 	back := savedGame(t, path)
 
-	if len(back.crates) != 1 || back.crate(world.Cell{X: 1, Y: 6, Z: 2}).Items[3].Count != 4 {
-		t.Errorf("the crates came back as %v", back.crates)
+	if len(back.pots) != 1 || back.pot(world.Cell{X: 1, Y: 6, Z: 2}).Items[3].Count != 4 {
+		t.Errorf("the pots came back as %v", back.pots)
 	}
-	if k := back.kiln(world.Cell{X: 5, Y: 6, Z: 2}); k.In.Count != 2 || k.Burn != 3 || k.Cooked != 1 {
-		t.Errorf("the kiln came back as %+v", k)
+	if k := back.hearth(world.Cell{X: 5, Y: 6, Z: 2}); k.In.Count != 2 || k.Burn != 3 || k.Cooked != 1 {
+		t.Errorf("the hearth came back as %+v", k)
 	}
 	if back.bed == nil || *back.bed != (world.Cell{X: 7, Y: 6, Z: 2}) {
 		t.Errorf("the bed came back as %v", back.bed)

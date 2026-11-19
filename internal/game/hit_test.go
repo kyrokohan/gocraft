@@ -147,9 +147,9 @@ func TestAKnifeIsMadeAndMossCooksToACake(t *testing.T) {
 		t.Errorf("made %+v", g.items[:3])
 	}
 
-	k := &world.KilnStore{In: world.Stack{Item: world.Moss, Count: 3}, Fuel: world.Stack{Item: world.Coal, Count: 1}}
-	stepKiln(k, cookTime+0.5)
+	k := &world.HearthStore{In: world.Stack{Item: world.Moss, Count: 3}, Fuel: world.Stack{Item: world.Coal, Count: 1}}
+	stepHearth(k, cookTime+0.5)
 	if k.Out != (world.Stack{Item: world.MossCake, Count: 1}) || k.In.Count != 0 {
-		t.Errorf("the kiln holds %+v and made %+v, wanted the moss cooked to a cake", k.In, k.Out)
+		t.Errorf("the hearth holds %+v and made %+v, wanted the moss cooked to a cake", k.In, k.Out)
 	}
 }

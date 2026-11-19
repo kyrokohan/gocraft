@@ -46,7 +46,7 @@ const (
 	Chirp   // a nipper
 	Growl   // a quickclaw that hunts: low, and from the throat
 	Screech // a quickclaw hit, or one that has seen its prey
-	Crackle // a kiln's fire
+	Crackle // a hearth's fire
 	Drip    // water in a cave
 	Wind    // a loop
 	Cave    // a loop
