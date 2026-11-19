@@ -93,7 +93,7 @@ var painters = [tile.Count]painter{
 	tile.SandstoneSide: sandstoneSide,
 	tile.Cobble:        cobble,
 	tile.CoalOre:       ore(rgb{44, 44, 50}, 50),
-	tile.CopperOre:     ore(rgb{204, 122, 70}, 51),
+	tile.FlintSeam:     flintSeam,
 	tile.IronOre:       ore(rgb{206, 172, 142}, 52),
 	tile.CrystalOre:    ore(rgb{140, 228, 236}, 53),
 	tile.PineLogSide:   pineLogSide,
@@ -117,13 +117,13 @@ var painters = [tile.Count]painter{
 	tile.Berries: berries,
 	tile.Cracks:  cracks,
 
-	tile.WorkbenchTop:  workbenchTop,
-	tile.WorkbenchSide: workbenchSide,
-	tile.KilnTop:       kilnTop,
-	tile.KilnSide:      kilnSide,
-	tile.CrateTop:      crateTop,
-	tile.CrateSide:     crateSide,
-	tile.Bedroll:       bedroll,
+	tile.KnappingTop:  knappingTop,
+	tile.KnappingSide: knappingSide,
+	tile.KilnTop:      kilnTop,
+	tile.KilnSide:     kilnSide,
+	tile.CrateTop:     crateTop,
+	tile.CrateSide:    crateSide,
+	tile.FurBed:       furBed,
 
 	tile.TallFern:      frond(&tallFernPic, rgb{46, 100, 48}, rgb{80, 148, 62}, 310),
 	tile.PalmCrown:     palmCrown,
@@ -163,6 +163,16 @@ var painters = [tile.Count]painter{
 	tile.Moss:         mossClump,
 	tile.MossCake:     mossCake,
 	tile.Meat:         meat,
+	tile.Fiber:        fiber,
+	tile.Cord:         cord,
+	tile.Flint:        flint,
+	tile.Hide:         hide,
+	tile.HandAxe:      handAxe,
+	tile.FlintPick:    tool(toolPick, flintDark.scale(1.3)),
+	tile.FlintKnife:   blade(flintDark.scale(1.3)),
+	tile.DiggingStick: diggingStick,
+	tile.Club:         club,
+	tile.Spear:        spear,
 }
 
 func turfTop(x, y int) (rgb, bool) {
@@ -894,34 +904,6 @@ func cracks(x, y int) (rgb, bool) {
 	return rgb{float64(crackSteps[y][x]) * 255 / 14, 0, 0}, true
 }
 
-func workbenchTop(x, y int) (rgb, bool) {
-	// Boards with a frame round them, and a mallet left lying on them.
-	switch {
-	case x == 0 || y == 0 || x == size-1 || y == size-1:
-		return grain(rgb{96, 68, 40}, 0.06, x, y, 109), true
-	case x >= 8 && x <= 12 && y >= 3 && y <= 5:
-		return grain(rgb{150, 106, 62}, 0.06, x, y, 110), true // the mallet's head
-	case x+y == 14 && x >= 3 && x < 9, x+y == 15 && x >= 4 && x < 9:
-		return rgb{92, 62, 36}, true // its handle
-	}
-	return planks(x, y)
-}
-
-func workbenchSide(x, y int) (rgb, bool) {
-	// The top board, and under it the legs, with the shadow between them.
-	switch {
-	case y < 4:
-		return planks(x, y)
-	case y == 4:
-		return grain(rgb{96, 68, 40}, 0.06, x, y, 111), true
-	case x <= 2 || x >= size-3:
-		return grain(rgb{140, 106, 64}, 0.08, x/2, y, 112), true
-	case y == 9:
-		return grain(rgb{120, 88, 52}, 0.06, x, y, 113), true // a rail between the legs
-	}
-	return grain(rgb{58, 42, 28}, 0.1, x, y, 114), true
-}
-
 func kilnTop(x, y int) (rgb, bool) {
 	// Cobble round a flue, warm at the bottom.
 	dx, dy := float64(x)-7.5, float64(y)-7.5
@@ -985,25 +967,6 @@ func crateFrame(x, y int) (rgb, bool) {
 
 // bedroll is a bedroll laid out flat, seen from above: a roll for the head across the
 // top, and a blanket of woven moss down the rest, on the ground it lies on.
-func bedroll(x, y int) (rgb, bool) {
-	if x < 2 || x > size-3 || y < 1 || y > size-2 {
-		return rgb{}, false // the ground shows round it
-	}
-	switch {
-	case y <= 4:
-		c := rgb{222, 206, 168}.scale(1 - 0.08*math.Abs(float64(y)-2.5)) // the roll, round
-		return grain(c, 0.04, x, y, 183), true
-	case y == 5:
-		return grain(rgb{120, 96, 62}, 0.05, x, y, 184), true // the shadow of the roll
-	case x == 2 || x == size-3 || y == size-2:
-		return grain(rgb{58, 90, 46}, 0.06, x, y, 185), true // the blanket's hem
-	}
-	c := moss.scale(1 + 0.12*float64((x+y)%2)) // woven: a check of two greens
-	if (y-6)%4 == 3 {
-		c = c.mix(rgb{200, 176, 120}, 0.35) // a stripe of the tan thread it is sewn with
-	}
-	return grain(c, 0.05, x, y, 186), true
-}
 
 // The things that are not blocks are drawn on holes, as they would lie in a hand.
 

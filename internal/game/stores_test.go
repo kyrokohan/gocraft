@@ -13,7 +13,7 @@ import (
 
 func TestAKilnCooksAPieceAtATimeWhileItHasFuel(t *testing.T) {
 	k := &world.KilnStore{
-		In:   world.Stack{Item: world.CopperOre.Item(), Count: 3},
+		In:   world.Stack{Item: world.Clay.Item(), Count: 3},
 		Fuel: world.Stack{Item: world.Planks.Item(), Count: 1}, // a piece and a half
 	}
 
@@ -22,8 +22,8 @@ func TestAKilnCooksAPieceAtATimeWhileItHasFuel(t *testing.T) {
 		t.Fatalf("before a piece is cooked: made %+v, fuel %+v burning %v", k.Out, k.Fuel, k.Burn)
 	}
 	stepKiln(k, 6)
-	if k.Out != (world.Stack{Item: world.CopperBar, Count: 1}) || k.In.Count != 2 {
-		t.Fatalf("after the planks burned: made %+v from %+v, wanted one bar", k.Out, k.In)
+	if k.Out != (world.Stack{Item: world.Brick.Item(), Count: 1}) || k.In.Count != 2 {
+		t.Fatalf("after the planks burned: made %+v from %+v, wanted one brick", k.Out, k.In)
 	}
 	if k.Burn != 0 || !near(k.Cooked, 1.5*cookTime-cookTime) {
 		t.Fatalf("the fire has %v left and the next piece %v cooked: wanted no fire, and half a piece kept", k.Burn, k.Cooked)
@@ -196,8 +196,8 @@ func TestStoresAndTheBedAreSavedAndComeBack(t *testing.T) {
 func TestABedrollIsWhereThePlayerWakesAndSleepsAwayTheNight(t *testing.T) {
 	g := inSurvival(t)
 	bed := world.Cell{X: 25, Y: 6, Z: 25}
-	g.world.Set(bed.X, bed.Y, bed.Z, world.Bedroll)
-	lie := func() { g.useBlock(world.Hit{X: bed.X, Y: bed.Y, Z: bed.Z, Block: world.Bedroll}) }
+	g.world.Set(bed.X, bed.Y, bed.Z, world.FurBed)
+	lie := func() { g.useBlock(world.Hit{X: bed.X, Y: bed.Y, Z: bed.Z, Block: world.FurBed}) }
 
 	g.days = 0.2 // the middle of the day
 	lie()
@@ -232,10 +232,10 @@ func TestABedrollIsWhereThePlayerWakesAndSleepsAwayTheNight(t *testing.T) {
 
 func TestEPlacesABedrollAndThenLiesOnIt(t *testing.T) {
 	g := lookingDown(t) // at the top of the block at 20, 5, 21
-	g.items[g.selected] = world.Stack{Item: world.Bedroll.Item(), Count: 1}
+	g.items[g.selected] = world.Stack{Item: world.FurBed.Item(), Count: 1}
 
 	hold(t, g, 1, 'e')
-	if got := g.world.At(20, 6, 21); got != world.Bedroll {
+	if got := g.world.At(20, 6, 21); got != world.FurBed {
 		t.Fatalf("E put %s on the floor, wanted a bedroll", got.Info().Name)
 	}
 	hold(t, g, seconds(1), 'e')

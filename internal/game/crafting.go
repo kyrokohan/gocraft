@@ -13,7 +13,7 @@ import (
 )
 
 // Things are made from what the player carries, by a list of what can be made: a few
-// things by hand, and more standing near a workbench. There are no patterns to lay out.
+// things by hand, and more standing near a knapping stone. There are no patterns to lay out.
 // What is cooked, a kiln makes in its own slots (stores.go).
 
 // station is where a recipe is made.
@@ -24,7 +24,7 @@ const (
 	atBench
 )
 
-// stationReach is how near a workbench the player stands to use it, in blocks from the
+// stationReach is how near a knapping stone the player stands to use it, in blocks from the
 // middle of the player to the block.
 const stationReach = 4
 
@@ -56,34 +56,26 @@ type recipe struct {
 	at    station
 }
 
-// tools makes the recipes of the three tools and the blade of a tier, from what their
-// heads are made of and sticks.
-func tools(head world.Item, pick, axe, shovel, blade world.Item) []recipe {
-	return []recipe{
-		{pick, 1, []need{of(head, 3), of(world.Stick, 2)}, atBench},
-		{axe, 1, []need{of(head, 3), of(world.Stick, 2)}, atBench},
-		{shovel, 1, []need{of(head, 1), of(world.Stick, 2)}, atBench},
-		{blade, 1, []need{of(head, 2), of(world.Stick, 1)}, atBench},
-	}
-}
-
+// recipes is everything that can be made, in the order the list shows it: what is made
+// by hand, of what is gathered, and then what is knapped from flint at a knapping stone.
 var recipes = func() []recipe {
-	planks, cobble := world.Planks.Item(), world.Cobble.Item()
-	all := []recipe{
-		{planks, 4, []need{anyLog}, byHand},
-		{world.Stick, 4, []need{of(planks, 2)}, byHand},
-		{world.Workbench.Item(), 1, []need{of(planks, 4)}, byHand},
+	cobble := world.Cobble.Item()
+	return []recipe{
+		{world.Stick, 4, []need{anyLog}, byHand},
+		{world.Cord, 1, []need{of(world.Fiber, 3)}, byHand},
+		{world.KnappingStone.Item(), 1, []need{of(cobble, 4)}, byHand},
+		{world.DiggingStick, 1, []need{of(world.Stick, 2)}, byHand},
+		{world.Club, 1, []need{anyLog}, byHand},
+		{world.Spear, 1, []need{of(world.Stick, 3)}, byHand},
 		{world.Torch.Item(), 4, []need{of(world.Stick, 1), of(world.Coal, 1)}, byHand},
+		{world.FurBed.Item(), 1, []need{of(world.Hide, 3), of(world.Moss, 6)}, byHand},
+
+		// Flint alone makes a hand axe. A pick and a knife are bound to a handle with cord.
+		{world.HandAxe, 1, []need{of(world.Flint, 2)}, atBench},
+		{world.FlintKnife, 1, []need{of(world.Flint, 1), of(world.Stick, 1), of(world.Cord, 1)}, atBench},
+		{world.FlintPick, 1, []need{of(world.Flint, 3), of(world.Stick, 2), of(world.Cord, 1)}, atBench},
+		{world.Kiln.Item(), 1, []need{of(cobble, 8)}, atBench},
 	}
-	all = append(all, tools(planks, world.WoodPick, world.WoodAxe, world.WoodShovel, world.WoodBlade)...)
-	all = append(all, tools(cobble, world.StonePick, world.StoneAxe, world.StoneShovel, world.StoneBlade)...)
-	all = append(all, tools(world.CopperBar, world.CopperPick, world.CopperAxe, world.CopperShovel, world.CopperBlade)...)
-	all = append(all, tools(world.IronBar, world.IronPick, world.IronAxe, world.IronShovel, world.IronBlade)...)
-	return append(all,
-		recipe{world.Kiln.Item(), 1, []need{of(cobble, 8)}, atBench},
-		recipe{world.Crate.Item(), 1, []need{of(planks, 8)}, atBench},
-		recipe{world.Bedroll.Item(), 1, []need{of(world.Moss, 6), of(planks, 3)}, atBench},
-	)
 }()
 
 // near reports whether a block of a kind is within stationReach of the player.
@@ -109,7 +101,7 @@ func (g *Game) near(b world.Block) bool {
 // makeable returns the recipes that can be made where the player stands, by hand and at
 // any workbench near, whether there is enough to make them or not.
 func (g *Game) makeable() []recipe {
-	at := [2]bool{byHand: true, atBench: g.near(world.Workbench)}
+	at := [2]bool{byHand: true, atBench: g.near(world.KnappingStone)}
 	var here []recipe
 	for _, r := range recipes {
 		if at[r.at] {

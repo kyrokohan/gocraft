@@ -77,13 +77,17 @@ func (g *Game) aim() {
 		passes := g.player.head().Sub(origin).Dot(cam.Look()) / direction.Dot(cam.Look())
 		origin = origin.Add(direction.Scale(passes))
 	}
-	g.target, g.aimed = g.world.Target(origin, direction, reach)
+	// A spear reaches a beast from farther than a hand reaches a block, so the ray goes
+	// as far as that, and a block beyond the hand's reach is only in the way.
+	far := reach + g.items[g.selected].Item.Reach()
+	g.target, g.aimed = g.world.Target(origin, direction, far)
 
 	// A creature in front of the block, or in reach where there is none, is aimed at in
 	// its place.
-	limit := reach
+	limit := far
 	if g.aimed {
 		limit = g.target.T
+		g.aimed = g.target.T <= reach
 	}
 	if g.prey, g.preyed = g.aimCreature(origin, direction, limit); g.preyed {
 		g.aimed = false

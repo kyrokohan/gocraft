@@ -29,8 +29,6 @@ type cook struct {
 }
 
 var cooks = []cook{
-	{world.CopperOre.Item(), 1, world.CopperBar},
-	{world.IronOre.Item(), 1, world.IronBar},
 	{world.Sand.Item(), 1, world.Glass.Item()},
 	{world.Clay.Item(), 1, world.Brick.Item()},
 	{world.Berries, 3, world.BerryLoaf},
@@ -258,7 +256,7 @@ func compareCells(a, b world.Cell) int {
 func (g *Game) useBlock(t world.Hit) bool {
 	c := world.Cell{X: t.X, Y: t.Y, Z: t.Z}
 	switch {
-	case t.Block == world.Bedroll:
+	case t.Block == world.FurBed:
 		g.lieDown(c)
 	case (t.Block == world.Crate || t.Block == world.Kiln) && g.survival:
 		g.openStore(t.Block, c)

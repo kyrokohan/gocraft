@@ -391,8 +391,8 @@ func (g *Game) drawBag(fb *engine.FrameBuffer, c *engine.Canvas) {
 func (g *Game) drawList(fb *engine.FrameBuffer) {
 	x, y, h := g.listBox(fb.Width(), fb.Height())
 	title := "make by hand"
-	if g.near(world.Workbench) {
-		title = "make: workbench"
+	if g.near(world.KnappingStone) {
+		title = "make: knapping stone"
 	}
 	widget.Panel{Title: title, Style: hudFrame, Fill: hudFill}.Draw(fb, x, y, listWidth, h)
 

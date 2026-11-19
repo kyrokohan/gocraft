@@ -385,12 +385,13 @@ func TestAMatLiesFlatOnTheGround(t *testing.T) {
 			w.Set(x, 5, z, world.Stone)
 		}
 	}
-	w.Set(12, 6, 12, world.Bedroll)
+	w.Set(12, 6, 12, world.FurBed)
 	rend := newRenderer(t)
+	// The browns of the fur: redder than the grey stone it lies on.
 	greens := func(c *engine.Canvas) (n int) {
 		for y := range c.Height() {
 			for x := range c.Width() {
-				if r, g, b := c.At(x, y).RGB(); int(g) > int(r)+25 && int(g) > int(b)+25 {
+				if r, _, b := c.At(x, y).RGB(); int(r) > int(b)+25 {
 					n++
 				}
 			}
@@ -403,14 +404,14 @@ func TestAMatLiesFlatOnTheGround(t *testing.T) {
 	cam.Position, cam.Pitch = geometry.Vector3{X: 12.5, Y: 9, Z: 10}, -0.9
 	rend.Draw(above, w, cam, noon)
 	if n := greens(above); n < 30 {
-		t.Errorf("from above, %d pixels are the green of the bedroll's blanket", n)
+		t.Errorf("from above, %d pixels are the brown of the fur bed", n)
 	}
 
 	beside := newCanvas(t, 80, 40)
 	cam.Position, cam.Pitch = geometry.Vector3{X: 12.5, Y: 6.0625, Z: 9.5}, 0
 	rend.Draw(beside, w, cam, noon)
 	if n := greens(beside); n > 0 {
-		t.Errorf("edge on, %d pixels are the green of the bedroll's blanket, wanted none", n)
+		t.Errorf("edge on, %d pixels are the brown of the fur bed, wanted none", n)
 	}
 }
 

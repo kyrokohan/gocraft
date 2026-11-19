@@ -45,7 +45,9 @@ func TestABrokenBlockDropsWhatItIsMadeOf(t *testing.T) {
 		{Torch, Torch.Item(), 1},
 		{Bush, Berries, 2},
 		{Leaves, NoItem, 0},
-		{Fern, NoItem, 0},
+		{Fern, Fiber, 1},
+		{TallFern, Fiber, 2},
+		{FlintSeam, Flint, 1},
 	} {
 		if item, count := tc.block.Drop(); item != tc.item || count != tc.count {
 			t.Errorf("%v drops %d of %q, wanted %d of %q", tc.block.Info().Name, count, item.Name(), tc.count, tc.item.Name())
@@ -119,10 +121,15 @@ func TestTheRightToolDigsFasterAndSomeBlocksNeedOne(t *testing.T) {
 		{Dirt, NoItem, 1, true},
 		{Dirt, WoodShovel, 2, true},
 		{Dirt, IronShovel, 6, true},
-		{Dirt, IronPick, 1, true},  // the wrong kind is no help
-		{Log, StoneAxe, 3, true},   // and the right kind is
-		{Stone, NoItem, 1, false},  // by hand stone gives nothing
-		{Stone, WoodPick, 2, true}, // and a pick of any tier frees it
+		{Dirt, IronPick, 1, true},   // the wrong kind is no help
+		{Log, StoneAxe, 3, true},    // and the right kind is
+		{Stone, NoItem, 1, true},    // by hand stone breaks to rubble, slowly
+		{Stone, FlintPick, 3, true}, // and a pick is quicker
+		{CoalOre, NoItem, 1, false}, // coal needs a flint pick
+		{CoalOre, FlintPick, 3, true},
+		{FlintSeam, NoItem, 1, true},
+		{Log, HandAxe, 3, true},
+		{Dirt, DiggingStick, 2, true},
 		{IronOre, WoodPick, 1, false},
 		{IronOre, StonePick, 3, true},
 		{CrystalOre, StonePick, 1, false},
@@ -187,7 +194,64 @@ func TestABladeHitsHarderTheBetterItIs(t *testing.T) {
 		}
 		last = b.Damage()
 	}
-	if s, _ := Stone.DigWith(IronBlade); s != Stone.Info().Dig*3 {
-		t.Errorf("a blade digs stone in %v s, as a hand does in %v", s, Stone.Info().Dig*3)
+	if s, _ := Stone.DigWith(IronBlade); s != Stone.Info().Dig {
+		t.Errorf("a blade digs stone in %v s, as a hand does in %v", s, Stone.Info().Dig)
+	}
+}
+
+func TestFlintIsFoundInGravelNowAndThenAndAlwaysInTheSamePlaces(t *testing.T) {
+	flint := 0
+	for x := range 100 {
+		for z := range 10 {
+			item, n := Gravel.DropAt(x, 40, z)
+			if again, _ := Gravel.DropAt(x, 40, z); again != item {
+				t.Fatalf("the gravel at %d,40,%d left two different things", x, z)
+			}
+			switch item {
+			case Flint:
+				flint++
+			case Gravel.Item():
+			default:
+				t.Fatalf("gravel left %d of %q", n, item.Name())
+			}
+		}
+	}
+	if flint < 60 || flint > 200 {
+		t.Errorf("%d of 1,000 blocks of gravel held a flint, wanted about one in eight", flint)
+	}
+}
+
+// The tools of the age: flint lasts longer bound to a handle than held in the hand, a
+// club and a spear are for hitting, and a knife is for the kill.
+func TestTheToolsOfFlintAndWood(t *testing.T) {
+	for _, tc := range []struct {
+		item Item
+		kind Tool
+		tier int
+	}{
+		{HandAxe, Axe, TierFlint}, {FlintPick, Pick, TierFlint}, {FlintKnife, Blade, TierFlint},
+		{DiggingStick, Shovel, TierWood}, {Club, Blade, TierWood}, {Spear, Blade, TierWood},
+	} {
+		kind, tier := tc.item.Tool()
+		if kind != tc.kind || tier != tc.tier || tc.item.StackSize() != 1 || tc.item.Uses() == 0 || tc.item.Name() == "" {
+			t.Errorf("%q is tool %d of tier %d, %d to a slot, lasting %d", tc.item.Name(), kind, tier, tc.item.StackSize(), tc.item.Uses())
+		}
+	}
+	if HandAxe.Uses() >= FlintPick.Uses() {
+		t.Errorf("a hand axe lasts %d and a pick on a handle %d: wanted the handle to last longer", HandAxe.Uses(), FlintPick.Uses())
+	}
+	if Club.Damage() <= NoItem.Damage() || Club.Knock() <= NoItem.Knock() || NoItem.Knock() != 1 {
+		t.Errorf("a club hits %v and knocks %v times as far as a hand", Club.Damage(), Club.Knock())
+	}
+	if Spear.Reach() < 1 || Club.Reach() != 0 || NoItem.Reach() != 0 {
+		t.Errorf("a spear reaches %v farther, a club %v", Spear.Reach(), Club.Reach())
+	}
+	if !FlintKnife.Carves() || Club.Carves() || NoItem.Carves() {
+		t.Error("only a knife carves a kill")
+	}
+	for _, thing := range []Item{Fiber, Cord, Flint, Hide} {
+		if thing.Name() == "" || thing.StackSize() != StackSize || thing.Food() != 0 {
+			t.Errorf("%q stacks %d and feeds %d", thing.Name(), thing.StackSize(), thing.Food())
+		}
 	}
 }

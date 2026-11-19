@@ -279,7 +279,7 @@ func TestQuickclawsAreNotSavedAndLoseAPlayerWhoFaintsOrSleeps(t *testing.T) {
 		t.Errorf("the save holds %+v, wanted the mossback alone", saved)
 	}
 
-	g.world.Set(21, 6, 20, world.Bedroll)
+	g.world.Set(21, 6, 20, world.FurBed)
 	g.lieDown(world.Cell{X: 21, Y: 6, Z: 20})
 	if text, _ := drawn(t, g); !contains(text, "cannot sleep with a hunter near") || g.days != midnight {
 		t.Errorf("with a quickclaw four blocks off the player slept, or was not told why not:\n%s", text)
