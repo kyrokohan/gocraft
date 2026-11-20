@@ -105,6 +105,10 @@ type Renderer struct {
 	// Crack is the block being broken, if any, which is drawn with cracks on its faces.
 	Crack Crack
 
+	// Frost is how white the tops of blocks that are open to the sky are drawn, from 0,
+	// as they are, to 1: the ground of a winter. No block is changed by it.
+	Frost float64
+
 	tiles    *[tile.Count]assets.Texture
 	faceTile [256][6]tile.ID  // the tile on each face of each kind of block
 	plant    [256]bool        // the kinds of block that are plants: two crossed pictures, and not a cube
@@ -112,6 +116,12 @@ type Renderer struct {
 	glow     [256]world.Light // the light each kind of block gives off
 	shuts    [256]bool        // the kinds of block that cast the soft shadows where blocks meet
 }
+
+// frostWhite is the color of frost, and frostMost how much of a face's own color the most
+// frost hides: the ground still shows through it.
+var frostWhite = color{236, 242, 250}
+
+const frostMost = 0.78
 
 // Crack is a block that is being broken, and how far the breaking has gone, from 0, not
 // at all, to 1, broken. The cracks grow out from the middle of each face as it goes.
@@ -322,6 +332,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 	for level := range farther {
 		farther[level] = pixelsPerBlock / tile.Size * 1.5 * float64(int(1)<<level)
 	}
+	var frost uint32 // how much of the frost is on the face the ray of this pixel met, out of 256
 	// The face whose corners were last worked out, as the next pixel is likely on it too.
 	var shadedAt world.Hit
 	var shades [4]uint32
@@ -391,6 +402,10 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 						pixel = r.cracked(pixel, fu, fv, level)
 					}
 					light, depth, found = r.lightOn(w, sky, hit), hit.T, true
+					frost = 0
+					if r.Frost > 0 && hit.Face == world.FaceYPos && r.glow[hit.Block] == 0 && w.LightAt(hit.X, hit.Y+1, hit.Z).Sky() == world.MaxLight {
+						frost = part(frostMost * r.Frost)
+					}
 					if dist := hit.T / unit; dist < shadeTo {
 						if !shaded || hit.X != shadedAt.X || hit.Y != shadedAt.Y || hit.Z != shadedAt.Z || hit.Face != shadedAt.Face {
 							shades, shadedAt, shaded = r.corners(w, hit), hit, true
@@ -419,7 +434,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 			// line drawn on a block down there is not hidden by the surface.
 			col, seen := above, depth
 			if found {
-				col = unpack(pixel).times(light)
+				col = unpack(pixel).mix(frostWhite, frost).times(light)
 			}
 			if wet {
 				// Water is drawn over what lies under it, more strongly the more of it
