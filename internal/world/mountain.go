@@ -23,6 +23,8 @@ const (
 	mountNear = 500 // the least the first mountain lies from where the world begins
 	mountFar  = 800 // and the most
 	mountEdge = mountAsh + 2
+
+	firestoneRing = 3.0 // how far each side of the rim of the crater firestone is found
 )
 
 // mountain is one fire mountain: the column at its middle, and how high the rim of its

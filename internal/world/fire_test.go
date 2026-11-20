@@ -303,7 +303,7 @@ func TestAPebbleIsCarriedInStacksAndASlingWears(t *testing.T) {
 	if Sling.Uses() == 0 || Sling.StackSize() != 1 || Sling.Name() != "sling" {
 		t.Errorf("a sling: %q, %d uses, %d to a slot: wanted it to wear, one to a slot", Sling.Name(), Sling.Uses(), Sling.StackSize())
 	}
-	if Pebble != SoftPot+1 || Sling != Pebble+1 || itemEnd != Sling+1 {
+	if Pebble != SoftPot+1 || Sling != Pebble+1 {
 		t.Errorf("the numbers moved: pebble %d, sling %d, after soft pot %d", Pebble, Sling, SoftPot)
 	}
 }

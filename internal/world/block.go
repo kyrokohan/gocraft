@@ -69,6 +69,8 @@ const (
 	Ash
 	Basalt
 	Lava
+	ObsidianRock
+	FirestoneRock
 
 	blockCount
 )
@@ -194,6 +196,12 @@ var infos = [256]Info{
 	Ash:    byShovel(cube("ash", tile.Ash), 0.4),
 	Basalt: byPick(cube("dark rock", tile.Basalt), 5, 0),
 	Lava:   fixed(glowing(Info{Name: "lava", Top: tile.Lava, Side: tile.Lava, Bottom: tile.Lava}, MaxLight)),
+
+	// What only a fire mountain has. Obsidian is glass the mountain made, in veins on its
+	// cone: a flint pick breaks it out. Firestone is a yellow stone by the crater, which
+	// strikes fire from a flint: it breaks by hand, as a flint seam does.
+	ObsidianRock:  byPick(cube("obsidian", tile.ObsidianRock), 4, TierFlint),
+	FirestoneRock: byPick(cube("firestone", tile.FirestoneRock), 3, 0),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for

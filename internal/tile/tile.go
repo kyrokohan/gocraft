@@ -80,6 +80,8 @@ const (
 	Ash
 	Basalt
 	Lava
+	ObsidianRock
+	FirestoneRock
 
 	// Pictures that are on no block.
 
@@ -133,6 +135,12 @@ const (
 	SoftPot
 	Pebble
 	Sling
+	Obsidian
+	Firestone
+	ObsidianKnife
+	ObsidianPick
+	ObsidianSpear
+	Striker
 
 	// Count is the number of tiles in the strip.
 	Count

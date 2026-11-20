@@ -68,6 +68,14 @@ const (
 	Pebble
 	Sling
 
+	// What a fire mountain gives.
+	Obsidian  // a piece of it, broken out of a vein
+	Firestone // a piece of it
+	ObsidianKnife
+	ObsidianPick
+	ObsidianSpear
+	Striker // a flint and a firestone: it strikes fire at once
+
 	itemEnd
 )
 
@@ -123,6 +131,9 @@ type thing struct {
 	reach  float64
 	knock  float64
 	carves bool
+
+	// thrown is true for a thing that R throws as a spear is thrown.
+	thrown bool
 }
 
 var things = [itemEnd - 256]thing{
@@ -168,7 +179,7 @@ var things = [itemEnd - 256]thing{
 	FlintKnife - 256:   {name: "flint knife", icon: tile.FlintKnife, tool: Blade, tier: TierFlint, carves: true},
 	DiggingStick - 256: {name: "digging stick", icon: tile.DiggingStick, tool: Shovel, tier: TierWood},
 	Club - 256:         {name: "club", icon: tile.Club, tool: Blade, tier: TierWood, hits: 4, knock: 1.8},
-	Spear - 256:        {name: "spear", icon: tile.Spear, tool: Blade, tier: TierWood, hits: 3, reach: 1},
+	Spear - 256:        {name: "spear", icon: tile.Spear, tool: Blade, tier: TierWood, hits: 3, reach: 1, thrown: true},
 
 	CookedMeat - 256: {name: "cooked meat", icon: tile.CookedMeat, food: 12},
 	PalmSeeds - 256:  {name: "palm seeds", icon: tile.PalmSeeds, food: 2, poison: 4},
@@ -178,13 +189,28 @@ var things = [itemEnd - 256]thing{
 
 	// A fire drill is no tool for digging, but it wears as one does: a use is a fire lit.
 	FireDrill - 256: {name: "fire drill", icon: tile.FireDrill, uses: 12},
-	HardSpear - 256: {name: "hardened spear", icon: tile.HardSpear, tool: Blade, tier: TierWood, hits: 4, reach: 1, uses: 150},
+	HardSpear - 256: {name: "hardened spear", icon: tile.HardSpear, tool: Blade, tier: TierWood, hits: 4, reach: 1, uses: 150, thrown: true},
 	SoftPot - 256:   {name: "soft pot", icon: tile.SoftPot},
 
 	// A sling wears as a tool does: a use is a pebble thrown.
 	Pebble - 256: {name: "pebble", icon: tile.Pebble},
 	Sling - 256:  {name: "sling", icon: tile.Sling, uses: 80},
+
+	Obsidian - 256:  {name: "obsidian", icon: tile.Obsidian},
+	Firestone - 256: {name: "firestone", icon: tile.Firestone},
+
+	// Obsidian takes the sharpest edge there is, and is the first to break: its tools
+	// hit hardest and dig fastest, and are worn out in a third of the time flint is.
+	ObsidianKnife - 256: {name: "obsidian knife", icon: tile.ObsidianKnife, tool: Blade, tier: TierObsidian, hits: 5, carves: true, uses: obsidianUses},
+	ObsidianPick - 256:  {name: "obsidian pick", icon: tile.ObsidianPick, tool: Pick, tier: TierObsidian, uses: obsidianUses},
+	ObsidianSpear - 256: {name: "obsidian spear", icon: tile.ObsidianSpear, tool: Blade, tier: TierObsidian, hits: 5, reach: 1, uses: obsidianUses, thrown: true},
+
+	// A striker is no tool for digging, but it wears as one does: a use is a fire lit.
+	Striker - 256: {name: "striker", icon: tile.Striker, uses: 30},
 }
+
+// obsidianUses is how many uses a tool of obsidian lasts.
+const obsidianUses = 40
 
 // MaxFood is how full the player can be.
 const MaxFood = 20
@@ -276,6 +302,11 @@ func (i Item) Knock() float64 {
 	return 1
 }
 
+// Thrown reports whether R throws the item as a spear is thrown.
+func (i Item) Thrown() bool {
+	return i.thing().thrown
+}
+
 // Carves reports whether a kill made with the item is carved: a knife's is, and leaves
 // more.
 func (i Item) Carves() bool {
@@ -343,6 +374,10 @@ func (b Block) Drop() (Item, int) {
 		return Fiber, 2
 	case FlintSeam:
 		return Flint, 1
+	case ObsidianRock:
+		return Obsidian, 1
+	case FirestoneRock:
+		return Firestone, 1
 	case Turf:
 		return Dirt.Item(), 1 // the turf does not come away
 	case Stone:

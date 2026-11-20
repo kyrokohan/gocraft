@@ -113,9 +113,11 @@ type land struct {
 	cold  bool // cold enough for ice to lie on water
 
 	// cone is true on the cone of a fire mountain, and lava is the layer the lava of
-	// its lake stands to, in its crater: 0 anywhere else.
-	cone bool
-	lava int
+	// its lake stands to, in its crater: 0 anywhere else. crater is how far the column
+	// is from the middle of the mountain, on its cone.
+	cone   bool
+	lava   int
+	crater float64
 }
 
 // landAt returns the land of the column at x, z.
@@ -152,7 +154,7 @@ func landAt(x, z int, seed uint32) land {
 	}
 	l := land{top: min(max(int(math.Floor(h)), 2), maxTop), cold: warm < 0.38}
 	if ashen {
-		l.cold, l.cone = false, far < mountFoot
+		l.cold, l.cone, l.crater = false, far < mountFoot, far
 		if far < craterWide && l.top < m.lava() {
 			l.lava = m.lava()
 		}
@@ -276,6 +278,17 @@ func (t terrain) column(x, z int, l land) {
 		surface, under, deep = Ash, Basalt, 5
 		if l.cone && smooth(float64(x)/7, float64(z)/7, t.seed+33) < 0.62 {
 			surface = Basalt
+		}
+		// What only the mountain has. Obsidian runs in veins on the cone, more of them
+		// toward the top. Firestone lies in a ring at the rim of the crater and down its
+		// inner wall, in patches.
+		vein := smooth(float64(x)/4, float64(z)/4, t.seed+34)
+		switch {
+		case !l.cone || l.lava > 0:
+		case math.Abs(l.crater-craterWide) < firestoneRing && vein < 0.42:
+			surface = FirestoneRock
+		case vein > 0.84-0.1*ramp(mountFoot, craterWide, l.crater):
+			surface = ObsidianRock
 		}
 	}
 
