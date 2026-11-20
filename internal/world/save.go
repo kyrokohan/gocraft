@@ -82,6 +82,10 @@ type Meta struct {
 	// out: they are kept so that one still goes out in a world that is opened again.
 	Embers []Ember `json:"embers,omitempty"`
 
+	// Eggs are the eggs that lie in the world: in the nests of herds, and where the
+	// player put them down.
+	Eggs []Egg `json:"eggs,omitempty"`
+
 	// Look is which of the looks the player's body wears, from 0. A save from before
 	// there was a body has none, and wears the first.
 	Look int `json:"look,omitempty"`
@@ -151,6 +155,23 @@ type Drop struct {
 
 	// Age is how many seconds it has lain there.
 	Age float64 `json:"age"`
+}
+
+// Egg is an egg that lies in the world, as a save holds it.
+type Egg struct {
+	// Kind is the name of the kind it is an egg of. One of a kind this version of the
+	// game does not have is left out when the world is opened.
+	Kind string           `json:"kind"`
+	Pos  geometry.Vector3 `json:"pos"`
+
+	// Herd is the herd whose nest it lies in, for one that is Wild: nobody has taken
+	// it. Ring is true for the first egg of a nest, which the nest is drawn round.
+	Herd int  `json:"herd,omitempty"`
+	Wild bool `json:"wild,omitempty"`
+	Ring bool `json:"ring,omitempty"`
+
+	// Warm is how many seconds of a fire's warmth it has had.
+	Warm float64 `json:"warm,omitempty"`
 }
 
 // Mossback is a mossback as a save holds it.

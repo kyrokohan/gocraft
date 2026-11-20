@@ -168,6 +168,8 @@ type Game struct {
 	aimed    bool
 	prey     prey // the creature the player aims at, if preyed is set, and then no block is
 	preyed   bool
+	egged    int // the egg the player aims at, if eggAimed is set, and then nothing else is
+	eggAimed bool
 	hitWait  float64 // until the player can hit, or throw, again
 
 	// Where the player aims from and along, as of the last frame, what has been thrown
@@ -345,6 +347,7 @@ func (g *Game) Save() error {
 		}
 	}
 	m.Beasts = g.fauna.saved()
+	m.Eggs = g.fauna.savedEggs()
 	m.Pots, m.Hearths = g.savedStores()
 	m.Bed = g.bed
 	return g.world.Save(g.opts.SavePath, m)
@@ -696,6 +699,20 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera, body bool) {
 			Light: g.sky.Brightness(g.lightAt(d.Pos.Add(geometry.Vector3{Y: dropSize / 2}))),
 		})
 	}
+	// The eggs, and round the first of each nest a ring of dry grass.
+	straw := world.DryBush.Item()
+	for _, e := range g.fauna.eggs {
+		if e.Pos.Sub(cam.Position).Length() > render.ViewDistance {
+			continue
+		}
+		light := g.sky.Brightness(g.lightAt(e.Pos.Add(geometry.Vector3{Y: 0.5})))
+		g.lying = append(g.lying, render.Lying{Item: breeds[e.kind].egg, Pos: e.Pos, Size: eggSize, Age: lieStill, Light: light})
+		for i := 0; e.ring && i < nestFerns; i++ {
+			angle := 2 * math.Pi * float64(i) / nestFerns
+			at := e.Pos.Add(geometry.Vector3{X: nestWide * math.Cos(angle), Z: nestWide * math.Sin(angle)})
+			g.lying = append(g.lying, render.Lying{Item: straw, Pos: at, Size: nestTuft, Age: lieStill + float64(i)*2*math.Pi/2.5, Light: light}) // each turned its own way
+		}
+	}
 	g.look.Draw(c, cam, g.lying, g.sky)
 	g.rend.Wash(c) // what lies in water is seen through it
 	g.look.DrawFlying(c, cam, g.flying(), g.sky)
@@ -726,6 +743,17 @@ func (g *Game) farWings(cam mesh.Camera) (ways []geometry.Vector3) {
 	}
 	return ways
 }
+
+// How a nest is drawn: a ring of so many tufts of dry grass, each so far across, so far
+// from the middle of it. A thing that lies still is drawn at the age at which a thing
+// that bobs is lowest.
+const (
+	nestFerns = 8
+	nestWide  = 0.85
+	nestTuft  = 0.6
+)
+
+var lieStill = -math.Pi / 5
 
 // plume has the sky show the smoke of the nearest fire mountain, in the way to it from
 // where the player is: more of it the nearer the mountain.

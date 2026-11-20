@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"slices"
 
 	"glonk.dev/geometry"
 
@@ -48,6 +49,56 @@ func (g *Game) aimCreature(origin, dir geometry.Vector3, limit float64) (p prey,
 		}
 	}
 	return p, ok
+}
+
+// aimEgg finds the nearest egg a ray from origin along dir, one long, meets before limit.
+func (g *Game) aimEgg(origin, dir geometry.Vector3, limit float64) (i int, ok bool) {
+	best := limit
+	for j, e := range g.fauna.eggs {
+		if t, hit := rayBox(origin, dir, e.Pos, eggSize*aimWider, eggSize*1.5); hit && t < best {
+			best, i, ok = t, j, true
+		}
+	}
+	return i, ok
+}
+
+// takeEgg takes the egg at i out of the world and gives it to the player. The herd whose
+// nest it lay in turns on the thief: guards charge, and the grown ones of a herd that
+// runs run at the thief for a while, and not from it.
+func (g *Game) takeEgg(i int) {
+	f := g.fauna
+	e := f.eggs[i]
+	f.eggs = slices.Delete(f.eggs, i, i+1)
+	if e.ring {
+		for j := range f.eggs {
+			if o := &f.eggs[j]; o.wild && o.herd == e.herd {
+				o.ring = true // the nest is drawn round the egg that is left
+				break
+			}
+		}
+	}
+	// Into the bag, or, with no room there, onto the ground where it lay.
+	if stack := (world.Stack{Item: breeds[e.kind].egg, Count: 1}); g.items.add(stack) != 0 {
+		g.drops = append(g.drops, drop{Drop: world.Drop{Stack: stack, Pos: e.Pos}})
+	}
+	g.ears.PlayNear(sound.Pickup, 0.8)
+	g.swing = swingTime
+	if !e.wild || e.herd == 0 {
+		return
+	}
+	if f.thief == nil {
+		f.thief = map[int]float64{}
+	}
+	delete(f.alarms, e.herd)
+	f.thief[e.herd] = thiefTime
+	if f.raise(e.herd, g.player.Pos) {
+		for j := range f.all {
+			if c := &f.all[j]; c.herd == e.herd && !c.dead {
+				g.voice(c, breeds[c.kind].cry, 1)
+				break
+			}
+		}
+	}
 }
 
 // rayBox returns how far along a ray from origin along dir it meets a box standing on
