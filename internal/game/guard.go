@@ -40,6 +40,11 @@ func (f *fauna) threat(i int, player geometry.Vector3) (at geometry.Vector3, nea
 	c := &f.all[i]
 	near, at = math.Inf(1), player
 	weigh := func(p geometry.Vector3) {
+		for _, e := range f.eggs {
+			if d := e.Pos.Distance(p); e.wild && c.herd != 0 && e.herd == c.herd && d < near {
+				near, at = d, p // an egg of its nest is as its young are
+			}
+		}
 		for j := range f.all {
 			ward := &f.all[j]
 			if ward.dead || j != i && (c.herd == 0 || ward.herd != c.herd || !ward.young) {

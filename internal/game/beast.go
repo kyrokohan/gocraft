@@ -159,6 +159,10 @@ type breed struct {
 	dips, takes float64
 	roosts      bool
 
+	// nests is how many herds of it in one keep a nest, and egg what is taken out of one.
+	nests float64
+	egg   world.Item
+
 	// A guard does not run. warns is how near what it guards, its young or itself, a
 	// threat may come before it turns on it and gives its cry. charges is how near
 	// before it runs at the threat, for one that charges, and swings how far from the
@@ -206,6 +210,7 @@ var breeds = [render.Kinds]breed{
 		health: 16, bump: 3, meat: 3, hide: 1,
 		heavy:  true,
 		temper: herder, group: [2]int{5, 8}, most: 16, young: 0.3, wary: 9,
+		nests: 1.0 / 3, egg: world.BuglerEgg,
 		lands: []world.Biome{world.Prairie, world.Highland},
 		call:  sound.Horn, cry: sound.Alarm, callEvery: 70, carries: 3 * sound.Hearing,
 	},
@@ -232,6 +237,7 @@ var breeds = [render.Kinds]breed{
 		heavy:  true,
 		temper: guard, group: [2]int{3, 4}, grown: 2, most: 4,
 		warns: 10, charges: 6, blow: 6, steps: 2,
+		nests: 0.5, egg: world.ShieldbrowEgg,
 		lands: []world.Biome{world.Prairie},
 		call:  sound.Grunt, cry: sound.Bellow, callEvery: 45, carries: 2 * sound.Hearing,
 	},
@@ -403,6 +409,7 @@ var breeds = [render.Kinds]breed{
 		health: 12, meat: 2,
 		moves: gaitSoar, hover: 14, dips: 25, roosts: true,
 		group: [2]int{1, 2}, most: 3,
+		nests: 1, egg: world.GalewingEgg,
 		lands: []world.Biome{world.Sea, world.Shore},
 		call:  sound.Skree, cry: sound.Skree, callEvery: 35, carries: 3 * sound.Hearing,
 	},
@@ -493,6 +500,15 @@ type beast struct {
 	roost                 geometry.Vector3
 	turn, dip             float64
 
+	// One whose pair keeps a nest: where it is. It dives at a player who is near it:
+	// whether one is now, and where; how long until it may dive again; and whether its
+	// dive has just met the player.
+	nest          geometry.Vector3
+	nested        bool
+	diving, dived bool
+	quarry        geometry.Vector3
+	mob           float64
+
 	// den is where one that keeps to a place lives, once it has been seen there, and
 	// homing whether it is on its way back there.
 	den            geometry.Vector3
@@ -517,6 +533,27 @@ type said struct {
 	at   geometry.Vector3
 }
 
+// egg is an egg that lies in the world: in the nest of a herd, wild, or where the player
+// put it down.
+type egg struct {
+	kind render.Kind
+	Pos  geometry.Vector3 // the middle of its bottom
+	herd int              // whose nest it lies in, for a wild one
+	wild bool             // nobody has taken it
+	ring bool             // the first egg of a nest: the nest is drawn round it
+	warm float64          // the seconds of a fire's warmth it has had
+}
+
+// About nests, and those who rob them.
+const (
+	thiefTime = 8.0  // how long the grown ones of a herd run at one who took its egg
+	nestGuard = 20.0 // how near its nest a player may come before a galewing dives at it
+	galeDive  = 2.0  // the points a galewing's dive takes
+	diveWait  = 6.0  // from one dive of a galewing to its next
+	diveReach = 1.6  // how near the head of a player a dive must come to meet it
+	eggSize   = 0.55 // how far across an egg is
+)
+
 // alarm is a herd running from something.
 type alarm struct {
 	left float64          // how long it still runs
@@ -528,10 +565,12 @@ type alarm struct {
 // group at a time, up to as many as its breed says, and those left far behind are let go.
 type fauna struct {
 	all   []beast
-	rng   *rand.Rand // where the next one goes: from the world's seed
-	born  uint64     // how many there have been, to give each a generator of its own
-	herds int        // how many herds there have been, to number the next
-	timer float64    // until the beasts are next looked over
+	eggs  []egg           // the eggs that lie in the world
+	thief map[int]float64 // for a herd an egg was taken from: how long its grown ones still go for the thief
+	rng   *rand.Rand      // where the next one goes: from the world's seed
+	born  uint64          // how many there have been, to give each a generator of its own
+	herds int             // how many herds there have been, to number the next
+	timer float64         // until the beasts are next looked over
 
 	// sneaking is whether the player is crouched, which lets it come nearer a herd, and
 	// bait whether the player holds food out, which brings thieves.
@@ -606,9 +645,12 @@ func newFauna(w *world.World, round geometry.Vector3) *fauna {
 // none. A save from before there were kinds holds mossbacks only.
 func faunaFrom(w *world.World, s world.Meta, round geometry.Vector3) *fauna {
 	if len(s.Beasts) == 0 && len(s.Mossbacks) == 0 {
-		return newFauna(w, round)
+		f := newFauna(w, round)
+		f.hatchery(s.Eggs)
+		return f
 	}
 	f := emptyFauna(w)
+	defer f.hatchery(s.Eggs)
 	// A world that is opened again is given a while before the next of a kind that
 	// comes only now and then: it does not come the moment the player is back.
 	for k := range f.wait {
@@ -640,6 +682,32 @@ func faunaFrom(w *world.World, s world.Meta, round geometry.Vector3) *fauna {
 		f.herds = max(f.herds, b.Herd)
 	}
 	return f
+}
+
+// hatchery takes in the eggs a save holds. A pair that roosts is told where its nest is.
+func (f *fauna) hatchery(eggs []world.Egg) {
+	for _, e := range eggs {
+		kind, ok := render.KindNamed(e.Kind)
+		if !ok || breeds[kind].egg == 0 {
+			continue // a kind of a later version of the game
+		}
+		f.eggs = append(f.eggs, egg{kind: kind, Pos: e.Pos, herd: e.Herd, wild: e.Wild, ring: e.Ring, warm: e.Warm})
+		f.herds = max(f.herds, e.Herd)
+		for i := range f.all {
+			if c := &f.all[i]; e.Wild && e.Herd != 0 && c.herd == e.Herd && c.kind == kind && breeds[kind].roosts {
+				c.nest, c.nested = e.Pos, true
+			}
+		}
+	}
+}
+
+// savedEggs returns the eggs as a save holds them.
+func (f *fauna) savedEggs() []world.Egg {
+	var out []world.Egg
+	for _, e := range f.eggs {
+		out = append(out, world.Egg{Kind: e.kind.String(), Pos: e.Pos, Herd: e.herd, Wild: e.wild, Ring: e.ring, Warm: e.warm})
+	}
+	return out
 }
 
 // saved returns the beasts as a save holds them. One that is dying is not kept.
@@ -769,7 +837,59 @@ func (f *fauna) add(w *world.World, k render.Kind, round geometry.Vector3, near,
 		f.all = f.all[:before] // one alone is no herd: it found no room for another
 		return false
 	}
+	if herd != 0 && b.nests > 0 {
+		f.nest(w, k, herd, f.all[before].Pos)
+	}
 	return placed > 0
+}
+
+// highGround looks at so many columns within roostReach of a place for the highest
+// ground a beast could roost on: bare ground or rock, open above, and roostHigh or more
+// over a height. It reports whether it found any.
+func highGround(w *world.World, rng *rand.Rand, round geometry.Vector3, floor float64, tries int) (geometry.Vector3, bool) {
+	best, found := geometry.Vector3{Y: floor + roostHigh}, false
+	for range tries {
+		x := int(math.Floor(round.X)) + rng.IntN(2*roostReach+1) - roostReach
+		z := int(math.Floor(round.Z)) + rng.IntN(2*roostReach+1) - roostReach
+		y := w.Ground(x, z)
+		if y < 0 || w.At(x, y, z).Info().Shade != world.MaxLight || !w.At(x, y, z).Info().Solid || w.At(x, y+1, z) != world.Air || w.At(x, y+2, z) != world.Air {
+			continue // no ground, or a tree top, or no room
+		}
+		if top := float64(y + 1); top > best.Y {
+			best, found = geometry.Vector3{X: float64(x) + 0.5, Y: top, Z: float64(z) + 0.5}, true
+		}
+	}
+	return best, found
+}
+
+// nest gives a herd of a kind a nest of one or two eggs, by a chance that is the seed's
+// and the herd's and not the fauna's own, so that asking does not change what comes
+// after: where the herd was put, or for a kind that roosts on the high ground near it,
+// if there is any. It reports whether it made one.
+func (f *fauna) nest(w *world.World, k render.Kind, herd int, at geometry.Vector3) bool {
+	b := &breeds[k]
+	rng := rand.New(rand.NewPCG(uint64(w.Seed), 0x6e657374<<16^uint64(herd)))
+	if rng.Float64() >= b.nests {
+		return false
+	}
+	if b.roosts {
+		floor, _ := (&beast{Pos: at}).over(w, b.hover+flyTurn)
+		high, ok := highGround(w, rng, at, floor, 2*roostTries)
+		if !ok {
+			return false
+		}
+		at = high
+		for i := range f.all {
+			if c := &f.all[i]; c.herd == herd && c.kind == k {
+				c.nest, c.nested = at, true
+			}
+		}
+	}
+	f.eggs = append(f.eggs, egg{kind: k, Pos: at, herd: herd, wild: true, ring: true})
+	if rng.IntN(2) == 0 {
+		f.eggs = append(f.eggs, egg{kind: k, Pos: at.Add(geometry.Vector3{X: 0.45, Z: 0.25}), herd: herd, wild: true})
+	}
+	return true
 }
 
 // middles returns the middle of every herd: where its living members are, on the whole,
@@ -833,6 +953,13 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 			f.alarms[herd] = a
 		}
 	}
+	for herd, left := range f.thief {
+		if left -= dt; left <= 0 {
+			delete(f.thief, herd)
+		} else {
+			f.thief[herd] = left
+		}
+	}
 
 	middles, wards := f.middles(false), f.middles(true)
 	for i := range f.all {
@@ -857,7 +984,13 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		case lured:
 			c.hurry, c.walking, c.timer, c.Yaw = true, true, max(c.timer, rethink), yawOf(to)
 		}
-		if wary := b.wary; wary > 0 && !c.dead && !lured {
+		robbed := c.herd != 0 && f.thief[c.herd] > 0
+		if robbed && b.temper == herder && !c.young && !c.dead {
+			// Its herd was robbed of an egg: it runs at the thief, and not from it.
+			c.flee, c.walking, c.Yaw = max(c.flee, 2*rethink), true, yawOf(to)
+			c.timer = max(c.timer, rethink)
+		}
+		if wary := b.wary; wary > 0 && !c.dead && !lured && !robbed {
 			if f.sneaking {
 				wary *= sneakPart
 			}
@@ -897,7 +1030,15 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 			c.pace = coldPace + (1-coldPace)*f.noon
 		}
 		c.abed = b.roosts && f.sun < sunUp
+		// One whose nest a player has come near dives at it, by day, where hunters are.
+		c.diving = c.nested && f.hunted && !c.abed && math.Hypot(player.X-c.nest.X, player.Z-c.nest.Z) < nestGuard
+		c.quarry = player.Add(geometry.Vector3{Y: playerHeight * 0.8})
 		c.step(w, dt, middle)
+		if c.dived {
+			c.dived = false
+			f.bitten += galeDive
+			f.sounds = append(f.sounds, said{b.cry, c.kind, c.voice()})
+		}
 		if c.trod != 0 {
 			f.tread(i, player)
 		}
@@ -941,6 +1082,8 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		}
 		return false
 	})
+	// A nest left far behind is let go with its herd. An egg the player put down stays.
+	f.eggs = slices.DeleteFunc(f.eggs, func(e egg) bool { return e.wild && e.Pos.Distance(player) > creatureGone })
 	for k := range render.Kinds {
 		switch b := &breeds[k]; {
 		case f.count(k) >= f.most(k):
@@ -1628,7 +1771,9 @@ func (c *beast) soar(w *world.World, speed, dt float64) {
 		}
 		c.turn = way * speed / (soarNear + soarWide*c.rng.Float64())
 		if c.abed && !c.roosting {
-			c.roost, c.roosting = c.findRoost(w, floor)
+			if c.roost, c.roosting = c.nest, c.nested; !c.nested {
+				c.roost, c.roosting = highGround(w, c.rng, c.Pos, floor, roostTries)
+			}
 			c.timer = min(c.timer, 3) // it looks again soon, if it found none
 		}
 	}
@@ -1636,6 +1781,17 @@ func (c *beast) soar(w *world.World, speed, dt float64) {
 		c.roosting = false
 	}
 	high, settle := b.hover, false
+	if c.mob = max(c.mob-dt, 0); c.diving && c.mob == 0 && !c.roosting {
+		// A dive at one who is near its nest: straight at it, as fast as it flies, down
+		// to its head. Then it goes up and round again.
+		to := c.quarry.Sub(c.Pos)
+		c.Yaw, c.dip = yawOf(to), 0
+		if to.Length() < diveReach {
+			c.dived, c.mob = true, diveWait
+		}
+		c.wing(w, breeds[c.kind].run, max(c.quarry.Y-floor, 0.5), dt, false, false)
+		return
+	}
 	if c.roosting {
 		to := geometry.Vector3{X: c.roost.X - c.Pos.X, Z: c.roost.Z - c.Pos.Z}
 		high = max(high, c.roost.Y+roostClear-floor) // over its roost, however high that stands
@@ -1668,25 +1824,6 @@ func (c *beast) soar(w *world.World, speed, dt float64) {
 	if over, down := c.wing(w, speed, high, dt, settle, false); down && over < setDown {
 		c.aloft, c.walking = false, false // it is on its roost
 	}
-}
-
-// findRoost looks at some columns round a beast for the highest ground it could roost
-// on: bare ground or rock, open above, and well over what the beast is over now. It
-// reports whether it found any.
-func (c *beast) findRoost(w *world.World, floor float64) (geometry.Vector3, bool) {
-	best, found := geometry.Vector3{Y: floor + roostHigh}, false
-	for range roostTries {
-		x := int(math.Floor(c.Pos.X)) + c.rng.IntN(2*roostReach+1) - roostReach
-		z := int(math.Floor(c.Pos.Z)) + c.rng.IntN(2*roostReach+1) - roostReach
-		y := w.Ground(x, z)
-		if y < 0 || w.At(x, y, z).Info().Shade != world.MaxLight || !w.At(x, y, z).Info().Solid || w.At(x, y+1, z) != world.Air || w.At(x, y+2, z) != world.Air {
-			continue // no ground, or a tree top, or no room
-		}
-		if top := float64(y + 1); top > best.Y {
-			best, found = geometry.Vector3{X: float64(x) + 0.5, Y: top, Z: float64(z) + 0.5}, true
-		}
-	}
-	return best, found
 }
 
 // How a beast that swims gets about.
