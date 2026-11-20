@@ -289,3 +289,53 @@ func TestTheSmokeOfAMountainStandsOnTheHorizonTowardIt(t *testing.T) {
 		t.Error("smoke with no way to it shows")
 	}
 }
+
+// Ash in the sky darkens it and the light of day, and not the light of a fire. While
+// the mountain throws out its fire, the foot of its smoke is red by day too.
+func TestAshDarkensTheSkyAndTheLightOfDay(t *testing.T) {
+	bright := func(c color) uint32 { return c.r + c.g + c.b }
+	high := geometry.Vector3{X: 0.2, Y: 0.9, Z: 0.3}.Normalize()
+	low := geometry.Vector3{X: -0.6, Y: 0.12, Z: -0.8}.Normalize()
+	day, torch := world.Light(world.MaxLight<<4), world.Light(14)
+
+	clear := NewSky(Noon)
+	ashen := NewSky(Noon)
+	ashen.SetAsh(1, 0)
+	ashen.Set(Noon)
+	for name, way := range map[string]geometry.Vector3{"overhead": high, "at the horizon": low} {
+		if with, without := ashen.color(way), clear.color(way); bright(with) >= bright(without)*3/4 {
+			t.Errorf("the sky %s is %v under ash and %v clear: wanted it a good deal darker", name, with, without)
+		}
+	}
+	if with, without := ashen.Brightness(day), clear.Brightness(day); with >= 0.8*without || with < 0.45 {
+		t.Errorf("the light of day is %.2f under ash and %.2f clear: wanted it darker, and day still", with, without)
+	}
+	if ashen.Brightness(torch) != clear.Brightness(torch) {
+		t.Error("ash in the sky changes the light of a torch")
+	}
+
+	// Half as much ash darkens half as much, and none is no change.
+	half := NewSky(Noon)
+	half.SetAsh(0.5, 0)
+	half.Set(Noon)
+	if b := half.Brightness(day); b <= ashen.Brightness(day) || b >= clear.Brightness(day) {
+		t.Errorf("the light of day under half the ash is %.2f, wanted between %.2f and %.2f", b, ashen.Brightness(day), clear.Brightness(day))
+	}
+	half.SetAsh(0, 0)
+	half.Set(Noon)
+	if half.color(high) != clear.color(high) || half.Brightness(day) != clear.Brightness(day) {
+		t.Error("a sky the ash has left is not as it was")
+	}
+
+	// The fire at the foot of the smoke, by day.
+	toward := geometry.Vector3{X: 0.6, Z: 0.8}
+	foot := toward.Add(geometry.Vector3{Y: 0.05}).Normalize()
+	smoking, erupting := NewSky(Noon), NewSky(Noon)
+	smoking.SetPlume(toward.Scale(200), 1)
+	erupting.SetPlume(toward.Scale(200), 1)
+	erupting.SetAsh(0, 1)
+	erupting.Set(Noon)
+	if fire, smoke := erupting.color(foot), smoking.color(foot); fire.r < smoke.r+60 || fire.r < 2*fire.b {
+		t.Errorf("by day the foot of the smoke of a mountain that erupts is %v, and %v of one that does not: wanted the red of its fire", fire, smoke)
+	}
+}
