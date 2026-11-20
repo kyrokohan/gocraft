@@ -163,6 +163,10 @@ func (p *Player) Step(w *world.World, c controls, dt float64) {
 		if c.sink {
 			p.velY -= flySpeed
 		}
+	case inTar(w, p.Pos):
+		// Tar holds it: it crawls, and sinks slowly whatever it does.
+		speed, p.Crouched = walkSpeed/tarDrag, false
+		p.velY = -tarSink
 	case inWater(w, p.Pos):
 		speed, p.Crouched = swimSpeed, false
 		p.velY = max(p.velY-gravity/4*dt, -sinkSpeed)
@@ -184,7 +188,12 @@ func (p *Player) Step(w *world.World, c controls, dt float64) {
 	move := facing.Forward().Scale(c.forward).Add(facing.Right().Scale(c.strafe)).Normalize().Scale(speed * dt)
 	move.Y = p.velY * dt
 
+	mired := !p.Flying && inTar(w, p.Pos)
 	stopped := travel(w, &p.Pos, playerWidth, playerHeight, move)
+	if mired && (stopped[0] || stopped[2]) {
+		// It has got to the edge, and climbs the bank that stopped it.
+		travel(w, &p.Pos, playerWidth, playerHeight, geometry.Vector3{Y: tarClimb * dt})
+	}
 	p.OnGround = stopped[1] && move.Y < 0
 	if stopped[1] {
 		p.velY = 0

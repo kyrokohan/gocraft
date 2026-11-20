@@ -76,7 +76,7 @@ var recipes = func() []recipe {
 		// carry it. A pot is shaped of clay and then baked in a hearth.
 		{world.Hearth.Item(), 1, []need{of(cobble, 8)}, byHand},
 		{world.FireDrill, 1, []need{of(world.Stick, 1), anyLog, of(world.Cord, 1)}, byHand},
-		{world.UnlitTorch, 2, []need{of(world.Stick, 1), of(world.Resin, 1)}, byHand},
+		{world.UnlitTorch, 2, []need{of(world.Stick, 1), {name: "resin or tar", items: []world.Item{world.Resin, world.Tar.Item()}, n: 1}}, byHand},
 		{world.Striker, 1, []need{of(world.Flint, 1), of(world.Firestone, 1)}, byHand},
 		{world.SoftPot, 1, []need{of(world.Clay.Item(), 4)}, byHand},
 

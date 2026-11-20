@@ -214,3 +214,16 @@ func crawlLeg(x, y int) (rgb, bool) {
 	}
 	return grain(c, 0.05, x, y, 991), true
 }
+
+// tar is black, thick and wet: it shines where it has lately moved, and a bubble stands
+// on it here and there.
+func tar(x, y int) (rgb, bool) {
+	c := rgb{20, 18, 20}.scale(0.8 + 0.5*blotch(x, y, 8, 995))
+	switch h := hash(x, y, 996); {
+	case blotch(x, y, 4, 997) > 0.8:
+		c = rgb{58, 54, 62} // the shine of it
+	case h < 0.02:
+		c = rgb{92, 84, 78} // a bubble
+	}
+	return grain(c, 0.04, x, y, 998), true
+}

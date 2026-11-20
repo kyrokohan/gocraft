@@ -1098,6 +1098,10 @@ func (c *beast) wayAhead(w *world.World, ahead geometry.Vector3, afloat bool, so
 		switch below := w.At(x, y-down, z); {
 		case below == world.Water || below == world.Lava:
 			return false, true // water under a bank: it keeps out of that too
+		case below == world.Tar:
+			// Tar looks like ground, and a beast walks onto it: but one that nothing
+			// kills knows it, and keeps out.
+			return false, breeds[c.kind].health == 0
 		case solid(w, x, y-down, z):
 			return false, false // ground to step onto or down to
 		}
@@ -1142,14 +1146,27 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 		c.fly(w, speed, dt)
 		return
 	}
+	mired := inTar(w, c.Pos)
+	if mired && !c.dead {
+		// Tar holds it for good: it goes nowhere, and dies there in time.
+		c.flee, c.leap, c.walking, c.timer = 0, 0, false, max(c.timer, rethink)
+		if b.health > 0 {
+			if c.health -= b.health / tarDeath * dt; c.health <= 0 {
+				c.dead = true
+			}
+		}
+	}
 	if c.timer -= dt; c.timer <= 0 && !c.dead {
 		c.decide(middle)
 	}
 
 	afloat := inWater(w, c.Pos)
-	if afloat {
+	switch {
+	case mired:
+		c.velY = -tarSink // it sinks, slowly
+	case afloat:
 		c.velY = 1.5 // it floats up, should it ever fall in
-	} else {
+	default:
 		c.velY = max(c.velY-gravity*dt, -fallSpeed)
 	}
 

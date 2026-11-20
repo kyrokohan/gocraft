@@ -30,8 +30,8 @@ const (
 func (g *Game) live(dt float64) {
 	p := &g.player
 	switch {
-	case inWater(g.world, p.Pos):
-		g.peak = p.Pos.Y // water breaks a fall
+	case inWater(g.world, p.Pos), inTar(g.world, p.Pos):
+		g.peak = p.Pos.Y // water breaks a fall, and so does tar
 	case p.OnGround:
 		if fall := g.peak - p.Pos.Y; fall > safeFall {
 			g.hurt(math.Round(fall - safeFall)) // the peak is a frame late, so a hair short
@@ -42,7 +42,7 @@ func (g *Game) live(dt float64) {
 	}
 
 	eye := p.Camera().Position
-	if g.world.At(int(math.Floor(eye.X)), int(math.Floor(eye.Y)), int(math.Floor(eye.Z))) == world.Water {
+	if in := g.world.At(int(math.Floor(eye.X)), int(math.Floor(eye.Y)), int(math.Floor(eye.Z))); in == world.Water || in == world.Tar {
 		if g.air -= dt; g.air < 0 {
 			g.air = 0
 			g.hurt(drownHurt * dt)

@@ -83,6 +83,8 @@ const (
 	ScaleTrunk
 	ScaleCrown
 
+	Tar
+
 	blockCount
 )
 
@@ -232,6 +234,10 @@ var infos = [256]Info{
 	Peat:       byShovel(cube("peat", tile.Peat), 0.7),
 	ScaleTrunk: byAxe(solid("scale tree trunk", tile.ScaleTrunkTop, tile.ScaleTrunkSide, tile.ScaleTrunkTop), 1.6),
 	ScaleCrown: dig(leaves("scale tree crown", tile.ScaleCrown), 0.2),
+
+	// Tar is no solid thing: what walks into it sinks, slowly, and is held. It is black,
+	// lets no light through, and comes away in the hand.
+	Tar: dig(Info{Name: "tar", Top: tile.Tar, Side: tile.Tar, Bottom: tile.Tar, Shade: MaxLight}, 1.2),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for

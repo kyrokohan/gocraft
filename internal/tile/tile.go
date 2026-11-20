@@ -91,6 +91,7 @@ const (
 	ScaleTrunkTop
 	ScaleTrunkSide
 	ScaleCrown
+	Tar
 
 	// Pictures that are on no block.
 
