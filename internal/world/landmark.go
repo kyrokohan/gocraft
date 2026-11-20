@@ -50,6 +50,9 @@ func (t terrain) landmarks() {
 			if s, ok := struckIn(gx, gz, t.seed); ok && near(s.x, s.z, struckReach) {
 				t.struckTree(s)
 			}
+			if p, ok := tarIn(gx, gz, t.seed); ok && near(p.x, p.z, int(p.wide)+2) {
+				t.tarPit(p)
+			}
 		}
 	}
 }

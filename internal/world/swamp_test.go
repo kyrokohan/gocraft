@@ -1,6 +1,9 @@
 package world
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestTheCoalSwampLiesLowAndWetWithPoolsAndScaleTrees(t *testing.T) {
 	const seed = 7
@@ -14,6 +17,9 @@ func TestTheCoalSwampLiesLowAndWetWithPoolsAndScaleTrees(t *testing.T) {
 			l := landAt(x, z, s)
 			if l.biome != Swamp {
 				continue
+			}
+			if p, ok := tarIn(floorDiv(x, markSquare), floorDiv(z, markSquare), s); ok && math.Hypot(float64(x-p.x), float64(z-p.z)) <= p.wide+2 {
+				continue // a tar pit lies here, which has its own test
 			}
 			if again := landAt(x, z, s); again != l {
 				t.Fatalf("the land at %d, %d was asked twice, and the answers differ", x, z)

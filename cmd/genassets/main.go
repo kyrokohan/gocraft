@@ -200,6 +200,7 @@ var painters = [tile.Count]painter{
 	tile.ScaleTrunkSide: scaleTrunkSide,
 	tile.ScaleCrown:     scaleCrown,
 	tile.Amber:          amberPiece,
+	tile.Tar:            tar,
 	tile.Obsidian:       obsidianShard,
 	tile.Firestone:      firestonePiece,
 	tile.ObsidianKnife:  blade(obsidianGlass.scale(1.5)),
