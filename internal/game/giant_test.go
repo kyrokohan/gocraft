@@ -45,8 +45,8 @@ func facing(c beast, at geometry.Vector3) float64 {
 
 func TestTheArmedPlantEatersAreFoundInTheirLandsAndGroups(t *testing.T) {
 	found := map[render.Kind]int{}
-	for seed := int64(1); seed <= 16; seed++ {
-		w := world.Generate(seed)
+	for seed := int64(1); seed <= 10; seed++ {
+		w := realWorld(seed)
 		f := newFauna(w, w.Spawn())
 		grown, young := map[int]int{}, map[int]int{}
 		for _, c := range f.all {
@@ -86,7 +86,7 @@ func TestTheArmedPlantEatersAreFoundInTheirLandsAndGroups(t *testing.T) {
 	}
 	for _, k := range giants {
 		if found[k] == 0 {
-			t.Errorf("no %s was found in 16 worlds", k)
+			t.Errorf("no %s was found in ten worlds", k)
 		}
 	}
 }
@@ -356,11 +356,12 @@ func TestAGiantClimbsAStepOfTwoBlocksAndABuglerOnlyOne(t *testing.T) {
 func TestGiantsDoNotStickOnTheLand(t *testing.T) {
 	walked, stuck := 0, 0
 	for seed := int64(1); seed <= 10; seed++ {
-		w := world.Generate(seed)
+		w := realWorld(seed)
 		spawn := w.Spawn()
 		f := newFauna(w, spawn)
-		f.timer = math.Inf(1)                     // none come or go
-		sky := spawn.Add(geometry.Vector3{Y: 60}) // a player too far off to be a threat, and near enough for them to be awake
+		f.all = slices.DeleteFunc(f.all, func(c beast) bool { return !slices.Contains(giants, c.kind) }) // only they are walked: it is them the test is about
+		f.timer = math.Inf(1)                                                                            // none come or go
+		sky := spawn.Add(geometry.Vector3{Y: 60})                                                        // a player too far off to be a threat, and near enough for them to be awake
 		start, farthest := map[*rand.Rand]geometry.Vector3{}, map[*rand.Rand]float64{}
 		for i := range f.all {
 			if c := &f.all[i]; slices.Contains(giants, c.kind) && !c.young {

@@ -43,7 +43,7 @@ func herdOf(n int, x, z float64) *fauna {
 func TestBuglersAreFoundInHerdsOnThePrairieAndTheHighland(t *testing.T) {
 	found := 0
 	for seed := int64(1); seed <= 8; seed++ {
-		w := world.Generate(seed)
+		w := realWorld(seed)
 		spawn := w.Spawn()
 		all, again := newFauna(w, spawn).all, newFauna(w, spawn).all
 		if len(all) != len(again) {

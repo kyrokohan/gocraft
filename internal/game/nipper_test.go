@@ -44,7 +44,7 @@ func TestNippersAreSmallQuickAndFoundInFlocks(t *testing.T) {
 
 	found := 0
 	for seed := int64(1); seed <= 8; seed++ {
-		w := world.Generate(seed)
+		w := realWorld(seed)
 		flocks := map[int]int{}
 		for _, c := range only(newFauna(w, w.Spawn()).all, render.Nipper) {
 			found++
