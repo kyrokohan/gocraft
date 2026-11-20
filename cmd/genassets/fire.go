@@ -315,3 +315,38 @@ func softPot(x, y int) (rgb, bool) {
 	}
 	return grain(c, 0.04, x, y, 621), true
 }
+
+// pitCoverTop is a pit cover from above: thin branches laid across each other, with the
+// fronds of ferns strewn over them, and the dark of the pit showing through here and
+// there. It is made to pass for mossy ground at a glance.
+func pitCoverTop(x, y int) (rgb, bool) {
+	switch {
+	case hash(x, y, 750) < 0.34:
+		return grain(rgb{72, 138, 62}.scale(0.8+0.4*hash(x/2, y/2, 751)), 0.1, x, y, 752), true // a frond
+	case y%5 == 1 || x%6 == 2:
+		c := woodLight
+		if (x+y)%7 == 0 {
+			c = woodDark // a knot, or where two cross
+		}
+		return grain(c, 0.08, x, y, 753), true
+	case hash(x, y, 754) < 0.5:
+		return grain(rgb{58, 104, 50}, 0.1, x, y, 755), true // moss thrown over it
+	}
+	return grain(rgb{30, 26, 22}, 0.1, x, y, 756), true
+}
+
+// pitCoverSide is its side: the cut ends of the branches in a row at the top, and the
+// dark under them.
+func pitCoverSide(x, y int) (rgb, bool) {
+	switch {
+	case y < 3 && x%3 != 2:
+		c := woodLight
+		if y == 2 {
+			c = woodDark
+		}
+		return grain(c, 0.08, x, y, 757), true
+	case y < 5 && hash(x, y, 758) < 0.4:
+		return grain(rgb{72, 138, 62}, 0.1, x, y, 752), true // a frond that hangs over the edge
+	}
+	return grain(rgb{30, 26, 22}, 0.08, x, y, 756), true
+}

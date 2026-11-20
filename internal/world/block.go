@@ -64,6 +64,8 @@ const (
 	HearthLit
 	CharredLog
 
+	PitCover
+
 	blockCount
 )
 
@@ -177,6 +179,10 @@ var infos = [256]Info{
 	Fire:       fixed(glowing(plant("fire", tile.Fire), MaxLight)),
 	HearthLit:  glowing(byPick(solid("hearth", tile.HearthLitTop, tile.HearthLitSide, tile.Cobble), 2.5, 0), 14),
 	CharredLog: byAxe(solid("charred log", tile.CharredTop, tile.CharredSide, tile.CharredTop), 1),
+
+	// A pit cover is branches and ferns laid over a hole, to look like the ground. It
+	// holds a person and a small beast, and a heavy beast breaks through it.
+	PitCover: dig(solid("pit cover", tile.PitCoverTop, tile.PitCoverSide, tile.PitCoverSide), 0.4),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for

@@ -179,6 +179,8 @@ var painters = [tile.Count]painter{
 	tile.HearthLitSide: hearthLitSide,
 	tile.CharredSide:   charredSide,
 	tile.CharredTop:    charredTop,
+	tile.PitCoverTop:   pitCoverTop,
+	tile.PitCoverSide:  pitCoverSide,
 	tile.CookedMeat:    cookedMeat,
 	tile.PalmSeeds:     seeds(rgb{214, 84, 44}, rgb{246, 170, 96}),
 	tile.RoastSeeds:    seeds(rgb{122, 78, 44}, rgb{64, 40, 26}),
