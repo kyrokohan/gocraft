@@ -20,9 +20,11 @@ concurrency:
 jobs:
   # Tidy modules, formatting, vet and the tests, on Linux and macOS. The race detector
   # runs on Linux only: it makes the tests take many times as long, and a race in this
-  # program does not depend on the system it runs on.
+  # program does not depend on the system it runs on. On Linux the tests are shared out
+  # between two machines by their names, about half the time on each: the game's tests
+  # from A to G take as long as all the rest.
   test:
-    name: test (${{ matrix.os }})
+    name: test (${{ matrix.os }}${{ matrix.part && format(', {0}', matrix.part) || '' }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     strategy:
@@ -31,6 +33,12 @@ jobs:
         include:
           - os: ubuntu-latest
             race: -race
+            part: A to G
+            run: ^Test[A-G]
+          - os: ubuntu-latest
+            race: -race
+            part: the rest
+            skip: ^Test[A-G]
           - os: macos-latest
             race: ""
     steps:
@@ -42,4 +50,4 @@ jobs:
           go-version-file: go.mod
       - name: go.mod and go.sum are tidy
         run: go mod tidy -diff
-      - run: make check RACE=${{ matrix.race }}
+      - run: make check RACE=${{ matrix.race }} RUN='${{ matrix.run }}' SKIP='${{ matrix.skip }}'

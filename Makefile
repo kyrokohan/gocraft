@@ -5,13 +5,18 @@
 # minutes, not go test's 10, before it is taken for hung.
 RACE ?= -race
 
+# RUN and SKIP narrow the tests to those whose names match, or do not: CI shares the
+# slow run of the race detector out between two machines with them. Empty, all run.
+RUN ?=
+SKIP ?=
+
 run:
 	go run . $(ARGS)
 
 check:
 	@test -z "$$(gofmt -l .)" || (echo "gofmt needed:"; gofmt -l .; exit 1)
 	go vet ./...
-	go test -timeout 20m $(RACE) ./...
+	go test -timeout 20m $(RACE) -run '$(RUN)' -skip '$(SKIP)' ./...
 
 # Makes the pictures and the sounds again. The output is the same bytes every run.
 assets:
