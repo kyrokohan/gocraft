@@ -114,7 +114,7 @@ func (g *Game) body() render.Person {
 	p := &g.player
 	one := render.Person{
 		Pos: p.Pos, Yaw: p.Yaw, Tilt: p.Pitch, Look: g.worn,
-		Crouched: p.Crouched, Hurt: g.flash > 0,
+		Crouched: p.Crouched, Seated: g.fauna.mount() != nil, Hurt: g.flash > 0,
 		Light: g.sky.Brightness(g.lightAt(p.head())),
 		Held:  g.items[g.selected].Item,
 	}

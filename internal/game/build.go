@@ -266,12 +266,13 @@ func (g *Game) build(in *engine.Input, dt float64) {
 	}
 	if g.preyed {
 		// A creature is aimed at, and no block: Q or a click hits it, again while held,
-		// and E or a right click shears it. Food in hand is eaten as anywhere else.
+		// and E or a right click feeds it, shears it or gets on it. Food in hand is eaten
+		// as anywhere else.
 		g.digging = 0
 		switch {
 		case (clicked || keyDown(in.IsDown, 'q')) && g.hitWait == 0:
 			g.strike(g.prey)
-		case places && !g.feed(g.prey) && !g.shear(g.prey):
+		case places && !g.feed(g.prey) && !g.shear(g.prey) && !g.getOn(g.prey):
 			g.eat()
 		}
 		return

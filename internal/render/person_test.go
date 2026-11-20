@@ -123,6 +123,23 @@ func TestACrouchedCavePersonIsLowerAndAHurtOneRedder(t *testing.T) {
 	}
 }
 
+func TestASeatedCavePersonSitsAstrideAsHighAsOneThatStands(t *testing.T) {
+	bare, stood := withPerson(t, world.New(), backTo(4))
+	astride := backTo(4)
+	astride.Seated, astride.Stride = true, math.Pi/2 // it rides, and its legs do not walk
+	_, seated := withPerson(t, world.New(), astride)
+
+	standTop, standBottom, standLeft, standRight := span(bare, stood)
+	top, bottom, left, right := span(bare, seated)
+	if top != standTop {
+		t.Errorf("the head of a seated cave person is at row %d and of a standing one at %d, wanted them level", top, standTop)
+	}
+	if right-left < standRight-standLeft+6 || bottom > standBottom-2 {
+		t.Errorf("a seated cave person is %d pixels wide down to row %d, and a standing one %d wide down to %d: wanted its feet out to its sides, and higher",
+			right-left+1, bottom, standRight-standLeft+1, standBottom)
+	}
+}
+
 func TestTheLimbsSwingAndTheHandHoldsWhatIsHeld(t *testing.T) {
 	_, still := withPerson(t, world.New(), backTo(4))
 

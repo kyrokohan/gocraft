@@ -161,6 +161,7 @@ type Game struct {
 	warmth, chill     float64 // how warm the body is, and seconds since the cold last took a point of health
 	hunger, mend      float64 // seconds since food last went down, and since the body last mended
 	peak              float64 // the highest the player has been since last on the ground
+	urge              float64 // how far the beast the player rides has gone from its walk to its run, from 0 to 1
 	flash             float64 // seconds the view still shows red, for a hurt
 
 	selected int       // the slot of the hotbar in use
@@ -501,7 +502,11 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		c := readControls(in)
 		c.toggleFly = c.toggleFly && !g.survival // only in creative can the player fly
 		from, wasWet, fell := g.player.Pos, inWater(g.world, g.player.Pos), -g.player.velY
-		g.player.Step(g.world, c, dt)
+		if m := g.fauna.mount(); m != nil {
+			g.ride(m, c, dt) // the beast moves the player, with the others
+		} else {
+			g.player.Step(g.world, c, dt)
+		}
 		g.pace(from)
 		g.stepSounds(from, wasWet, fell)
 		if g.stepBeasts(dt); g.screen != playing {

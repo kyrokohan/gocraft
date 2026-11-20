@@ -206,6 +206,9 @@ type Beast struct {
 	FedFor  float64 `json:"fedFor,omitempty"`
 	Limping bool    `json:"limping,omitempty"`
 	MendAt  float64 `json:"mendAt,omitempty"`
+
+	// Ridden is true for the one the player rides.
+	Ridden bool `json:"ridden,omitempty"`
 }
 
 // Mossback is a mossback as a save from before there were other beasts holds it.

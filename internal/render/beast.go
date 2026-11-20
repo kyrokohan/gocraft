@@ -221,8 +221,9 @@ type limb struct {
 	// swing is how far the box swings forward and back as the beast steps, in radians:
 	// a leg. sway is how far it swings from side to side: a tail, which swings lashMore
 	// times as far when the beast strikes with it. nod is how far its front tips down
-	// when the beast lowers its head.
+	// when the beast lowers its head, and out and dip how far it goes forward and down.
 	swing, sway, nod float64
+	out, dip         float64
 
 	// eye is true for a box that is an eye: it has no picture, only a color, and it
 	// shines in the dark.
@@ -366,6 +367,9 @@ func buglerShape(set *assets.Set) shape {
 
 	leg := box(-0.17, -hip, -0.17, 0.34, hip, 0.34, all6(buglerLeg), n, look)
 	arm := box(-0.09, -0.75, -0.09, 0.18, 0.75, 0.18, all6(buglerLeg), n, look)
+	// With its head lowered, as it carries it with a rider on its back, its neck and
+	// head go forward and down, and its crest lies level.
+	const out, dip = 0.5, 0.75
 	return shape{
 		stand: hip,
 		hurt:  reddened(set.Bugler),
@@ -374,10 +378,10 @@ func buglerShape(set *assets.Set) shape {
 			// The tail is two boxes, each with its origin at its root. The far one sways.
 			{mesh: box(-0.3, -0.3, -1.3, 0.6, 0.6, 1.3, hide, n, look), up: hip + 0.45, front: -1.1},
 			{mesh: box(-0.17, -0.17, -1.2, 0.34, 0.34, 1.2, hide, n, look), up: hip + 0.45, front: -2.4, sway: 0.25},
-			{mesh: box(-0.225, hip+0.7, 0.75, 0.45, 1.0, 0.5, hide, n, look)},
-			{mesh: box(-0.25, hip+1.45, 0.8, 0.5, 0.45, 0.95, head, n, look)},
+			{mesh: box(-0.225, hip+0.7, 0.75, 0.45, 1.0, 0.5, hide, n, look), out: out, dip: dip},
+			{mesh: box(-0.25, hip+1.45, 0.8, 0.5, 0.45, 0.95, head, n, look), out: out, dip: dip},
 			// The crest runs back from over the eyes and rises as it goes.
-			{mesh: box(-0.08, 0, -1.0, 0.16, 0.22, 1.0, all6(buglerCrest), n, look), up: hip + 1.8, front: 1.05, tilt: -0.35},
+			{mesh: box(-0.08, 0, -1.0, 0.16, 0.22, 1.0, all6(buglerCrest), n, look), up: hip + 1.8, front: 1.05, tilt: -0.35, nod: -0.35, out: out, dip: dip},
 			{mesh: leg, right: -0.32, up: hip, front: -0.2, swing: 0.45},
 			{mesh: leg, right: 0.32, up: hip, front: -0.2, swing: -0.45},
 			{mesh: arm, right: -0.4, up: hip + 0.05, front: 0.75, swing: -0.3},
@@ -1171,8 +1175,8 @@ func (b *Beasts) Draw(c *engine.Canvas, cam mesh.Camera, all []Beast, sky *Sky) 
 			if one.Aloft && p.hasSpread {
 				m = p.spread
 			}
-			at := one.Pos.Add(aside.Scale(p.right * size)).Add(ahead.Scale(p.front * size))
-			at.Y += (p.up - one.Fall*s.stand) * size
+			at := one.Pos.Add(aside.Scale(p.right * size)).Add(ahead.Scale((p.front + p.out*one.Lower) * size))
+			at.Y += (p.up - p.dip*one.Lower - one.Fall*s.stand) * size
 			m.Transform = mesh.Transform{
 				Position: at,
 				Yaw:      one.Yaw + p.sway*(step+lashMore*one.Lash),
