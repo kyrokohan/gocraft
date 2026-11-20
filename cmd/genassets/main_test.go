@@ -78,6 +78,7 @@ func TestOnlyLeavesGlassPlantsAndPicturesOnNoBlockHaveHoles(t *testing.T) {
 			tile.WoodBlade, tile.StoneBlade, tile.CopperBlade, tile.IronBlade, tile.Moss, tile.MossCake, tile.Meat,
 			tile.Fiber, tile.Cord, tile.Flint, tile.Hide, tile.HandAxe, tile.FlintPick, tile.FlintKnife, tile.DiggingStick, tile.Club, tile.Spear,
 			tile.Fire, tile.CookedMeat, tile.PalmSeeds, tile.RoastSeeds, tile.Resin, tile.UnlitTorch, tile.FireDrill, tile.HardSpear, tile.SoftPot, tile.Pebble, tile.Sling,
+			tile.Obsidian, tile.Firestone, tile.ObsidianKnife, tile.ObsidianPick, tile.ObsidianSpear, tile.Striker,
 		}, tile.ID(id))
 		if seeThrough && holes == 0 {
 			t.Errorf("tile %d should have holes and has none", id)

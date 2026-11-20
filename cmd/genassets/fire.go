@@ -386,3 +386,97 @@ func lava(x, y int) (rgb, bool) {
 	}
 	return grain(c, 0.04, x, y, 768), true
 }
+
+var (
+	obsidianGlass = rgb{26, 22, 34} // black, with a little of the night's blue in it
+	firestoneGold = rgb{214, 182, 64}
+)
+
+// glassy is obsidian at a pixel: black glass, with the pale line of a broken edge and a
+// glint where it catches the light.
+func glassy(x, y, seed int) rgb {
+	switch h := hash(x, y, seed); {
+	case (x+2*y)%9 == 0:
+		return grain(rgb{104, 96, 128}, 0.08, x, y, seed+1) // an edge where it broke
+	case h < 0.04:
+		return rgb{214, 208, 236} // a glint
+	}
+	return grain(obsidianGlass.scale(0.8+0.5*blotch(x, y, 4, seed+2)), 0.1, x, y, seed+3)
+}
+
+// obsidianRock is a vein of obsidian in the dark rock: black glass that shines.
+func obsidianRock(x, y int) (rgb, bool) {
+	if blotch(x, y, 4, 770) < 0.3 {
+		return basalt(x, y)
+	}
+	return glassy(x, y, 771), true
+}
+
+// firestoneRock is dark rock with firestone in it: lumps the color of brass, that shine
+// as metal does.
+func firestoneRock(x, y int) (rgb, bool) {
+	if blotch(x, y, 2, 775) > 0.62 && hash(x, y, 776) > 0.12 {
+		c := firestoneGold
+		if hash(x, y, 777) < 0.2 {
+			c = c.scale(1.3)
+		}
+		return grain(c, 0.08, x, y, 778), true
+	}
+	return basalt(x, y)
+}
+
+// obsidianShard is a piece of obsidian broken from a vein: a blade of black glass.
+func obsidianShard(x, y int) (rgb, bool) {
+	fx, fy := float64(x)+0.5, float64(y)+0.5
+	along, across := fx-fy, fx+fy-16
+	if along < -7 || along > 8 || math.Abs(across) > 3.2*(1-math.Abs(along-0.5)/8.5) {
+		return rgb{}, false
+	}
+	if across < -0.5 {
+		return grain(rgb{104, 96, 128}, 0.08, x, y, 779), true // the face that catches the light
+	}
+	return glassy(x, y, 780), true
+}
+
+// firestonePiece is a lump of firestone: brass yellow, in small cubes grown together.
+func firestonePiece(x, y int) (rgb, bool) {
+	dx, dy := (float64(x)-7.5)/5.4, (float64(y)-8.5)/4.4
+	if dx*dx+dy*dy > 1 || (x%5 == 0 || y%5 == 1) && dx*dx+dy*dy > 0.6 {
+		return rgb{}, false
+	}
+	c := firestoneGold.scale(0.82 + 0.4*hash(x/3, y/3, 781))
+	if x%5 == 0 || y%5 == 1 {
+		c = c.scale(0.66) // the lines between the cubes
+	}
+	return grain(c, 0.06, x, y, 782), true
+}
+
+// obsidianSpear is a spear with a point of obsidian bound to it.
+func obsidianSpear(x, y int) (rgb, bool) {
+	c, ok := spear(x, y)
+	a, _ := shaft(x, y, -14, 14, 1.1)
+	switch {
+	case !ok:
+	case a > 8.5:
+		c = glassy(x, y, 783)
+	case a > 6.5:
+		c = grain(rgb{196, 168, 110}, 0.06, x, y, 784) // the cord that binds it
+	}
+	return c, ok
+}
+
+// striker is a flint and a piece of firestone, held one to strike the other, with the
+// sparks between them.
+func striker(x, y int) (rgb, bool) {
+	if c, ok := flint(x-3, y+3); ok && x < 11 && y > 4 {
+		return c, true
+	}
+	dx, dy := float64(x)-11.5, float64(y)-4.5
+	switch {
+	case dx*dx+dy*dy < 9:
+		return grain(firestoneGold.scale(0.86+0.3*hash(x/2, y/2, 785)), 0.06, x, y, 786), true
+	case (x == 6 && y == 3) || (x == 4 && y == 2) || (x == 7 && y == 1):
+		return rgb{255, 232, 120}, true // a spark
+	}
+	return rgb{}, false
+}

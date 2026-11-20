@@ -150,8 +150,10 @@ func TestAshlandsAreAshAndDarkRockWhereNothingGrows(t *testing.T) {
 			}
 			top := w.At(x+dx, l.top, z+dz)
 			ground[top]++
-			if top != Ash && top != Basalt && top != Air { // air: the mouth of a cave
-				t.Fatalf("the ground at %d,%d is %v, wanted ash or dark rock", x+dx, z+dz, top)
+			switch top {
+			case Ash, Basalt, ObsidianRock, FirestoneRock, Air: // air: the mouth of a cave
+			default:
+				t.Fatalf("the ground at %d,%d is %v, wanted ash, dark rock or what lies in it", x+dx, z+dz, top)
 			}
 			if over := w.At(x+dx, l.top+1, z+dz); over != Air && over != CharredLog {
 				t.Fatalf("on the ashlands at %d,%d there is %v, wanted nothing or a charred trunk", x+dx, z+dz, over)
@@ -173,5 +175,106 @@ func TestLavaGlowsAndIsNoSolidThingAndCannotBeTaken(t *testing.T) {
 	}
 	if Ash != PitCover+1 || Basalt != Ash+1 || Lava != Basalt+1 || Ashlands != Highland+1 {
 		t.Errorf("the numbers moved: ash %d, dark rock %d, lava %d, ashlands %d", Ash, Basalt, Lava, Ashlands)
+	}
+}
+
+func TestObsidianAndFirestoneAreFoundOnAFireMountainAndNowhereElse(t *testing.T) {
+	const seed = 7
+	x, z := mountPlace(0, 0, seed)
+	w := newWorld(seed, Terrain(seed), "", float64(x), float64(z))
+	obsidian, firestone, far := 0, 0, 0.0
+	for dz := -mountAsh; dz <= mountAsh; dz++ {
+		for dx := -mountAsh; dx <= mountAsh; dx++ {
+			out := math.Hypot(float64(dx), float64(dz))
+			for y := SeaLevel; y < Height; y++ {
+				switch w.At(x+dx, y, z+dz) {
+				case ObsidianRock:
+					if obsidian++; out >= mountFoot {
+						t.Fatalf("obsidian lies %.0f from the middle, off the cone", out)
+					}
+				case FirestoneRock:
+					firestone++
+					far = max(far, math.Abs(out-craterWide))
+					if landAt(x+dx, z+dz, seed).lava != 0 {
+						t.Fatalf("firestone lies under the lake, at %d,%d,%d", x+dx, y, z+dz)
+					}
+				}
+			}
+		}
+	}
+	if obsidian < 60 || firestone < 12 {
+		t.Errorf("the mountain holds %d blocks of obsidian and %d of firestone, wanted veins of the one and patches of the other", obsidian, firestone)
+	}
+	if far > firestoneRing+1.5 {
+		t.Errorf("firestone lies %.1f from the rim of the crater, wanted it within %v", far, firestoneRing)
+	}
+
+	// Round where the world begins there is neither.
+	home := Generate(seed)
+	for dz := -80; dz <= 80; dz++ {
+		for dx := -80; dx <= 80; dx++ {
+			for y := range Height {
+				if b := home.At(dx, y, dz); b == ObsidianRock || b == FirestoneRock || b == Lava {
+					t.Fatalf("there is %v at %d,%d,%d, far from any mountain", b, dx, y, dz)
+				}
+			}
+		}
+	}
+}
+
+func TestObsidianNeedsAFlintPickAndFirestoneBreaksByHand(t *testing.T) {
+	if _, yields := ObsidianRock.DigWith(NoItem); yields {
+		t.Error("obsidian breaks out by hand")
+	}
+	if _, yields := ObsidianRock.DigWith(DiggingStick); yields {
+		t.Error("obsidian breaks out with a digging stick")
+	}
+	if _, yields := ObsidianRock.DigWith(FlintPick); !yields {
+		t.Error("a flint pick does not break obsidian out")
+	}
+	if item, n := ObsidianRock.Drop(); item != Obsidian || n != 1 {
+		t.Errorf("a vein of obsidian leaves %d of %v", n, item)
+	}
+	if _, yields := FirestoneRock.DigWith(NoItem); !yields {
+		t.Error("firestone does not break by hand")
+	}
+	if item, n := FirestoneRock.Drop(); item != Firestone || n != 1 {
+		t.Errorf("firestone leaves %d of %v", n, item)
+	}
+}
+
+func TestToolsOfObsidianAreTheSharpestAndTheFirstToBreak(t *testing.T) {
+	for _, pair := range [][2]Item{{ObsidianKnife, FlintKnife}, {ObsidianPick, FlintPick}, {ObsidianSpear, HardSpear}} {
+		glass, other := pair[0], pair[1]
+		if glass.Uses() != 40 || glass.Uses() >= other.Uses()/2 || glass.StackSize() != 1 {
+			t.Errorf("%s lasts %d uses and %s %d: wanted 40, and well under half", glass.Name(), glass.Uses(), other.Name(), other.Uses())
+		}
+		if glass.Damage() < other.Damage() {
+			t.Errorf("%s hits for %v and %s for %v", glass.Name(), glass.Damage(), other.Name(), other.Damage())
+		}
+	}
+	if ObsidianKnife.Damage() != 5 || !ObsidianKnife.Carves() || ObsidianSpear.Damage() != 5 || ObsidianSpear.Reach() != 1 || !ObsidianSpear.Thrown() {
+		t.Errorf("knife: %v, carves %v; spear: %v, reach %v, thrown %v", ObsidianKnife.Damage(), ObsidianKnife.Carves(), ObsidianSpear.Damage(), ObsidianSpear.Reach(), ObsidianSpear.Thrown())
+	}
+	glass, _ := Stone.DigWith(ObsidianPick)
+	flint, _ := Stone.DigWith(FlintPick)
+	if glass >= flint {
+		t.Errorf("an obsidian pick digs stone in %v s and a flint one in %v", glass, flint)
+	}
+	// Crystal, which nothing could break out, now can be.
+	if _, yields := CrystalOre.DigWith(FlintPick); yields {
+		t.Error("a flint pick breaks out crystal")
+	}
+	if _, yields := CrystalOre.DigWith(ObsidianPick); !yields {
+		t.Error("an obsidian pick does not break out crystal")
+	}
+	if !Spear.Thrown() || !HardSpear.Thrown() || Club.Thrown() || ObsidianKnife.Thrown() {
+		t.Error("what is thrown: wanted the three spears and nothing else")
+	}
+	if Striker.Uses() != 30 || Striker.StackSize() != 1 || Obsidian.StackSize() != StackSize || Firestone.StackSize() != StackSize {
+		t.Errorf("a striker lasts %d fires, %d to a slot", Striker.Uses(), Striker.StackSize())
+	}
+	if Obsidian != Sling+1 || Striker != Obsidian+5 || ObsidianRock != Lava+1 || FirestoneRock != ObsidianRock+1 {
+		t.Errorf("the numbers moved: obsidian %d, striker %d, obsidian rock %d, firestone rock %d", Obsidian, Striker, ObsidianRock, FirestoneRock)
 	}
 }
