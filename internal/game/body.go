@@ -44,6 +44,20 @@ func inWater(w *world.World, pos geometry.Vector3) bool {
 	return b == world.Water || b == world.Lava
 }
 
+// Tar holds what walks into it. Speeds are in blocks a second.
+const (
+	tarDrag  = 5.0  // how many times slower than a walk a body crawls in it
+	tarSink  = 0.08 // how fast it sinks in it, whatever it does: its head is under in twenty seconds
+	tarClimb = 3.0  // how fast a player who has got to the edge of it climbs out
+	tarDeath = 60.0 // how many seconds a beast held in it lives
+)
+
+// inTar reports whether the feet of a body are in tar: at all, so that one that climbs
+// out of it is in it until its feet are clear of the top.
+func inTar(w *world.World, pos geometry.Vector3) bool {
+	return w.At(int(math.Floor(pos.X)), int(math.Floor(pos.Y)), int(math.Floor(pos.Z))) == world.Tar
+}
+
 // travel moves a body by move and reports on which axes (0 is x, 1 is y, 2 is z) a
 // block stopped it. It goes a part at a time, each under half a block, and along one
 // axis at a time, which is what lets a body slide along a wall it meets at an angle.

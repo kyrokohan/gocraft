@@ -802,6 +802,9 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	if eye := cam.Position; g.lightAt(eye) != 0 && g.world.At(int(math.Floor(eye.X)), int(math.Floor(eye.Y)), int(math.Floor(eye.Z))) == world.Lava {
 		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(255, 120, 30), 0.75) // the eye is in lava
 	}
+	if eye := cam.Position; g.world.At(int(math.Floor(eye.X)), int(math.Floor(eye.Y)), int(math.Floor(eye.Z))) == world.Tar {
+		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(10, 9, 10), 0.94) // the eye is in tar
+	}
 	if g.flash > 0 {
 		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(200, 20, 20), 0.4*g.flash/hurtFlash)
 	}
