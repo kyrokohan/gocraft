@@ -156,6 +156,9 @@ const (
 	FurCloak
 	Tusk
 	Amber
+	BuglerEgg
+	ShieldbrowEgg
+	GalewingEgg
 
 	// Count is the number of tiles in the strip.
 	Count

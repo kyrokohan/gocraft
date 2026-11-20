@@ -83,6 +83,10 @@ const (
 	Tusk     // of a snowtusk
 	Amber    // a piece of it, out of the trunk of a scale tree
 
+	BuglerEgg // an egg out of a nest: it is carried, and by a fire it hatches
+	ShieldbrowEgg
+	GalewingEgg
+
 	itemEnd
 )
 
@@ -229,6 +233,11 @@ var things = [itemEnd - 256]thing{
 
 	// Amber has no use yet.
 	Amber - 256: {name: "amber", icon: tile.Amber},
+
+	// An egg is no food. It is taken out of a guarded nest, and carried.
+	BuglerEgg - 256:     {name: "bugler's egg", icon: tile.BuglerEgg},
+	ShieldbrowEgg - 256: {name: "shieldbrow's egg", icon: tile.ShieldbrowEgg},
+	GalewingEgg - 256:   {name: "galewing's egg", icon: tile.GalewingEgg},
 }
 
 // obsidianUses is how many uses a tool of obsidian lasts, and skyIronUses one of sky
