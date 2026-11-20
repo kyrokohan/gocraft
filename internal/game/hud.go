@@ -231,6 +231,10 @@ func (g *Game) drawNumbers(fb *engine.FrameBuffer, y int) {
 		fmt.Sprintf("seed    %d", g.world.Seed),
 		"time    " + clockText(g.days),
 	}
+	if _, far, ok := g.world.Mountain(g.player.Pos.X, g.player.Pos.Z); ok && far < eruptReach {
+		_, next, _ := g.world.Erupted(g.player.Pos.X, g.player.Pos.Z, g.days)
+		lines = append(lines, fmt.Sprintf("erupts  in %.2f days", next-g.days))
+	}
 	widget.Panel{Title: "frame", Style: hudFrame, Fill: hudFill}.Draw(fb, 0, y, numbersWidth, len(lines)+2)
 	for i, line := range lines {
 		widget.Label{Text: line, Style: hudText}.Draw(fb, 2, y+1+i, numbersWidth-4)

@@ -22,8 +22,6 @@ const (
 	slingWait   = 0.45 // seconds from one shot of a sling to the next
 	missileStep = 0.25 // the farthest a thing in flight goes before it is asked again what it met, in blocks
 	flightLife  = 12.0 // seconds a thing can fly before it is lost: it left the world that is loaded
-	spearLong   = 1.1  // how far across the picture of a spear in flight is, in blocks
-	pebbleSize  = 0.14 // how far across a pebble in flight is
 )
 
 // flier is a kind of thing that flies.
@@ -32,6 +30,7 @@ type flier uint8
 const (
 	spearThrown flier = iota
 	pebbleSlung
+	rockFlung // out of a fire mountain that erupts
 )
 
 // flight is how a kind of thing flies, and what it does where it comes down.
@@ -40,12 +39,15 @@ type flight struct {
 	weight float64 // how much faster it falls each second, in blocks a second
 	harm   float64 // points it takes from a beast it meets, over what a hit with the thing takes
 	scare  float64 // how near a herd it lands for the herd to take alarm, in blocks
+	size   float64 // how far across its picture in flight is, in blocks
 	sticks bool    // it is long, flies point first, and stays in what it meets
+	burns  bool    // it is a burning rock: nobody threw it, it hurts the player too, and it leaves rock and a fire
 }
 
 var fliers = [...]flight{
-	spearThrown: {speed: 24, weight: 16, harm: thrownMore, scare: 4, sticks: true},
-	pebbleSlung: {speed: 38, weight: 14, scare: 8},
+	spearThrown: {speed: 24, weight: 16, harm: thrownMore, scare: 4, size: 1.1, sticks: true},
+	pebbleSlung: {speed: 38, weight: 14, scare: 8, size: 0.14},
+	rockFlung:   {weight: 16, harm: rockHarm, scare: 12, size: 1.3, burns: true},
 }
 
 // missile is a thing in flight, or a spear that sticks where it came down.
@@ -134,7 +136,14 @@ func (g *Game) fly(m *missile, dt float64) bool {
 		left -= step
 		m.vel.Y -= f.weight * step
 		next := m.pos.Add(m.vel.Scale(step))
+		if f.burns && g.struck(next) {
+			return false
+		}
 		if i, ok := g.beastAt(next); ok {
+			if f.burns {
+				g.fauna.all[i].hit(m.pos, f.harm) // the mountain's hit, and not the player's
+				return false
+			}
 			g.wound(i, m.stack.Item.Damage()+f.harm, 1, false)
 			g.lay(*m)
 			return false
@@ -151,6 +160,10 @@ func (g *Game) fly(m *missile, dt float64) bool {
 			if c := &g.fauna.all[i]; !c.dead && c.Pos.Distance(m.pos) <= f.scare {
 				g.fauna.raise(c.herd, m.pos)
 			}
+		}
+		if f.burns {
+			g.land(m.pos)
+			return false
 		}
 		if !f.sticks || !m.leaves || worn(m.stack) {
 			g.lay(*m)
@@ -207,13 +220,13 @@ func (g *Game) beastAt(p geometry.Vector3) (int, bool) {
 func (g *Game) flying() []render.Flying {
 	g.thrown = g.thrown[:0]
 	for _, m := range g.missiles {
-		size := pebbleSize
-		if fliers[m.kind].sticks {
-			size = spearLong
+		f := &fliers[m.kind]
+		light := g.sky.Brightness(g.lightAt(m.pos))
+		if f.burns {
+			light = 1 // it is its own light
 		}
 		g.thrown = append(g.thrown, render.Flying{
-			Item: m.stack.Item, Pos: m.pos, Along: m.vel, Long: fliers[m.kind].sticks, Size: size,
-			Light: g.sky.Brightness(g.lightAt(m.pos)),
+			Item: m.stack.Item, Pos: m.pos, Along: m.vel, Long: f.sticks, Size: f.size, Light: light,
 		})
 	}
 	return g.thrown

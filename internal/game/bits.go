@@ -12,7 +12,7 @@ import (
 // The bits that fly from a block as it breaks.
 const (
 	bitsABreak = 10   // how many fly from one block
-	maxBits    = 96   // the most there are at once: the oldest go first past that
+	maxBits    = 192  // the most there are at once: the oldest go first past that
 	bitSize    = 0.14 // how far across one is, in blocks
 	bitFall    = 20.0 // how fast they fall faster, in blocks a second, each second
 	bitLife    = 0.7  // seconds the longest lived one lasts
@@ -39,6 +39,7 @@ type bit struct {
 	spin      float64 // how fast it tumbles, in radians a second
 	smoke     bool    // it is a puff of smoke, which rises and does not fall
 	size      float64 // how far across a puff is when it is new: it grows to twice that
+	glows     bool    // it is fire, and is its own light
 }
 
 // shatter throws bits of a block out from its cell: up and away from its middle. A plant,
@@ -68,6 +69,13 @@ func (g *Game) shatter(x, y, z int, b world.Block) {
 // life seconds.
 func (g *Game) puff(at geometry.Vector3, size, life float64) {
 	g.puffOf(smokeItem, at, size, life, smokeRise)
+}
+
+// flame lets a puff of fire go from a place, as puff does one of smoke: it rises at a
+// speed, in blocks a second, and is its own light.
+func (g *Game) flame(at geometry.Vector3, size, life, rise float64) {
+	g.puffOf(world.Lava.Item(), at, size, life, rise)
+	g.bits[len(g.bits)-1].glows = true
 }
 
 // puffOf lets a puff of something that rises go from a place, drawn as a piece of an
@@ -111,7 +119,11 @@ func (g *Game) smoke(dt float64) {
 	}
 	// A fire mountain smokes from its crater: great puffs, from all over its lake.
 	if crater, far, ok := g.world.Mountain(p.X, p.Z); ok && far < smokeReach {
-		for range craterPuffs {
+		puffs := craterPuffs
+		if _, fire := g.ash(); fire > 0 {
+			puffs *= 2 // it erupts
+		}
+		for range puffs {
 			at := cellMid(crater.X, crater.Y, crater.Z).Add(geometry.Vector3{
 				X: craterSmoke * (2*g.scatter.Float64() - 1), Z: craterSmoke * (2*g.scatter.Float64() - 1),
 			})
@@ -155,12 +167,12 @@ func (g *Game) drawnBits() []render.Bit {
 		if b.smoke {
 			size = b.size * (2 - left)
 		}
+		light := 1.0
+		if !b.glows {
+			light = g.sky.Brightness(g.lightAt(b.pos))
+		}
 		g.pieces = append(g.pieces, render.Bit{
-			Item:  b.item,
-			Pos:   b.pos,
-			Size:  size * min(1, left/0.4),
-			Spin:  b.spin * b.age,
-			Light: g.sky.Brightness(g.lightAt(b.pos)),
+			Item: b.item, Pos: b.pos, Size: size * min(1, left/0.4), Spin: b.spin * b.age, Light: light,
 		})
 	}
 	return g.pieces

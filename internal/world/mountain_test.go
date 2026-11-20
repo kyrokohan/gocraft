@@ -461,3 +461,56 @@ func TestTheSpringsAndTheTubeAreTheSameWhicheverChunkIsMadeFirst(t *testing.T) {
 		}
 	}
 }
+
+func TestAFireMountainEruptsEveryFourToSevenDaysByTheSeed(t *testing.T) {
+	for seed := int64(1); seed <= 8; seed++ {
+		w := Generate(seed)
+		crater, _, _ := w.Mountain(0, 0)
+		x, z := float64(crater.X), float64(crater.Z)
+		if began, _, ok := w.Erupted(x, z, 3.99); ok {
+			t.Errorf("seed %d: the mountain began to erupt on day %.2f, before the fourth day", seed, began)
+		}
+		last, count := 0.0, 0
+		for day := 0.0; day < 80; day += 0.01 {
+			began, next, ok := w.Erupted(x, z, day)
+			if then, _, _ := w.Erupted(x, z, next); next <= day || then != next {
+				t.Fatalf("seed %d: on day %.2f the next eruption is to begin on day %.2f, and on that day the last began on day %.2f", seed, day, next, then)
+			}
+			if !ok {
+				continue
+			}
+			if again, _, _ := w.Erupted(x, z, day); again != began || began > day {
+				t.Fatalf("seed %d: on day %.2f the last eruption began on day %.2f, and then on day %.2f", seed, day, began, again)
+			}
+			if began != last {
+				if gap := began - last; gap < 4 || gap > 7 {
+					t.Errorf("seed %d: an eruption began on day %.2f, %.2f days after the last: wanted four to seven", seed, began, gap)
+				}
+				last, count = began, count+1
+			}
+		}
+		if count < 11 || count > 20 {
+			t.Errorf("seed %d: %d eruptions in 80 days, wanted 11 to 20", seed, count)
+		}
+	}
+
+	// Two mountains of one world do not keep the same days.
+	w := Generate(7)
+	first := func(x, z float64) float64 {
+		for day := 4.0; day < 8; day += 0.01 {
+			if began, _, ok := w.Erupted(x, z, day); ok {
+				return began
+			}
+		}
+		t.Fatalf("the mountain near %.0f, %.0f did not erupt in a week", x, z)
+		return 0
+	}
+	a, _, _ := w.Mountain(0, 0)
+	b, _, _ := w.Mountain(float64(a.X)+mountSquare, float64(a.Z))
+	if a == b || first(float64(a.X), float64(a.Z)) == first(float64(b.X), float64(b.Z)) {
+		t.Errorf("the mountains at %v and %v first erupt on the same day", a, b)
+	}
+	if _, _, ok := New().Erupted(0, 0, 100); ok {
+		t.Error("a world that is not made from a seed has a mountain that erupted")
+	}
+}

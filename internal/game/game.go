@@ -176,6 +176,8 @@ type Game struct {
 	missiles    []missile
 	thrown      []render.Flying
 
+	embers []world.Ember // the fires that the rocks of a fire mountain left, which burn out
+
 	digAt   [3]int  // the block being dug, in survival
 	digging float64 // for how long it has been dug
 
@@ -283,7 +285,7 @@ func (g *Game) use(w *world.World, s world.Meta) {
 	g.clouds = render.NewClouds(g.world.Seed)
 	g.player = Player{Pos: s.Pos, Yaw: s.Yaw, Pitch: s.Pitch, Flying: s.Flying}
 	g.fauna = faunaFrom(g.world, s, g.player.Pos)
-	g.bits, g.missiles = nil, nil
+	g.bits, g.missiles, g.embers = nil, nil, s.Embers
 	g.selected = min(max(s.Slot, 0), hotbarSlots-1)
 	g.days = s.Days
 	g.saved = true
@@ -316,6 +318,7 @@ func (g *Game) Save() error {
 		Air:    g.air,
 		Look:   g.worn,
 		Torch:  g.torch,
+		Embers: g.embers,
 	}
 	for _, d := range g.drops {
 		m.Drops = append(m.Drops, d.Drop)
@@ -384,7 +387,7 @@ func (g *Game) newWorld(seed int64) {
 	g.player = Player{Pos: g.world.Spawn()}
 	g.fauna = newFauna(g.world, g.player.Pos)
 	g.selected, g.aimed, g.saved, g.days, g.torch = 0, false, false, 0, 0
-	g.drops, g.bits, g.missiles = nil, nil, nil
+	g.drops, g.bits, g.missiles, g.embers = nil, nil, nil, nil
 	g.loadStores(world.Meta{})
 	g.begin(false)
 }
@@ -499,6 +502,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		g.stepDrops(dt)
 		g.stepMissiles(dt)
 		g.geysers(dt)
+		g.erupt(dt)
 		g.smoke(dt)
 		g.stepBits(dt)
 		g.stepHearths(dt)
@@ -733,6 +737,7 @@ func (g *Game) fogAt(cam mesh.Camera) *mesh.Fog {
 // Draw renders the game into fb.
 func (g *Game) Draw(fb *engine.FrameBuffer) {
 	c := fb.Canvas()
+	g.sky.SetAsh(g.ash())
 	g.sky.Set(timeOfDay(g.days))
 	g.plume()
 	g.rend.Crack = render.Crack{}

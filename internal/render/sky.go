@@ -81,6 +81,27 @@ type Sky struct {
 	toMount geometry.Vector3
 	plume   float64
 	foot    float64 // how high over the horizon the smoke begins: the top of the mountain, as the sine of the angle
+
+	// How much ash the sky holds, from 0 to 1, and how much of the fire of a mountain
+	// that is throwing it out shows at the foot of its smoke.
+	ash, fire float64
+}
+
+// How ash in the sky looks by day and by night, and how much of the light of day the
+// most of it takes.
+var (
+	ashDay   = color{92, 84, 80}
+	ashNight = color{20, 17, 18}
+)
+
+const ashDims = 0.45
+
+// SetAsh has the sky hold ash, from 0, none, to 1, and the fire of a mountain that is
+// throwing it out, from 0 to 1. Ash greys the sky, its clouds and its fog, hides the
+// stars and takes from the light of day; the fire reddens the foot of the mountain's
+// smoke by day as the night does. Both show from the next Set.
+func (s *Sky) SetAsh(ash, fire float64) {
+	s.ash, s.fire = min(max(ash, 0), 1), min(max(fire, 0), 1)
 }
 
 // How the smoke of a fire mountain stands on the horizon.
@@ -156,13 +177,19 @@ func (s *Sky) Set(time float64) {
 	s.zenith = nightZenith.mix(dayZenith, part(s.day))
 	s.sunDisc = sunColor.mix(duskGlow, part(s.dusk*0.6))
 	s.cloud = nightCloud.mix(dayCloud, part(s.day)).mix(duskCloud, part(s.dusk*0.45))
+	if s.ash > 0 {
+		grey, much := ashNight.mix(ashDay, part(s.day)), part(0.8*s.ash)
+		s.horizon, s.zenith, s.cloud = s.horizon.mix(grey, much), s.zenith.mix(grey, much), s.cloud.mix(grey, much)
+		s.sunDisc = s.sunDisc.mix(duskGlow, much) // the sun is red through it
+		s.stars *= 1 - s.ash
+	}
 
 	fog := s.horizon.mix(duskGlow, part(s.dusk*0.25))
 	s.Fog = mesh.Fog{Color: fog.engine(), Start: 0.6 * ViewDistance, End: ViewDistance}
 	s.cloudFog = mesh.Fog{Color: fog.engine(), Start: ViewDistance, End: 3 * ViewDistance}
 
 	for c := range s.skyChannels {
-		s.skyChannels[c] = (nightTint[c] + (1-nightTint[c])*s.day) * (1 - (1-duskTint[c])*s.dusk*s.day)
+		s.skyChannels[c] = (nightTint[c] + (1-nightTint[c])*s.day) * (1 - (1-duskTint[c])*s.dusk*s.day) * (1 - ashDims*s.ash)
 	}
 	for l := range s.shade {
 		light := world.Light(l)
@@ -239,7 +266,7 @@ func (s *Sky) color(d geometry.Vector3) color {
 		if edge := math.Abs(aside-plumeLean*up*up) / wide; ahead > 0 && edge < 1 {
 			thick := s.plume * (1 - edge*edge) * (1 - 0.8*up*up)
 			c = c.mix(smokeDay.mix(smokeNight, part(1-s.day)), part(0.85*thick))
-			if glow := (1 - s.day) * (1 - 1.6*up); glow > 0 {
+			if glow := max(1-s.day, s.fire) * (1 - 1.6*up); glow > 0 {
 				c = c.mix(lavaGlow, part(0.9*thick*glow))
 			}
 		}
