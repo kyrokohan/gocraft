@@ -440,6 +440,16 @@ func makeSound(n sound.Name) []float64 {
 			s[i] += 0.45 * rasp.at(noise(i, 997)) * swell(float64(i)/rate, 0.05, 0.4)
 		}
 		return peakTo(s, 0.8)
+	case sound.Whirr:
+		// Stiff wings that beat forty times a second: a dry rattle, that comes and goes.
+		s := make([]float64, samples(0.7))
+		dry := newBand(2400, 1.2)
+		for i := range s {
+			t := float64(i) / rate
+			beat := math.Pow(0.5+0.5*math.Sin(2*math.Pi*40*t), 4)
+			s[i] = dry.at(noise(i, 998)) * beat * swell(t, 0.08, 0.5)
+		}
+		return peakTo(s, 0.7)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))

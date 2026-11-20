@@ -48,6 +48,8 @@ func burnTime(item world.Item) float64 {
 		return 30
 	case slices.Contains(logs, item):
 		return 80
+	case item == world.Peat.Item():
+		return 240 // it burns slowly: three times as long as a log
 	case item == world.Coal:
 		return 160
 	}

@@ -129,6 +129,13 @@ type breed struct {
 	// feed from a tree, and when it strikes.
 	rears bool
 
+	// moves is how it gets about: it walks, if its row says nothing. hover is how high
+	// over the ground or the water one that flies keeps. curls is how many seconds one
+	// that curls up when it is hit stays so: curled, nothing hurts it.
+	moves gait
+	hover float64
+	curls float64
+
 	// A guard does not run. warns is how near what it guards, its young or itself, a
 	// threat may come before it turns on it and gives its cry. charges is how near
 	// before it runs at the threat, for one that charges, and swings how far from the
@@ -294,7 +301,34 @@ var breeds = [render.Kinds]breed{
 		lands: []world.Biome{world.Tundra}, bare: true,
 		call: sound.Growl, cry: sound.Snarl, callEvery: 40,
 	},
+
+	// The beasts of the coal swamp: strange, loud and harmless. A rattlewing flies, low
+	// over the pools, and darts off when it is hit. A logcrawler creeps on the peat, and
+	// curls up when it is hit: then nothing gets through its plates.
+	render.Rattlewing: {
+		walk: 3.0, run: 8.0, gait: 60,
+		health: 2,
+		moves:  gaitFly, hover: 1.6,
+		group: [2]int{1, 2}, most: 4,
+		lands: []world.Biome{world.Swamp},
+		call:  sound.Whirr, cry: sound.Whirr, callEvery: 7,
+	},
+	render.Logcrawler: {
+		walk: 0.5, run: 0.9, gait: 9,
+		health: 8, meat: 2, curls: 6,
+		group: [2]int{1, 1}, most: 3,
+		lands: []world.Biome{world.Swamp}, bare: true,
+		call: sound.Rattle, cry: sound.Rattle, callEvery: 90,
+	},
 }
+
+// gait is how a beast gets about.
+type gait uint8
+
+const (
+	gaitWalk gait = iota
+	gaitFly       // it keeps a height over what is under it, and goes where it looks
+)
 
 // slowclawGrudge is how near what it was hit by a slowclaw must be for the slowclaw to
 // go for it: nothing is that near that did not hit it, so it takes notice of nothing
@@ -351,6 +385,7 @@ type beast struct {
 	// whether it has turned to go, and for how long.
 	keen, biteIn, feeding, lit float64
 	leap                       float64 // how long the spring of one that springs still lasts
+	curl                       float64 // how long one that curls up when it is hit stays curled
 	leaving                    bool
 	gone                       float64
 	about                      float64 // how long a hunter that visits has been about
@@ -529,7 +564,9 @@ func (f *fauna) standing(w *world.World, k render.Kind, young bool, x, z int) (g
 	y := w.Ground(x, z) // under any plant
 	switch on := w.At(x, y, z); {
 	case on == world.Turf:
-	case breeds[k].bare && (on == world.Redrock || on == world.Sand || on == world.Sandstone || on == world.Snow):
+	case breeds[k].moves == gaitFly && (on == world.Water || on == world.Peat || on == world.Turf || on == world.Sand):
+		y += int(math.Ceil(breeds[k].hover)) - 1 // it is in the air over it: over open ground or water, and not over a tree
+	case breeds[k].bare && (on == world.Redrock || on == world.Sand || on == world.Sandstone || on == world.Snow || on == world.Peat):
 	default:
 		return geometry.Vector3{}, false // not ground it stands on, or a place that is not loaded
 	}
@@ -918,7 +955,7 @@ func (c *beast) Pose() render.Beast {
 		Kind: c.kind, Pos: c.Pos, Yaw: c.Yaw, Stride: c.Stride,
 		Shorn: c.regrow > 0, Hurt: c.hurt > 0, Young: c.young, Fall: c.fall,
 	}
-	if c.lower && !c.dead {
+	if (c.lower || c.curl > 0) && !c.dead {
 		pose.Lower = 1
 	}
 	if c.lash > 0 && !c.dead {
@@ -932,8 +969,8 @@ func (c *beast) Pose() render.Beast {
 // the points, and with none left it dies. It reports whether the hit killed it.
 func (c *beast) hit(from geometry.Vector3, points float64) (killed bool) {
 	b := &breeds[c.kind]
-	if c.dead || b.calm {
-		return false
+	if c.dead || b.calm || c.curl > 0 {
+		return false // curled up, nothing gets through its plates
 	}
 	points = max(points-b.armor, 0)
 	if b.temper == guard && !c.young {
@@ -951,6 +988,9 @@ func (c *beast) hit(from geometry.Vector3, points float64) (killed bool) {
 		}
 		c.hurt, c.flee = hurtShow, fleeTime
 		c.walking, c.Yaw = true, yawOf(away)
+	}
+	if b.curls > 0 {
+		c.curl, c.flee, c.push, c.walking = b.curls, 0, geometry.Vector3{}, false // it curls up where it is
 	}
 	if b.health > 0 {
 		if c.health -= points; c.health <= 0 {
@@ -1055,7 +1095,10 @@ func (c *beast) wayAhead(w *world.World, ahead geometry.Vector3, afloat bool, so
 		return false, true // it keeps out of water, and out of lava
 	}
 	for down := 1; down <= longDrop; down++ {
-		if solid(w, x, y-down, z) {
+		switch below := w.At(x, y-down, z); {
+		case below == world.Water || below == world.Lava:
+			return false, true // water under a bank: it keeps out of that too
+		case solid(w, x, y-down, z):
 			return false, false // ground to step onto or down to
 		}
 	}
@@ -1089,6 +1132,15 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	if c.flee > 0 {
 		c.flee -= dt
 		c.walking, c.timer, speed = true, max(c.timer, rethink), b.run
+	}
+	if c.curl > 0 {
+		// Curled up, it does not move, whatever it would run from.
+		c.curl = max(c.curl-dt, 0)
+		c.flee, c.walking, c.timer = 0, false, max(c.timer, rethink)
+	}
+	if b.moves == gaitFly && !c.dead {
+		c.fly(w, speed, dt)
+		return
 	}
 	if c.timer -= dt; c.timer <= 0 && !c.dead {
 		c.decide(middle)
@@ -1272,4 +1324,53 @@ func (g *Game) stepBeasts(dt float64) {
 			return // the player fainted
 		}
 	}
+}
+
+// How a beast that flies gets about.
+const (
+	flyTurn  = 12.0 // how far under it it looks for the ground or the water it keeps over
+	flyClimb = 4.0  // how fast it rises and sinks to keep its height, at the most, in blocks a second
+)
+
+// fly moves a beast that flies for dt seconds, at a speed. It keeps its height over what
+// is under it, ground or water, goes the way it faces, hangs in the air between two
+// darts, turns from what is in its way and from the edge of its lands, and its wings
+// beat all the while.
+func (c *beast) fly(w *world.World, speed, dt float64) {
+	b := &breeds[c.kind]
+	width, height := render.Size(c.kind, c.young)
+	if c.timer -= dt; c.timer <= 0 {
+		// A new mind: it hangs where it is, or darts off some new way.
+		c.walking = c.rng.Float64() < 0.65
+		c.timer = 0.4 + 1.8*c.rng.Float64()
+		c.Yaw = c.rng.Float64()*2*math.Pi - math.Pi
+	}
+	x, z := int(math.Floor(c.Pos.X)), int(math.Floor(c.Pos.Z))
+	floor := c.Pos.Y - flyTurn
+	for y := int(math.Floor(c.Pos.Y)); float64(y) > c.Pos.Y-flyTurn; y-- {
+		if under := w.At(x, y, z); under != world.Air && !under.Info().Stands() {
+			floor = float64(y + 1)
+			break
+		}
+	}
+	c.velY = min(max(3*(floor+b.hover-c.Pos.Y), -flyClimb), flyClimb)
+
+	move := geometry.Vector3{Y: c.velY * dt}
+	if c.walking {
+		ahead := mesh.Camera{Yaw: c.Yaw}.Forward()
+		move = move.Add(ahead.Scale(speed * dt))
+		// It keeps to its lands: at the edge of them it turns back.
+		next := c.Pos.Add(ahead.Scale(2))
+		if land, ok := w.Land(next.X, next.Z); ok && b.lands != nil && !slices.Contains(b.lands, land) {
+			c.Yaw += math.Pi
+			move.X, move.Z = 0, 0
+		}
+	}
+	move = move.Add(c.push.Scale(dt))
+	c.push = c.push.Scale(max(1-knockDrag*dt, 0))
+	if stopped := travelIn(w, &c.Pos, width, height, move, solid); stopped[0] || stopped[2] {
+		c.Yaw += math.Pi / 2 * float64(1-2*c.rng.IntN(2)) // something is in its way: it turns aside
+	}
+	c.OnGround, c.peak = false, c.Pos.Y
+	c.Stride += b.gait * dt
 }
