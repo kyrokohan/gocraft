@@ -40,6 +40,14 @@ func (g *Game) switchView() {
 	}
 }
 
+// How the view shakes at the step of a giant.
+const (
+	shakeTilt = 0.035 // how far the view tips each way at the hardest, in radians
+	shakeDrop = 0.06  // and how far it moves up and down, in blocks
+	shakeBeat = 9.0   // how many times a second it trembles
+	shakeFade = 0.3   // how long a shake takes to die to about a third, in seconds
+)
+
 // viewed returns the camera the world is seen through, without fog, and whether it is
 // the one behind the player, with the player's body in view.
 //
@@ -48,6 +56,12 @@ func (g *Game) switchView() {
 // little room for it the eyes see.
 func (g *Game) viewed() (mesh.Camera, bool) {
 	cam := g.eyes()
+	if g.quake > 0 && !g.settings.NoShake {
+		// The ground shakes under a giant's step: the view trembles, up and down.
+		beat := math.Sin(2 * math.Pi * shakeBeat * g.shook)
+		cam.Pitch += shakeTilt * g.quake * beat
+		cam.Position.Y += shakeDrop * g.quake * beat
+	}
 	if g.settings.View != viewBehind {
 		return cam, false
 	}

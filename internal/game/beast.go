@@ -105,6 +105,16 @@ type breed struct {
 	// its charge or its tail takes.
 	warns, charges, swings, blow float64
 
+	// A beast that is calm is moved by nothing: a hit does not hurt it, knock it back or
+	// make it run. One that wades walks through the leaves of trees. stamp is the
+	// points its foot takes from a player it comes down on, and foot how far aside of
+	// its middle, and how far ahead and behind, its feet come down. quake is how far
+	// off its steps shake the player's view: they are heard as far as its voice carries.
+	calm, wades bool
+	stamp       float64
+	foot        [2]float64
+	quake       float64
+
 	armor float64 // points taken off every hit it takes
 	steps int     // how many blocks high a step it climbs: one, if it says none
 	grown int     // the first so many of a group are grown, and the rest young: by chance, if it says none
@@ -172,6 +182,16 @@ var breeds = [render.Kinds]breed{
 		lands: []world.Biome{world.Badlands}, bare: true,
 		call: sound.Grunt, cry: sound.Rattle, callEvery: 55,
 	},
+
+	// The giant among them: it goes in a pair, slowly, and takes no notice of anything.
+	render.Cloudgrazer: {
+		walk: 1.0, run: 1.0, gait: 1.15,
+		temper: herder, group: [2]int{2, 2}, most: 2,
+		calm: true, wades: true, steps: 2,
+		stamp: 8, foot: [2]float64{1.0, 2.3}, quake: 40,
+		lands: []world.Biome{world.Prairie, world.Shore}, bare: true,
+		call: sound.Drone, cry: sound.Drone, callEvery: 80, carries: 90,
+	},
 }
 
 // beast is one animal: it walks about, stands a while, and walks on. It is stopped by
@@ -198,6 +218,7 @@ type beast struct {
 
 	velY    float64    // speed upward
 	climb   int        // how many blocks high the step it last hopped at is
+	trod    int        // which pair of its feet came down in the last step, 1 or 2, or 0 for none
 	walking bool       // or standing
 	timer   float64    // until it changes its mind
 	rng     *rand.Rand // its own, so that what it does can be told from a seed
@@ -267,9 +288,11 @@ type fauna struct {
 	moving, hidden, meaty, hunted bool
 	bright                        func(at geometry.Vector3) float64
 
-	// shove is the way the blows of the guards threw the player in the last step, and
-	// how far.
-	shove geometry.Vector3
+	// shove is the way the blows of the guards and the feet of the giants threw the
+	// player in the last step, and how far. treads are the steps of the giants in it:
+	// where a foot came down, and of which kind.
+	shove  geometry.Vector3
+	treads []said
 
 	robbed float64 // until a thief may take from the player again
 	feet   int     // the height of the player's feet, which a hunter comes out near
@@ -492,6 +515,9 @@ func (f *fauna) raise(herd int, from geometry.Vector3) bool {
 			c.angry, c.foe = true, from // it does not run: it turns on what alarmed its young
 			continue
 		}
+		if breeds[c.kind].calm {
+			continue
+		}
 		away := awayFrom(c.Pos, from, c.Yaw)
 		c.flee, c.walking = alarmTime, true
 		c.Yaw = yawOf(away) + (c.rng.Float64()-0.5)*0.6 // each a little its own way
@@ -507,6 +533,7 @@ func (f *fauna) raise(herd int, from geometry.Vector3) bool {
 // and are gone in fallen, for the game to play and to put down what they leave.
 func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 	f.sounds, f.fallen, f.thefts, f.bitten, f.shove = f.sounds[:0], f.fallen[:0], 0, 0, geometry.Vector3{}
+	f.treads = f.treads[:0]
 	f.robbed = max(f.robbed-dt, 0)
 	for herd, a := range f.alarms {
 		if a.left -= dt; a.left <= 0 {
@@ -571,6 +598,9 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 			middle = &m // a grown guard keeps by its young, and not by the middle of its family
 		}
 		c.step(w, dt, middle)
+		if c.trod != 0 {
+			f.tread(i, player)
+		}
 	}
 	f.all = slices.DeleteFunc(f.all, func(c beast) bool {
 		if c.dead && c.fall >= 1 {
@@ -617,6 +647,29 @@ func (c *beast) body() (at [6]geometry.Vector3, n int) {
 	return at, n
 }
 
+// stampReach is how far from where a giant's foot comes down a player is under it.
+const stampReach = 1.0
+
+// tread is a pair of a giant's feet coming down: it is left for the game to sound and
+// to shake the view with, and a player under either foot is hurt and thrown aside.
+func (f *fauna) tread(i int, player geometry.Vector3) {
+	c := &f.all[i]
+	b := &breeds[c.kind]
+	f.treads = append(f.treads, said{sound.Thud, c.kind, c.Pos})
+	if b.stamp == 0 || player.Y < c.Pos.Y-1 || player.Y > c.Pos.Y+2 {
+		return
+	}
+	turned := mesh.Camera{Yaw: c.Yaw}
+	side := float64(3 - 2*c.trod) // the pair: a front foot on one side and the back foot on the other
+	for _, end := range [2]float64{1, -1} {
+		foot := c.Pos.Add(turned.Right().Scale(side * end * b.foot[0])).Add(turned.Forward().Scale(end * b.foot[1]))
+		if math.Hypot(player.X-foot.X, player.Z-foot.Z) <= stampReach {
+			f.bitten += b.stamp
+			f.shove = f.shove.Add(awayFrom(player, foot, c.Yaw+math.Pi/2).Scale(blowShove * b.stamp))
+		}
+	}
+}
+
 // voice returns where a beast's sounds come from: its head, more or less.
 func (c *beast) voice() geometry.Vector3 {
 	_, height := render.Size(c.kind, c.young)
@@ -642,10 +695,10 @@ func (c *beast) Pose() render.Beast {
 // takes. It is knocked away, and runs, unless it is a guard. A beast with health loses
 // the points, and with none left it dies. It reports whether the hit killed it.
 func (c *beast) hit(from geometry.Vector3, points float64) (killed bool) {
-	if c.dead {
+	b := &breeds[c.kind]
+	if c.dead || b.calm {
 		return false
 	}
-	b := &breeds[c.kind]
 	points = max(points-b.armor, 0)
 	if b.temper == guard && !c.young {
 		// A grown guard is too heavy to knock back, and it does not run: it turns on
@@ -740,8 +793,8 @@ func (c *beast) turnBack() {
 }
 
 // wayAhead looks at the cell just past the beast's front and says what to do about it:
-// walk on, hop up onto it, or turn back.
-func (c *beast) wayAhead(w *world.World, ahead geometry.Vector3, afloat bool) (hop, blocked bool) {
+// walk on, hop up onto it, or turn back. solid says which blocks stop the beast.
+func (c *beast) wayAhead(w *world.World, ahead geometry.Vector3, afloat bool, solid func(*world.World, int, int, int) bool) (hop, blocked bool) {
 	width, height := render.Size(c.kind, c.young)
 	front := c.Pos.Add(ahead.Scale(width/2 + lookAhead))
 	x, y, z := int(math.Floor(front.X)), int(math.Floor(c.Pos.Y+0.1)), int(math.Floor(front.Z))
@@ -809,10 +862,15 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 		c.velY = max(c.velY-gravity*dt, -fallSpeed)
 	}
 
+	stops := solid
+	if b.wades {
+		stops = firm
+	}
+	c.trod = 0
 	var move geometry.Vector3
 	if c.walking && !c.dead {
 		ahead := mesh.Camera{Yaw: c.Yaw}.Forward()
-		switch hop, blocked := c.wayAhead(w, ahead, afloat); {
+		switch hop, blocked := c.wayAhead(w, ahead, afloat, stops); {
 		case hop:
 			c.velY = creatureHop
 			if c.climb > 1 {
@@ -825,7 +883,11 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 		}
 		if c.walking {
 			move = ahead.Scale(speed * dt)
+			before := math.Floor(c.Stride / math.Pi)
 			c.Stride += b.gait * speed * dt
+			if now := math.Floor(c.Stride / math.Pi); now != before && b.quake > 0 {
+				c.trod = 1 + int(now)&1 // a pair of its feet comes down each half of a stride, in turn
+			}
 		}
 	}
 	if !c.walking {
@@ -835,7 +897,7 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	c.push = c.push.Scale(max(1-knockDrag*dt, 0))
 	move.Y = c.velY * dt
 
-	stopped := travel(w, &c.Pos, width, height, move)
+	stopped := travelIn(w, &c.Pos, width, height, move, stops)
 	c.OnGround = stopped[1] && move.Y < 0
 	if stopped[1] {
 		c.velY = 0
@@ -887,6 +949,14 @@ func (g *Game) stepBeasts(dt float64) {
 	}
 	for _, s := range f.sounds {
 		g.sayFrom(s.kind, s.name, s.at, 0.9)
+	}
+	for _, s := range f.treads {
+		// A giant's step is heard from far, and felt from nearer: the view shakes the
+		// more the nearer it is.
+		g.sayFrom(s.kind, s.name, s.at, 1)
+		if far := breeds[s.kind].quake; s.at.Distance(g.player.Pos) < far {
+			g.quake = max(g.quake, math.Pow(1-s.at.Distance(g.player.Pos)/far, 2))
+		}
 	}
 	for _, c := range f.fallen {
 		// A kill carved with a knife leaves one more piece of meat, and always a hide.

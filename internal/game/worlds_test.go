@@ -254,12 +254,13 @@ func TestSettingsChangeAreKeptAndAreUsed(t *testing.T) {
 		engine.KeyDown, engine.KeyLeft, // view distance 64 to 48
 		engine.KeyDown, engine.KeyLeft, // field of view 60 to 50
 		engine.KeyDown, engine.KeyLeft, // volume 70 to 60
+		engine.KeyDown, engine.KeyEnter, // the ground shake off
 		engine.KeyDown, engine.KeyEnter, // Back
 	} {
 		press(g, key)
 	}
 
-	want := Settings{MouseSpeed: 2, ViewDistance: 48, FieldOfView: 50, Volume: 60, View: viewEyes}
+	want := Settings{MouseSpeed: 2, ViewDistance: 48, FieldOfView: 50, Volume: 60, View: viewEyes, NoShake: true}
 	if g.settings != want || g.screen != onTitle {
 		t.Fatalf("settings %+v on screen %d, wanted %+v and the title", g.settings, g.screen, want)
 	}
@@ -299,8 +300,8 @@ func TestSettingsReadFromAFileAreOnesTheGameHas(t *testing.T) {
 	}{
 		{"none", filepath.Join(dir, "none.json"), defaultSettings},
 		{"not JSON", write("bad.json", "{"), defaultSettings},
-		{"near ones", write("near.json", `{"mouseSpeed": 1.3, "viewDistance": 1000, "fieldOfView": -5, "volume": 77}`), Settings{1.25, 64, 50, 80, viewEyes}},
-		{"some", write("some.json", `{"viewDistance": 32}`), Settings{1.5, 32, 60, 70, viewEyes}},
+		{"near ones", write("near.json", `{"mouseSpeed": 1.3, "viewDistance": 1000, "fieldOfView": -5, "volume": 77}`), Settings{1.25, 64, 50, 80, viewEyes, false}},
+		{"some", write("some.json", `{"viewDistance": 32}`), Settings{1.5, 32, 60, 70, viewEyes, false}},
 	} {
 		if got := loadSettings(tc.path); got != tc.want {
 			t.Errorf("%s: %+v, wanted %+v", tc.name, got, tc.want)

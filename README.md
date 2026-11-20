@@ -4,7 +4,7 @@
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
 
-**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the first giants: shieldbrows that guard their young, thornbacks and boulderbacks. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
+**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, and cloudgrazers whose steps shake the ground. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
 
 ![A cave person with a pick, seen from behind, before the skeleton of a great beast, drawn in terminal cells](docs/shot.png)
 
@@ -87,6 +87,11 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - **Thornbacks** carry plates along the back and four spikes on the tail, and go alone in the highland and the jungle. Within six blocks of one it rattles and turns its tail to you; within reach of the tail it strikes, every second and a half: 5 points, and you are thrown. 45 points of health, 6 pieces of meat and 2 hides.
   - **Boulderbacks** are low, slow and armored, with a club at the end of the tail, and go alone in the badlands. The armor takes 3 points off every hit: a hand or a stab does nothing, a club 1, a thrown spear 2 and a thrown hardened spear 3. The club strikes for 7. 50 points of health, 6 pieces of meat and 2 hides.
 
+  - **Cloudgrazers** are the giants among them: a long neck that reaches 13 blocks up, a tail as long, 20 blocks from nose to tail. They go in pairs on the prairie and the shore, slowly, walk through the leaves of trees, and take no notice of you. One cannot be hurt and does not run: a spear thrown at it lies where it fell. Keep out from under it: a foot that comes down on you takes 8 points and throws you aside.
+- **The ground shakes.** Each step of a cloudgrazer is a thud heard from 90 blocks off, and within 40 your view shakes with it: a little from far, hard from five blocks. `Ground shake` in the settings turns the shaking off and leaves the sound.
+
+![Two cloudgrazers by a pond, their necks up among the leaves of the trees, with a cave person before them](docs/cloudgrazers.png)
+
 ![A thornback under a jungle tree, with rust red plates along its back and spikes on its tail](docs/thornback.png)
 
 - **Throwing.** R throws the spear in your hand the way you aim. It leaves at 24 blocks a second and falls as it flies, so it comes down some ten blocks off thrown level, and 36 at the most; aim up for a far throw. It takes 2 points more from a beast than a stab does, 5 for a spear and 6 for a hardened one, and the beast's herd runs. A spear that misses sticks in the block it meets, pointing as it flew, until you walk up and take it; one that hits lies by the beast. A throw is a use, and a spear on its last breaks where it lands.
@@ -130,7 +135,7 @@ The world is saved when you choose **Save and leave**, which goes back to the li
 
 ## Settings
 
-**Settings**, on the title and the pause menu, has the mouse speed (how far a drag turns the view), the view distance (32, 48 or 64 blocks: less is a little faster), the field of view (50° to 90°) and the volume (0% to 100%). Left and Right, or a click, change a line. They are kept in `skyspear/settings.json` in your config folder, apart from any world, and so is the view you last chose with V.
+**Settings**, on the title and the pause menu, has the mouse speed (how far a drag turns the view), the view distance (32, 48 or 64 blocks: less is a little faster), the field of view (50° to 90°) the volume (0% to 100%), and whether the view shakes at a giant's step. Left and Right, or a click, change a line. They are kept in `skyspear/settings.json` in your config folder, apart from any world, and so is the view you last chose with V.
 
 ## Flags
 
@@ -183,7 +188,7 @@ glonk also runs the loop and the terminal, reads the keys, the mouse and what is
 
 ## Sound
 
-Every sound is heard from where it is made: quieter the farther it is, gone at 24 blocks, and louder in the ear on its side. A bugler's voice carries three times as far, so you hear a herd before you see it. Your steps sound as the ground you walk on, and digging, breaking and placing as the block, in seven kinds: earth, stone, sand, wood, plants, glass and snow. You hear water you fall into, what you pick up or make, being hurt and eating; mossbacks to themselves and when hit, the long horn of a bugler and the two blasts of its alarm, the chirp of a nipper, the low growl of a quickclaw and the screech it gives when it has seen you, the grunt of a giant at its feed, the bellow of a shieldbrow and the rattle of a thornback's plates, the fire of a hearth or of a struck tree, and water dripping in caves. Under all of it the wind blows as much as the sky reaches you, and fades into the low air of a cave where it does not.
+Every sound is heard from where it is made: quieter the farther it is, gone at 24 blocks, and louder in the ear on its side. A bugler's voice carries three times as far, so you hear a herd before you see it. Your steps sound as the ground you walk on, and digging, breaking and placing as the block, in seven kinds: earth, stone, sand, wood, plants, glass and snow. You hear water you fall into, what you pick up or make, being hurt and eating; mossbacks to themselves and when hit, the long horn of a bugler and the two blasts of its alarm, the chirp of a nipper, the low growl of a quickclaw and the screech it gives when it has seen you, the grunt of a giant at its feed, the bellow of a shieldbrow and the rattle of a thornback's plates, the long low drone of a cloudgrazer and the thud of its step, the fire of a hearth or of a struck tree, and water dripping in caves. Under all of it the wind blows as much as the sky reaches you, and fades into the low air of a cave where it does not.
 
 A small mixer of the game's own plays up to 16 sounds at once, each a little higher or lower at random so that steps do not sound the same, bends the loudest moments so that many at once do not crack, and brings the wind and the cave air up and down slowly. [oto](https://github.com/ebitengine/oto) v3.5.1 plays what it makes, with no C compiler needed on macOS, Linux or Windows. With no sound device the game plays on in silence and the title says why. On Linux oto plays through PulseAudio, which PipeWire also serves.
 
@@ -232,7 +237,7 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - Soft shadows from leaves and glass: only blocks that let no light through cast them.
 - Torches on walls: a torch stands on the ground, as a plant does.
 - Anything a tame mossback does for you but follow: carrying comes later.
-- The cloudgrazer and the shaking ground: that is the next step. Then the dread, and pit traps.
+- The dread: that is the next step. Then pit traps and stampedes.
 - A giant's tail has no reach past its length: a thornback or a boulderback can be speared from beyond it at no risk.
 - A thrown thing that hits you, or that a beast throws: only the player throws.
 - Fire that spreads, a torch that goes out in water, and beasts that fear a fire as such: quickclaws keep out of its light.

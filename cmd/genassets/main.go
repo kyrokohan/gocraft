@@ -1228,7 +1228,7 @@ func inRows(strip *image.NRGBA, perRow int) *image.NRGBA {
 // drawPreview is every picture, enlarged, one above the other.
 func drawPreview() *image.NRGBA {
 	pictures := []*image.NRGBA{enlarge(inRows(drawBlocks(), 13), 6), enlarge(drawTitle(), 6), enlarge(drawTiles(mossbackTiles), 12), enlarge(inRows(drawTiles(personTiles()), 7), 12), enlarge(drawTiles(buglerTiles), 12), enlarge(drawTiles(nipperTiles), 12), enlarge(drawTiles(quickclawTiles), 12),
-		enlarge(drawTiles(shieldbrowTiles), 12), enlarge(drawTiles(thornbackTiles), 12), enlarge(drawTiles(boulderbackTiles), 12)}
+		enlarge(drawTiles(shieldbrowTiles), 12), enlarge(drawTiles(thornbackTiles), 12), enlarge(drawTiles(boulderbackTiles), 12), enlarge(drawTiles(cloudgrazerTiles), 12)}
 	w, h := 0, 0
 	for _, p := range pictures {
 		w, h = max(w, p.Bounds().Dx()), h+p.Bounds().Dy()+12

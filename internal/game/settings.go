@@ -29,6 +29,10 @@ type Settings struct {
 
 	// View is which view the world is seen in: viewEyes or viewBehind. V changes it.
 	View string `json:"view"`
+
+	// NoShake keeps the view still when the ground shakes at the step of a giant, for
+	// a player whom a shaking view makes unwell.
+	NoShake bool `json:"noShake"`
 }
 
 // The values each setting can take, and the ones a player starts with.
@@ -125,11 +129,13 @@ func (s *Settings) step(i, by int) {
 		s.FieldOfView = fieldsOfView[turn(len(fieldsOfView), slices.Index(fieldsOfView, s.FieldOfView))]
 	case 3:
 		s.Volume = volumes[turn(len(volumes), slices.Index(volumes, s.Volume))]
+	case 4:
+		s.NoShake = !s.NoShake
 	}
 }
 
 // settingLines is how many lines of the settings screen are settings: the rest go back.
-const settingLines = 4
+const settingLines = 5
 
 // lines are the lines of the settings screen.
 func (s Settings) lines() []string {
@@ -139,6 +145,7 @@ func (s Settings) lines() []string {
 		line("View distance", strconv.Itoa(s.ViewDistance)+" blocks"),
 		line("Field of view", strconv.Itoa(s.FieldOfView)+"°"),
 		line("Volume", strconv.Itoa(s.Volume)+"%"),
+		line("Ground shake", map[bool]string{false: "on", true: "off"}[s.NoShake]),
 		itemBack,
 	}
 }
