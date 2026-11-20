@@ -74,7 +74,7 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 - **Resin and seeds.** One pine or redwood log in five leaves a piece of resin with the log. The crown of a stump palm leaves two seeds: raw they are poison, 4 points of health for 2 of food, and roast they are 6 points of food.
 - **A clay pot keeps things.** E on a clay pot opens its 18 slots over yours. What is in a pot or a hearth falls out when you break it.
 - **A fur bed** lies flat on the ground. E on one makes it where you wake, after a faint too. At night it also sleeps you through to the morning, unless a hunter is within eight blocks. A broken bed is forgotten, and you wake where you first began.
-- **Tools.** The right tool digs its blocks faster: a pick stone and ore, an axe wood, a shovel earth, sand and snow. A digging stick is a shovel of wood, twice as fast as a hand, and a hand axe and a flint pick are three times as fast, and an obsidian pick four. Stone, cobble and flint seams break by hand and leave what they hold; coal leaves nothing without a flint pick, and crystal nothing yet. A tool wears by a block broken or a beast hit, a bar on its slot shows what is left, and it is gone when it is worn out: a hand axe after 60, flint on a handle after 130. Tools are one to a slot.
+- **Tools.** The right tool digs its blocks faster: a pick stone and ore, an axe wood, a shovel earth, sand and snow. A digging stick is a shovel of wood, twice as fast as a hand, and a hand axe and a flint pick are three times as fast, an obsidian pick four, and a pick or an axe of sky iron six. Stone, cobble and flint seams break by hand and leave what they hold; coal leaves nothing without a flint pick, and crystal nothing yet. A tool wears by a block broken or a beast hit, a bar on its slot shows what is left, and it is gone when it is worn out: a hand axe after 60, flint on a handle after 130, obsidian after 40, and sky iron after 400. Tools are one to a slot.
 - **Weapons.** A hand hits for 1 point and a tool for 2. A club hits for 4 and knocks a beast nearly twice as far back. A spear hits for 3 and reaches a beast a block farther than anything else does. A flint knife hits for 4, and a kill made with it leaves one more piece of meat and always a hide.
 - **Hides.** A bugler or a quickclaw leaves a hide when it dies.
 - **Beasts.** A beast in front of a block is aimed at before it. Q or a click hits it, again every third of a second while held, and knocks it back. A blade hits hardest, from 3 points in wood to 6 in iron, any other tool 2 and a hand 1; a hit wears the tool in hand.
@@ -105,12 +105,17 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - **Never near what must be kept:** not within 24 blocks of your bed, nor within eight of a pot or a hearth, nor on a fire mountain. One that would come down there burns up: a flash and a boom, and no crater.
   - **It leaves a crater,** a bowl seven blocks across and three deep. What stood over it is gone. Its floor is burnt to dark rock, and where the ground was sand the bowl and its rim are glass. A beast or a person in it when it strikes loses 12 points.
   - **Five fires burn round it for a day.** This is fire you can find: light a torch at one and carry it home.
-  - **Under the middle lies the core, of sky iron.** For two minutes it glows, burns you if you stand on it, 2 points a second, and nothing breaks it. Then it is dark, and a flint pick breaks it out, in four seconds: two to four lumps of sky iron. The lumps have no use yet.
+  - **Under the middle lies the core, of sky iron.** For two minutes it glows, burns you if you stand on it, 2 points a second, and nothing breaks it. Then it is dark, and a flint pick breaks it out, in four seconds: two to four lumps of sky iron.
   - A star whose moment passes while you sleep does not fall. One whose moment the T key moves the clock past still falls, if it is night.
 - **Tools of obsidian** are knapped at a knapping stone, as flint is. They hit hardest and dig fastest, and are worn out after 40 uses, where flint on a handle lasts 130.
   - An obsidian knife (an obsidian, a stick and a cord) hits for 5 and carves a kill.
   - An obsidian pick (3 obsidian, 2 sticks and a cord) digs four times as fast as a hand, and is the one tool that breaks out crystal. Crystal shards have no use yet.
   - An obsidian spear (an obsidian, 3 sticks and a cord) hits for 5, reaches a block farther, and takes 7 thrown.
+- **Tools of sky iron** are hammered cold at a knapping stone. They are the strongest there are and last longest, 400 uses, where obsidian lasts 40.
+  - A sky iron knife (a lump, a stick and a cord) hits for 6 and carves a kill.
+  - A sky iron pick and a sky iron axe (3 lumps, 2 sticks and a cord each) work six times as fast as a hand.
+  - A sky iron spear (a lump, 3 sticks and a cord) hits for 6, reaches a block farther, and takes 8 thrown.
+  - The four tools take eight lumps, and a crater holds two to four.
 - **A striker** is a flint and a firestone, made by hand. E with it on a hearth that has fuel lights it at once, where a fire drill takes six seconds. E with it anywhere else lights the first unlit torches you carry, with no fire near. It lasts 30 fires.
 
 ![A fire mountain at night from its foot, a dark cone with the red of its fire rising from the crater](docs/mountain.png)
@@ -145,7 +150,7 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - They run a little faster than you walk, so you cannot outrun one. A bite takes 3 points, once a second.
   - **Light holds them.** A quickclaw will not step into light: it stops about four blocks from a torch, in your hand or set down, or from a hearth that burns, and waits, and its eyes shine in the dark.
   - They hunt the herds too. With no player to go for, a quickclaw goes for the nearest bugler or nipper, and stands over a kill for a quarter of a minute. The meat is there for whoever takes it.
-  - A quickclaw has 10 points of health, so an iron blade kills it in two hits. A hit only sets it back for a moment, unless it is badly hurt with none of its pack within ten blocks: then it runs.
+  - A quickclaw has 10 points of health, so a sky iron knife kills it in two hits. A hit only sets it back for a moment, unless it is badly hurt with none of its pack within ten blocks: then it runs.
   - Quickclaws are not saved, and they lose you when you faint or sleep.
 ![A cave person by a torch at night, with two pairs of shining eyes in the dark beyond its light](docs/night.png)
 
@@ -300,7 +305,8 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - Anything a tame mossback does for you but follow: carrying comes later.
 - Ash that falls and lies on the ground.
 - A rock of an eruption comes down only where the world is loaded, about 100 blocks round you: what you were too far off to see left nothing.
-- A use for crystal, and for sky iron: tools of sky iron are the next step. Then the Skyspear itself.
+- A use for crystal.
+- The Skyspear itself, the comet: that is the next step. Then the Great Fall and the Long Winter.
 - A star falls only where the world is loaded, about 100 blocks round you: there are no craters where you were not.
 - Lava that flows.
 - A beast that digs or climbs out of a pit. The dread in one is let go when its time is up, as anywhere.
