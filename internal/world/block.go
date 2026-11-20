@@ -66,6 +66,10 @@ const (
 
 	PitCover
 
+	Ash
+	Basalt
+	Lava
+
 	blockCount
 )
 
@@ -183,6 +187,13 @@ var infos = [256]Info{
 	// A pit cover is branches and ferns laid over a hole, to look like the ground. It
 	// holds a person and a small beast, and a heavy beast breaks through it.
 	PitCover: dig(solid("pit cover", tile.PitCoverTop, tile.PitCoverSide, tile.PitCoverSide), 0.4),
+
+	// What a fire mountain is made of. Ash is soft, and dark rock as hard as stone. Lava
+	// is no solid thing: a body sinks in it as in water, and burns. It glows as fire
+	// does, lets light through, and cannot be broken or taken.
+	Ash:    byShovel(cube("ash", tile.Ash), 0.4),
+	Basalt: byPick(cube("dark rock", tile.Basalt), 5, 0),
+	Lava:   fixed(glowing(Info{Name: "lava", Top: tile.Lava, Side: tile.Lava, Bottom: tile.Lava}, MaxLight)),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for

@@ -270,9 +270,16 @@ func TestTheWorldIsAMixOfEveryKindOfCountry(t *testing.T) {
 			}
 		}
 		for b := Sea; b < biomeCount; b++ {
-			if part := share[b] / n; part < 0.01 || part > 0.6 {
-				t.Errorf("seed %d: country %d is %.1f%% of the world, wanted between 1 and 60", seed, b, part*100)
+			least := 0.01
+			if b == Ashlands {
+				least = 0.002 // only round the fire mountains, of which there are few
 			}
+			if part := share[b] / n; part < least || part > 0.6 {
+				t.Errorf("seed %d: country %d is %.1f%% of the world, wanted between %v and 60", seed, b, part*100, least*100)
+			}
+		}
+		if ash := share[Ashlands] / n; ash > 0.012 {
+			t.Errorf("seed %d: %.1f%% of the world is ashlands, wanted about half of one", seed, ash*100)
 		}
 		if sea := share[Sea] / n; sea < 0.12 || sea > 0.5 {
 			t.Errorf("seed %d: %.0f%% of the world is sea, wanted between 12 and 50", seed, sea*100)

@@ -350,3 +350,39 @@ func pitCoverSide(x, y int) (rgb, bool) {
 	}
 	return grain(rgb{30, 26, 22}, 0.08, x, y, 756), true
 }
+
+// ashGround is ash as it lies: pale grey, soft, with cinders in it.
+func ashGround(x, y int) (rgb, bool) {
+	c := rgb{132, 128, 126}.scale(0.9 + 0.2*blotch(x, y, 4, 760))
+	if hash(x, y, 761) < 0.07 {
+		c = rgb{58, 54, 54} // a cinder
+	}
+	return grain(c, 0.06, x, y, 762), true
+}
+
+// basalt is the dark rock of a fire mountain: nearly black, in rough columns, with a
+// dull shine where it broke.
+func basalt(x, y int) (rgb, bool) {
+	c := rgb{52, 50, 56}.scale(0.84 + 0.36*hash(x/3, 0, 763))
+	switch {
+	case x%3 == 2:
+		c = c.scale(0.68) // the joint between two columns
+	case hash(x, y, 764) < 0.06:
+		c = c.scale(1.5)
+	}
+	return grain(c, 0.08, x, y, 765), true
+}
+
+// lava is molten rock: a bright even glow, a little brighter and a little darker in slow
+// patches, with a fleck of white heat here and there and a few scabs of cooling skin. It
+// is kept even, and wraps, so that a lake of it shows no pattern of blocks.
+func lava(x, y int) (rgb, bool) {
+	c := rgb{255, 138, 34}.scale(0.9 + 0.2*blotch(x, y, 8, 766))
+	switch h := hash(x, y, 767); {
+	case h < 0.05:
+		c = rgb{255, 226, 120}
+	case h > 0.955:
+		c = rgb{150, 46, 22}
+	}
+	return grain(c, 0.04, x, y, 768), true
+}
