@@ -4,7 +4,7 @@
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
 
-**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, cloudgrazers whose steps shake the ground, and the dread, which hunts everything. A fire mountain smokes on the horizon, with hot springs and geysers at its foot and a lava tube in its side, and every few days it erupts. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
+**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, cloudgrazers whose steps shake the ground, and the dread, which hunts everything. A fire mountain smokes on the horizon, with hot springs and geysers at its foot and a lava tube in its side, and every few days it erupts. Stars streak the night sky, and now and then one comes down near you and leaves a crater with sky iron in it. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
 
 ![A cave person with a pick, seen from behind, before the skeleton of a great beast, drawn in terminal cells](docs/shot.png)
 
@@ -42,7 +42,7 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 | 1 to 9, Tab | pick a slot of the hotbar; the next one |
 | I | your things: move them between the hotbar and the pack, and make things from them (in creative: every block) |
 | T | move the clock on six hours |
-| F3 | frame numbers: where the time of a frame goes and how much is sent, the seed, the day and the hour, and within 300 blocks of a fire mountain the days until it next erupts |
+| F3 | frame numbers: where the time of a frame goes and how much is sent, the seed, the day and the hour, the days until a star next falls near you, and within 300 blocks of a fire mountain the days until it next erupts |
 | Esc | pause menu, with these keys on it; on a menu, back |
 
 | Mouse | Action |
@@ -99,6 +99,14 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
     - **Ash darkens the sky** from the first rock, and thins for half a day after the last: the light of day is down to a little over half under the most of it, which is still day to a quickclaw. From 200 to 300 blocks off you get less of the ash and of the tremor.
     - From far off the foot of the mountain's smoke is red by day, as it is by night.
   - **A lava tube** runs level into the side of the cone, two blocks wide and three high, lit by lava that still hangs in its roof. 23 blocks in is a chamber with a pool of lava in its floor, and obsidian and firestone in its walls. The dread is too big to follow you in.
+- **Falling stars.** A few shooting stars a minute streak the night sky. About one night in three, at a moment in the dark that the seed picks, one comes down near you.
+  - **A fireball crosses the sky** for four seconds, with its tail behind it, and the night under it is as bright as dusk. The sky draws it, so you see it from farther off than the land is drawn.
+  - **It strikes 40 to 90 blocks from you,** or a little farther if a hill is in its way, on dry land. You see the flash at once. The boom comes a second later for each 40 blocks, so you can count how far, and the ground shakes with it.
+  - **Never near what must be kept:** not within 24 blocks of your bed, nor within eight of a pot or a hearth, nor on a fire mountain. One that would come down there burns up: a flash and a boom, and no crater.
+  - **It leaves a crater,** a bowl seven blocks across and three deep. What stood over it is gone. Its floor is burnt to dark rock, and where the ground was sand the bowl and its rim are glass. A beast or a person in it when it strikes loses 12 points.
+  - **Five fires burn round it for a day.** This is fire you can find: light a torch at one and carry it home.
+  - **Under the middle lies the core, of sky iron.** For two minutes it glows, burns you if you stand on it, 2 points a second, and nothing breaks it. Then it is dark, and a flint pick breaks it out, in four seconds: two to four lumps of sky iron. The lumps have no use yet.
+  - A star whose moment passes while you sleep does not fall. One whose moment the T key moves the clock past still falls, if it is night.
 - **Tools of obsidian** are knapped at a knapping stone, as flint is. They hit hardest and dig fastest, and are worn out after 40 uses, where flint on a handle lasts 130.
   - An obsidian knife (an obsidian, a stick and a cord) hits for 5 and carves a kill.
   - An obsidian pick (3 obsidian, 2 sticks and a cord) digs four times as fast as a hand, and is the one tool that breaks out crystal. Crystal shards have no use yet.
@@ -110,6 +118,8 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 ![A hot spring at the foot of the cone, blue water in rings of rust, gold and green stone, with the white steam of its geyser going up](docs/spring.png)
 
 ![A fire mountain that erupts under a grey sky, with burning rocks coming down its side and the fire they trail](docs/eruption.png)
+
+![A falling star over the tops of redwoods at night, a bright head with its tail behind it and a glow round it](docs/star.png)
 
 - **Giants that stand their ground.** Three armed plant-eaters do not run from you. Each is few, strong and worth a great deal of meat, and each can be killed, with work. A giant is met by a spear or a hand all along its body, climbs a step of two blocks, and is too heavy for a hit to knock back.
   - **Shieldbrows** are horned, with a shield of bone behind the head, and go as a family on the prairie: two grown and one or two young. Come within ten blocks of a young one and a grown one turns on you, lowers its head and bellows. Come within six, or hit one of the family, and it charges at 7 blocks a second: 6 points, and you are thrown. It cannot turn fast, so something solid between you saves you. Then it goes back to its young. It charges a quickclaw the same way. 60 points of health, 8 pieces of meat and 3 hides.
@@ -219,6 +229,8 @@ A thing bigger than a chunk cannot be built by one. So the ground is also cut in
 
 A fire mountain is far bigger than any landmark, so it is not put down on the land: it is part of the land. The squares of a coarser grid, 1,600 blocks wide, hold one each, and the function that says how high the ground of a column is adds the mountain's cone to it, and its crater. So a chunk on the mountain is made from the seed and its place alone, as every chunk is, and it costs a chunk off the mountain nothing that can be measured: 0.190 ms before and after. Its hot springs and its lava tube are placed by the seed from the mountain's own place, so a chunk builds its part of each as it builds its part of the cone. A geyser spouts by the clock of the world, each at its own moment of a round of 30 seconds, so nothing of it is in a save. An eruption is by the seed and the clock too: the seed gives a mountain the days between one eruption and the next, so a world saved half way through one goes on with it when it is opened. A burning rock is one more row of the table of thrown things, with its own landing. All a save holds of an eruption is the fires the rocks left, each with the seconds it still burns.
 
+A falling star is by the seed too: the seed says of each night whether one falls and at what part of the night. It is one more row of the table of thrown things, but the sky draws it and not the land: where the fireball is, and where the end of its tail is, are given to the sky as two ways from the eye, as the smoke of a mountain is. Shooting stars are worked out by the sky from the clock alone. What a save keeps is what burns for a time and then changes, as the fires of an eruption do: each fire of a crater, which goes out, and its core, which goes dark.
+
 ![A jungle of tree ferns under tall trees, with flowers](docs/jungle.png)
 
 ![Redwoods, umbrella pines and gold fan-leaf trees in the highland](docs/highland.png)
@@ -237,7 +249,7 @@ glonk also runs the loop and the terminal, reads the keys, the mouse and what is
 
 ## Sound
 
-Every sound is heard from where it is made: quieter the farther it is, gone at 24 blocks, and louder in the ear on its side. A bugler's voice carries three times as far, so you hear a herd before you see it. Your steps sound as the ground you walk on, and digging, breaking and placing as the block, in seven kinds: earth, stone, sand, wood, plants, glass and snow. You hear water you fall into, what you pick up or make, being hurt and eating; mossbacks to themselves and when hit, the long horn of a bugler and the two blasts of its alarm, the chirp of a nipper, the low growl of a quickclaw and the screech it gives when it has seen you, the grunt of a giant at its feed, the bellow of a shieldbrow and the rattle of a thornback's plates, the long low drone of a cloudgrazer and the thud of a giant's step, the rumble of the dread's breath and its roar, the fire of a hearth or of a struck tree, the rush of a geyser, the rumble of a fire mountain that is about to erupt and the thud of each rock it throws, and water dripping in caves. Under all of it the wind blows as much as the sky reaches you, and fades into the low air of a cave where it does not.
+Every sound is heard from where it is made: quieter the farther it is, gone at 24 blocks, and louder in the ear on its side. A bugler's voice carries three times as far, so you hear a herd before you see it. Your steps sound as the ground you walk on, and digging, breaking and placing as the block, in seven kinds: earth, stone, sand, wood, plants, glass and snow. You hear water you fall into, what you pick up or make, being hurt and eating; mossbacks to themselves and when hit, the long horn of a bugler and the two blasts of its alarm, the chirp of a nipper, the low growl of a quickclaw and the screech it gives when it has seen you, the grunt of a giant at its feed, the bellow of a shieldbrow and the rattle of a thornback's plates, the long low drone of a cloudgrazer and the thud of a giant's step, the rumble of the dread's breath and its roar, the fire of a hearth or of a struck tree, the rush of a geyser, the rumble of a fire mountain that is about to erupt and the thud of each rock it throws, the boom of a star that struck, and water dripping in caves. Under all of it the wind blows as much as the sky reaches you, and fades into the low air of a cave where it does not.
 
 A small mixer of the game's own plays up to 16 sounds at once, each a little higher or lower at random so that steps do not sound the same, bends the loudest moments so that many at once do not crack, and brings the wind and the cave air up and down slowly. [oto](https://github.com/ebitengine/oto) v3.5.1 plays what it makes, with no C compiler needed on macOS, Linux or Windows. With no sound device the game plays on in silence and the title says why. On Linux oto plays through PulseAudio, which PipeWire also serves.
 
@@ -288,7 +300,8 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - Anything a tame mossback does for you but follow: carrying comes later.
 - Ash that falls and lies on the ground.
 - A rock of an eruption comes down only where the world is loaded, about 100 blocks round you: what you were too far off to see left nothing.
-- A use for crystal.
+- A use for crystal, and for sky iron: tools of sky iron are the next step. Then the Skyspear itself.
+- A star falls only where the world is loaded, about 100 blocks round you: there are no craters where you were not.
 - Lava that flows.
 - A beast that digs or climbs out of a pit. The dread in one is let go when its time is up, as anywhere.
 - A giant's tail has no reach past its length: a thornback or a boulderback can be speared from beyond it at no risk.
