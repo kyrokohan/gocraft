@@ -4,7 +4,7 @@
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
 
-**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, cloudgrazers whose steps shake the ground, and the dread, which hunts everything. A fire mountain smokes on the horizon, with hot springs and geysers at its foot and a lava tube in its side, and every few days it erupts. Stars streak the night sky, and now and then one comes down near you and leaves a crater with sky iron in it. Among the stars stands the Skyspear, a comet that grows each night, and on the twelfth it arrives: the Great Fall. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
+**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, cloudgrazers whose steps shake the ground, and the dread, which hunts everything. A fire mountain smokes on the horizon, with hot springs and geysers at its foot and a lava tube in its side, and every few days it erupts. Stars streak the night sky, and now and then one comes down near you and leaves a crater with sky iron in it. Among the stars stands the Skyspear, a comet that grows each night, and on the twelfth it arrives: the Great Fall, and after it the Long Winter, four days of ash, frost and cold. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
 
 ![A cave person with a pick, seen from behind, before the skeleton of a great beast, drawn in terminal cells](docs/shot.png)
 
@@ -65,7 +65,7 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 **New world** asks how the world is played, and the world keeps that.
 
 - **Survival.** You start with nothing. A block takes time to dig, from a fifth of a second for leaves to five seconds for stone by hand, and cracks show as you dig. Let go, or look away, and it starts again. A broken block drops as a small block of itself (stone as cobble, mossy earth as dirt, a bush as berries, a fern as fiber, a flint seam as flint, and one block of gravel in eight as a flint; leaves crumble away), which you pick up by walking near. You carry 9 slots on the hotbar and 27 in the pack, 64 of a kind to a slot, and placing a block uses one up.
-- **Your body.** Health, food and air show over the hotbar. A fall of more than three blocks hurts, a point for each block more, but not into water. Under water your air lasts 15 seconds, then you drown, slowly. Food goes down a point every 30 seconds; while it is 18 or more of 20 you heal, and at none hunger hurts, though it cannot kill. Berries from bushes, fruit from now and then a leaf, and meat are food. Standing in a fire hurts, 2 points a second.
+- **Your body.** Health, food and air show over the hotbar. A fall of more than three blocks hurts, a point for each block more, but not into water. Under water your air lasts 15 seconds, then you drown, slowly. Food goes down a point every 30 seconds; while it is 18 or more of 20 you heal, and at none hunger hurts, though it cannot kill. Berries from bushes, fruit from now and then a leaf, and meat are food. Standing in a fire hurts, 2 points a second. Warmth is a fourth bar, over your health, that shows only when you have lost some: the cold takes it, and a fire gives it back.
 - **Making things.** The I screen lists what you can make, beside your slots: Right from the last column goes into the list, and Enter or a click makes one. A line is dim while you lack something for it, and what a line needs shows under the slots. By hand you make four sticks from a log, a cord from three fibers, a knapping stone from four cobble, a digging stick (2 sticks), a club (a log), a spear (3 sticks), a fur bed (3 hides and 6 moss), a hearth (8 cobble), a fire drill (a stick, a log and a cord), two unlit torches (a stick and resin), a soft pot (4 clay), a sling (2 cords and a hide), four pebbles (a block of gravel) and two pit covers (2 sticks and 2 fibers). Stand within four blocks of a knapping stone to knap flint: a hand axe (2 flint), a flint knife (a flint, a stick and a cord) and a flint pick (3 flint, 2 sticks and a cord). Planks, the workbench, the kiln, the crate, torches of coal and the tools of copper and iron can no longer be made; a world that has them keeps them.
 - **Fire is found.** Here and there stands a tree that lightning struck: a charred trunk that burns at its top, with a limb that fell from it burning at its foot. Its smoke stands nine blocks over it by day, and its fire shows at night. No hand breaks a fire, and no block takes its place: it goes when the log it burns on is broken. A charred log leaves coal.
 - **Fire is made.** A hearth is a ring of stones. Put wood or coal in it, then hold E on it with a fire drill for six seconds, or press E on it with a lit torch. A fire drill lights twelve fires.
@@ -119,8 +119,16 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - **Beasts run** from where a star strikes, from 40 blocks.
   - **Nobody sleeps that night:** a bed will not take you until it is over.
   - **Then the Skyspear itself strikes, far off.** The sky goes white for three seconds. Twenty seconds later its boom comes and the ground shakes hard for six. It does not hurt you.
-  - **Ash climbs the sky** in the minute after, and stays for four days: the light of day is down by a third. Then it thins for half a day. What the cold of those days does is the next step.
+  - **Ash climbs the sky** in the minute after, and stays for four days: the light of day is down by a third. Then it thins for half a day.
   - **It leaves the land round you full of craters,** dozens of them, each with its core of sky iron.
+- **The Long Winter** is the four days after the Skyspear strikes. Then comes spring, and the next comet is a speck in the sky.
+  - **Every land is cold,** as the tundra and the crags are at any time.
+  - **The cold takes your warmth:** all of it in two minutes, with no fire and no furs. With none left you lose a point of health every four seconds, you do not mend however well fed, and the cold can make you faint.
+  - **A fire gives it back,** all of it in 20 seconds, within six blocks: a fire, a hearth that burns, a torch that stands, lava, the hot core of a star. So does the water of a hot spring. Out of the cold it comes back by itself, in 40 seconds.
+  - **A fur cloak** is four hides and two cords, made by hand. It works while you carry it: there is nowhere to put it on. With it you lose no warmth by day, and half as fast by night. So furs make the day safe, and the night still needs a fire.
+  - **Frost whitens the open ground** and the tops of the trees, in the first minutes, and goes with the ash. It is paint: no block is changed, and under a roof or thick leaves the ground is as it was.
+  - **Herds are thin:** half as many of the beasts that live in a land are about, but never fewer than go together.
+  - **Hunters are bold:** the ashen day is no light to a quickclaw, so they come at noon as at midnight. A fire's light still holds them off.
 - **Tools of obsidian** are knapped at a knapping stone, as flint is. They hit hardest and dig fastest, and are worn out after 40 uses, where flint on a handle lasts 130.
   - An obsidian knife (an obsidian, a stick and a cord) hits for 5 and carves a kill.
   - An obsidian pick (3 obsidian, 2 sticks and a cord) digs four times as fast as a hand, and is the one tool that breaks out crystal. Crystal shards have no use yet.
@@ -143,6 +151,8 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 ![The Skyspear early in the night before it arrives: a comet low over the horizon, its bright head and a long tail of light among the stars](docs/comet.png)
 
 ![The Great Fall: a red sky over a forest lit as at dusk, a fireball coming down, and the fires of craters among the trees](docs/greatfall.png)
+
+![The Long Winter from above the trees: frost white on the ground and on the tops of redwoods under a grey sky, with the warmth bar over the health](docs/winter.png)
 
 - **Giants that stand their ground.** Three armed plant-eaters do not run from you. Each is few, strong and worth a great deal of meat, and each can be killed, with work. A giant is met by a spear or a hand all along its body, climbs a step of two blocks, and is too heavy for a hit to knock back.
   - **Shieldbrows** are horned, with a shield of bone behind the head, and go as a family on the prairie: two grown and one or two young. Come within ten blocks of a young one and a grown one turns on you, lowers its head and bellows. Come within six, or hit one of the family, and it charges at 7 blocks a second: 6 points, and you are thrown. It cannot turn fast, so something solid between you saves you. Then it goes back to its young. It charges a quickclaw the same way. 60 points of health, 8 pieces of meat and 3 hides.
@@ -258,6 +268,8 @@ The comet is one number, how near it is, which the game works out from the day a
 
 The Great Fall is by the clock too: it begins a minute and a half before the midnight the comet arrives, and how far it has got is the day and nothing else. So a world saved in the middle of it goes on with it when it is opened, one opened after it does not see it twice, and a save holds no word of it. Its stars are the lone star of other nights, let fall every two seconds. The sky shows up to four fireballs at once. The white of the Skyspear's own strike is laid over the whole picture, as the red of a hurt is.
 
+The winter is by the clock as well: four days from the strike. Its frost is one number given to the block renderer, which draws the top of a block paler where the cell over it has the full light of the sky. So the world is not touched, a save is no bigger, and in spring the ground is as it was. Warmth is kept in a save as what has been lost of it, so an older save, which says nothing, is whole. Thin herds are the table's own numbers halved, and a bold hunter is one that is asked how bright a fire is where it stands, and not how bright the day.
+
 ![A jungle of tree ferns under tall trees, with flowers](docs/jungle.png)
 
 ![Redwoods, umbrella pines and gold fan-leaf trees in the highland](docs/highland.png)
@@ -328,7 +340,9 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - Ash that falls and lies on the ground.
 - A rock of an eruption comes down only where the world is loaded, about 100 blocks round you: what you were too far off to see left nothing.
 - A use for crystal.
-- The Long Winter after the Great Fall: cold, warmth and furs. That is the next step. Today the four days after are dark with ash and no colder.
+- Snow that falls and lies as blocks, and ice on the sea in the winter.
+- Clothes other than the cloak, and a place to wear them.
+- More lands: the coal swamp, the steppe and its beasts of the cold, tar pits, and beasts that swim and fly. That is the next milestone.
 - A star falls only where the world is loaded, about 100 blocks round you: there are no craters where you were not.
 - Lava that flows.
 - A beast that digs or climbs out of a pit. The dread in one is let go when its time is up, as anywhere.
