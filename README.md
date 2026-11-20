@@ -74,7 +74,7 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 - **Resin and seeds.** One pine or redwood log in five leaves a piece of resin with the log. The crown of a stump palm leaves two seeds: raw they are poison, 4 points of health for 2 of food, and roast they are 6 points of food.
 - **A clay pot keeps things.** E on a clay pot opens its 18 slots over yours. What is in a pot or a hearth falls out when you break it.
 - **A fur bed** lies flat on the ground. E on one makes it where you wake, after a faint too. At night it also sleeps you through to the morning, unless a hunter is within eight blocks. A broken bed is forgotten, and you wake where you first began.
-- **Tools.** The right tool digs its blocks faster: a pick stone and ore, an axe wood, a shovel earth, sand and snow. A digging stick is a shovel of wood, twice as fast as a hand, and a hand axe and a flint pick are three times as fast. Stone, cobble and flint seams break by hand and leave what they hold; coal leaves nothing without a flint pick, and crystal nothing yet. A tool wears by a block broken or a beast hit, a bar on its slot shows what is left, and it is gone when it is worn out: a hand axe after 60, flint on a handle after 130. Tools are one to a slot.
+- **Tools.** The right tool digs its blocks faster: a pick stone and ore, an axe wood, a shovel earth, sand and snow. A digging stick is a shovel of wood, twice as fast as a hand, and a hand axe and a flint pick are three times as fast, and an obsidian pick four. Stone, cobble and flint seams break by hand and leave what they hold; coal leaves nothing without a flint pick, and crystal nothing yet. A tool wears by a block broken or a beast hit, a bar on its slot shows what is left, and it is gone when it is worn out: a hand axe after 60, flint on a handle after 130. Tools are one to a slot.
 - **Weapons.** A hand hits for 1 point and a tool for 2. A club hits for 4 and knocks a beast nearly twice as far back. A spear hits for 3 and reaches a beast a block farther than anything else does. A flint knife hits for 4, and a kill made with it leaves one more piece of meat and always a hide.
 - **Hides.** A bugler or a quickclaw leaves a hide when it dies.
 - **Beasts.** A beast in front of a block is aimed at before it. Q or a click hits it, again every third of a second while held, and knocks it back. A blade hits hardest, from 3 points in wood to 6 in iron, any other tool 2 and a hand 1; a hit wears the tool in hand.
@@ -87,6 +87,13 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - **Ashlands** lie round it, out to 70 blocks from its middle: grey ash, dark rock and a charred trunk here and there. Nothing grows there and no beast lives there.
   - **Lava** fills the crater to four blocks under the rim. It glows as fire does. You sink and swim in it as in water, it takes 6 points a second, three times what a fire takes, and the walls of the crater are too high to climb out by. What falls in it is burnt up. A torch can be lit at it. It cannot be broken or carried, and beasts keep out of it.
   - The crater smokes: great puffs that stand nine blocks over it.
+  - **Obsidian** runs in black veins on the cone, more of them toward the top, and nowhere else in the world. A flint pick breaks it out.
+  - **Firestone** lies in a ring at the rim of the crater, within three blocks of it: lumps the color of brass in the dark rock. It breaks by hand.
+- **Tools of obsidian** are knapped at a knapping stone, as flint is. They hit hardest and dig fastest, and are worn out after 40 uses, where flint on a handle lasts 130.
+  - An obsidian knife (an obsidian, a stick and a cord) hits for 5 and carves a kill.
+  - An obsidian pick (3 obsidian, 2 sticks and a cord) digs four times as fast as a hand, and is the one tool that breaks out crystal. Crystal shards have no use yet.
+  - An obsidian spear (an obsidian, 3 sticks and a cord) hits for 5, reaches a block farther, and takes 7 thrown.
+- **A striker** is a flint and a firestone, made by hand. E with it on a hearth that has fuel lights it at once, where a fire drill takes six seconds. E with it anywhere else lights the first unlit torches you carry, with no fire near. It lasts 30 fires.
 
 ![A fire mountain at night from its foot, a dark cone with the red of its fire rising from the crater](docs/mountain.png)
 
@@ -265,7 +272,8 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - Soft shadows from leaves and glass: only blocks that let no light through cast them.
 - Torches on walls: a torch stands on the ground, as a plant does.
 - Anything a tame mossback does for you but follow: carrying comes later.
-- Obsidian and firestone, which only the fire mountain has: that is the next step. Then hot springs, geysers and lava tubes, and then eruptions.
+- Hot springs, geysers and lava tubes: that is the next step. Then eruptions.
+- A use for crystal.
 - Lava that flows.
 - A beast that digs or climbs out of a pit. The dread in one is let go when its time is up, as anywhere.
 - A giant's tail has no reach past its length: a thornback or a boulderback can be speared from beyond it at no risk.
