@@ -419,6 +419,27 @@ func makeSound(n sound.Name) []float64 {
 			return math.Pow(math.Sin(math.Pi*min(t/1.0, 1)), 0.5) * (0.82 + 0.18*math.Sin(2*math.Pi*23*t))
 		}
 		return peakTo(voiced(1.0, pitch, loud, 900, 2100), 0.8)
+	case sound.Howl:
+		// One voice that climbs, holds a long note and sinks: it carries a long way.
+		pitch := func(t float64) float64 {
+			return 290 + 210*math.Sin(math.Pi/2*min(t/0.7, 1)) - 150*max(t-1.7, 0)/0.7
+		}
+		loud := func(t float64) float64 {
+			return math.Pow(math.Sin(math.Pi*min(t/2.4, 1)), 0.7) * (0.9 + 0.1*math.Sin(2*math.Pi*6*t))
+		}
+		return peakTo(voiced(2.4, pitch, loud, 620, 1400), 0.75)
+	case sound.Snarl:
+		// A cat's snarl: harsh, from the throat, quick to rise and gone.
+		pitch := func(t float64) float64 { return 150 + 90*math.Sin(math.Pi*min(t/0.3, 1)) }
+		loud := func(t float64) float64 {
+			return math.Pow(math.Sin(math.Pi*min(t/0.6, 1)), 0.5) * (0.55 + 0.45*math.Sin(2*math.Pi*38*t))
+		}
+		s := voiced(0.6, pitch, loud, 700, 2300)
+		rasp := newBand(2600, 1.5)
+		for i := range s {
+			s[i] += 0.45 * rasp.at(noise(i, 997)) * swell(float64(i)/rate, 0.05, 0.4)
+		}
+		return peakTo(s, 0.8)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))

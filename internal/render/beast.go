@@ -30,6 +30,9 @@ const (
 	Snowtusk // a giant of the cold steppe in long hair, with a trunk and two great tusks
 	Slowclaw // a slow shaggy beast of the steppe that stands up on its hind legs, with long claws
 
+	Howler    // a grey hunter of the steppe night that goes in packs, and is heard before it comes
+	Daggercat // a great cat of the steppe with two fangs like knives, that springs
+
 	Kinds // how many kinds there are
 )
 
@@ -38,6 +41,7 @@ var kindNames = [Kinds]string{
 	Shieldbrow: "shieldbrow", Thornback: "thornback", Boulderback: "boulderback",
 	Cloudgrazer: "cloudgrazer", Dread: "dread",
 	Snowtusk: "snowtusk", Slowclaw: "slowclaw",
+	Howler: "howler", Daggercat: "daggercat",
 }
 
 // String returns the name of a kind, as a save holds it.
@@ -84,6 +88,9 @@ var sizes = [Kinds][2]float64{
 
 	Snowtusk: {2.0, 4.6},
 	Slowclaw: {1.2, 1.9},
+
+	Howler:    {0.6, 1.1},
+	Daggercat: {0.8, 1.4},
 }
 
 // spans are how far behind and ahead of the point between its feet the body of a grown
@@ -97,6 +104,7 @@ var spans = [Kinds][2]float64{
 	Dread:       {-5.4, 3.7},
 	Snowtusk:    {-3.0, 2.9},
 	Slowclaw:    {-1.5, 1.6},
+	Daggercat:   {-1.2, 1.4},
 }
 
 // Span returns how far behind and ahead of the point between its feet a beast's body
@@ -210,6 +218,9 @@ func NewBeasts(set *assets.Set) *Beasts {
 
 		Snowtusk: snowtuskShape(set),
 		Slowclaw: slowclawShape(set),
+
+		Howler:    howlerShape(set),
+		Daggercat: daggercatShape(set),
 	}}
 }
 
@@ -588,6 +599,68 @@ func slowclawShape(set *assets.Set) shape {
 		limb{mesh: leg, right: -0.42, up: hip, front: -0.6, swing: 0.35},
 		limb{mesh: leg, right: 0.42, up: hip, front: -0.6, swing: -0.35},
 	)}
+}
+
+// howlerEyes and catEyes are the colors of the eyes of the hunters of the steppe.
+var (
+	howlerEyes = engine.RGB(176, 222, 255)
+	catEyes    = engine.RGB(255, 190, 60)
+)
+
+// eyes returns the two eyes of a beast whose eyes shine, on the sides of its head: each
+// so far to a side, so high and so far ahead of the point between its feet.
+func eyes(shine engine.Color, n int, aside, up, front float64) []limb {
+	eye := box(-0.02, -0.04, -0.05, 0.04, 0.08, 0.1, all6(0), n, mesh.Material{Color: shine})
+	return []limb{
+		{mesh: eye, right: -aside, up: up, front: front, eye: true},
+		{mesh: eye, right: aside, up: up, front: front, eye: true},
+	}
+}
+
+// howlerShape is a howler: a lean body on four long legs, a deep chest, a head carried
+// level with a long muzzle and two ears that stand, and a brush of a tail that hangs.
+// Its eyes shine.
+func howlerShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(142, 146, 152), Texture: set.Howler}
+	const n = assets.HowlerTiles
+	const hip = 0.6
+	hide, head := giantHide()
+	ear := all6(giantArmB)
+	parts := []limb{
+		{mesh: box(-0.24, hip-0.05, -0.65, 0.48, 0.5, 1.3, hide, n, look)},
+		{mesh: box(-0.17, hip+0.25, 0.6, 0.34, 0.36, 0.3, hide, n, look)}, // the neck
+		{mesh: box(-0.19, hip+0.32, 0.8, 0.38, 0.36, 0.38, head, n, look)},
+		{mesh: box(-0.1, hip+0.32, 1.16, 0.2, 0.2, 0.3, head, n, look)}, // the muzzle
+		{mesh: box(-0.19, hip+0.66, 0.84, 0.1, 0.16, 0.08, ear, n, look)},
+		{mesh: box(0.09, hip+0.66, 0.84, 0.1, 0.16, 0.08, ear, n, look)},
+		{mesh: box(-0.08, -0.6, -0.08, 0.16, 0.6, 0.16, all6(giantArmA), n, look), up: hip + 0.4, front: -0.65, tilt: -0.5, sway: 0.3},
+	}
+	parts = append(parts, eyes(howlerEyes, n, 0.2, hip+0.56, 1.02)...)
+	leg := box(-0.08, -hip, -0.08, 0.16, hip, 0.16, all6(giantLeg), n, look)
+	return shape{stand: hip, hurt: reddened(set.Howler), parts: append(parts, fourLegs(leg, hip, 0.17, 0.5, -0.5, 0.6)...)}
+}
+
+// daggercatShape is a daggercat: a heavy body, higher at the shoulders than behind, on
+// four thick legs, a short tail, and a broad head with a short muzzle, from under which
+// two fangs hang as long as a hand. Its eyes shine.
+func daggercatShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(196, 156, 96), Texture: set.Daggercat}
+	const n = assets.DaggercatTiles
+	const hip = 0.7
+	hide, head := giantHide()
+	fang := all6(giantArmB)
+	parts := []limb{
+		{mesh: box(-0.36, hip, -0.2, 0.72, 0.72, 1.1, hide, n, look)},       // the shoulders
+		{mesh: box(-0.32, hip-0.05, -1.1, 0.64, 0.62, 0.95, hide, n, look)}, // the haunches, lower
+		{mesh: box(-0.28, hip+0.25, 0.85, 0.56, 0.52, 0.5, head, n, look)},
+		{mesh: box(-0.17, hip+0.25, 1.3, 0.34, 0.3, 0.26, head, n, look)}, // the muzzle
+		{mesh: box(-0.16, hip-0.22, 1.38, 0.09, 0.48, 0.1, fang, n, look)},
+		{mesh: box(0.07, hip-0.22, 1.38, 0.09, 0.48, 0.1, fang, n, look)},
+		{mesh: box(-0.07, -0.45, -0.07, 0.14, 0.45, 0.14, all6(giantArmA), n, look), up: hip + 0.45, front: -1.1, tilt: -0.7, sway: 0.25},
+	}
+	parts = append(parts, eyes(catEyes, n, 0.29, hip+0.6, 1.2)...)
+	leg := box(-0.12, -hip, -0.12, 0.24, hip, 0.24, all6(giantLeg), n, look)
+	return shape{stand: hip, hurt: reddened(set.Daggercat), parts: append(parts, fourLegs(leg, hip, 0.24, 0.6, -0.8, 0.55)...)}
 }
 
 // dreadEyes is the color of the dread's eyes.

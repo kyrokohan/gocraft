@@ -128,6 +128,18 @@ func TestTheSmokeOfTheMountainIsSeenFromWhereTheWorldBeginsAndRisesFromItsCrater
 	g.world.LoadAll()
 	at.Y = float64(g.world.Ground(int(at.X), int(at.Z))) + 1
 	g.player.Pos, g.player.Flying = at, false
+	// The beasts that are found places round a player on the ash: none is put on it. One
+	// may walk onto it after, so they are looked at as they come.
+	g.fauna.all, g.fauna.timer = nil, 0
+	for range 5 {
+		hold(t, g, 1)
+		g.fauna.timer = 0
+		for _, c := range g.fauna.all {
+			if world.BiomeAt(7, int(math.Floor(c.Pos.X)), int(math.Floor(c.Pos.Z))) == world.Ashlands {
+				t.Fatalf("a %s was put in the ashlands", c.kind)
+			}
+		}
+	}
 	hold(t, g, seconds(5))
 	over := 0
 	for _, b := range g.bits {
@@ -137,13 +149,6 @@ func TestTheSmokeOfTheMountainIsSeenFromWhereTheWorldBeginsAndRisesFromItsCrater
 	}
 	if over < 6 {
 		t.Errorf("%d puffs of smoke stand over the crater after five seconds at the mountain's foot", over)
-	}
-	if n := len(g.fauna.all); n > 0 {
-		for _, c := range g.fauna.all {
-			if world.BiomeAt(7, int(math.Floor(c.Pos.X)), int(math.Floor(c.Pos.Z))) == world.Ashlands {
-				t.Fatalf("a %s stands in the ashlands", c.kind)
-			}
-		}
 	}
 }
 
