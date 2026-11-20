@@ -76,6 +76,7 @@ var recipes = func() []recipe {
 		{world.Hearth.Item(), 1, []need{of(cobble, 8)}, byHand},
 		{world.FireDrill, 1, []need{of(world.Stick, 1), anyLog, of(world.Cord, 1)}, byHand},
 		{world.UnlitTorch, 2, []need{of(world.Stick, 1), of(world.Resin, 1)}, byHand},
+		{world.Striker, 1, []need{of(world.Flint, 1), of(world.Firestone, 1)}, byHand},
 		{world.SoftPot, 1, []need{of(world.Clay.Item(), 4)}, byHand},
 
 		// A cover for a pit: what holds a person and gives way under a giant.
@@ -85,6 +86,11 @@ var recipes = func() []recipe {
 		{world.HandAxe, 1, []need{of(world.Flint, 2)}, atBench},
 		{world.FlintKnife, 1, []need{of(world.Flint, 1), of(world.Stick, 1), of(world.Cord, 1)}, atBench},
 		{world.FlintPick, 1, []need{of(world.Flint, 3), of(world.Stick, 2), of(world.Cord, 1)}, atBench},
+
+		// Obsidian, from the fire mountain, is knapped as flint is.
+		{world.ObsidianKnife, 1, []need{of(world.Obsidian, 1), of(world.Stick, 1), of(world.Cord, 1)}, atBench},
+		{world.ObsidianPick, 1, []need{of(world.Obsidian, 3), of(world.Stick, 2), of(world.Cord, 1)}, atBench},
+		{world.ObsidianSpear, 1, []need{of(world.Obsidian, 1), of(world.Stick, 3), of(world.Cord, 1)}, atBench},
 	}
 }()
 

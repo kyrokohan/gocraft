@@ -150,6 +150,26 @@ func (g *Game) light(c world.Cell) bool {
 	return true
 }
 
+// spark strikes fire with the striker in hand, onto the first unlit torches the player
+// carries, which are lit. It reports whether it did: there is a striker in hand, and
+// there are torches to light.
+func (g *Game) spark() bool {
+	if g.items[g.selected].Item != world.Striker {
+		return false
+	}
+	for i := range g.items {
+		if s := &g.items[i]; s.Item == world.UnlitTorch && s.Count > 0 {
+			s.Item = world.Torch.Item()
+			g.ears.PlayNear(sound.Crackle, 0.7)
+			g.swing = swingTime
+			g.tell("the torches are lit")
+			g.wearOut()
+			return true
+		}
+	}
+	return false
+}
+
 // drillTime is how many seconds a fire drill is turned to light a hearth.
 const drillTime = 6.0
 
@@ -345,6 +365,8 @@ func (g *Game) useBlock(t world.Hit) bool {
 		g.swing = swingTime
 		g.tell("the torch is lit")
 	case t.Block == world.Hearth && held.Item == world.Torch.Item() && g.survival && g.light(c):
+	case t.Block == world.Hearth && held.Item == world.Striker && g.survival && g.light(c):
+		g.wearOut() // a striker lights it at once, where a fire drill takes its time
 	case isHearth(t.Block) && g.survival:
 		g.openStore(world.Hearth, c)
 	case t.Block == world.ClayPot && g.survival:

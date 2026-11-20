@@ -270,7 +270,7 @@ func (g *Game) build(in *engine.Input, dt float64) {
 	if places && g.aimed && g.useBlock(g.target) {
 		return
 	}
-	if places && g.eat() {
+	if places && (g.spark() || g.eat()) {
 		return
 	}
 	breaks := clicked || keyDown(in.Pressed, 'q')

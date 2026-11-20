@@ -65,15 +65,15 @@ type missile struct {
 func (g *Game) throw() bool {
 	held := &g.items[g.selected]
 	m := missile{leaves: g.survival}
-	switch held.Item {
-	case world.Spear, world.HardSpear:
+	switch {
+	case held.Item.Thrown():
 		m.kind, m.stack = spearThrown, world.Stack{Item: held.Item, Count: 1, Wear: held.Wear}
 		g.hitWait = hitWait
 		if g.survival {
 			m.stack.Wear++ // a throw is a use
 			*held = world.Stack{}
 		}
-	case world.Sling:
+	case held.Item == world.Sling:
 		pebbles := []world.Item{world.Pebble}
 		g.hitWait = slingWait
 		if g.survival && g.items.count(pebbles) == 0 {
