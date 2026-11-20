@@ -78,6 +78,9 @@ var recipes = func() []recipe {
 		{world.UnlitTorch, 2, []need{of(world.Stick, 1), of(world.Resin, 1)}, byHand},
 		{world.SoftPot, 1, []need{of(world.Clay.Item(), 4)}, byHand},
 
+		// A cover for a pit: what holds a person and gives way under a giant.
+		{world.PitCover.Item(), 2, []need{of(world.Stick, 2), of(world.Fiber, 2)}, byHand},
+
 		// Flint alone makes a hand axe. A pick and a knife are bound to a handle with cord.
 		{world.HandAxe, 1, []need{of(world.Flint, 2)}, atBench},
 		{world.FlintKnife, 1, []need{of(world.Flint, 1), of(world.Stick, 1), of(world.Cord, 1)}, atBench},

@@ -134,6 +134,10 @@ type breed struct {
 	foot        [2]float64
 	quake       float64
 
+	// heavy is true for a beast that breaks through a pit cover, and that a long fall
+	// hurts: the bigger it is, the more.
+	heavy bool
+
 	armor float64 // points taken off every hit it takes
 	steps int     // how many blocks high a step it climbs: one, if it says none
 	grown int     // the first so many of a group are grown, and the rest young: by chance, if it says none
@@ -158,6 +162,7 @@ var breeds = [render.Kinds]breed{
 	render.Bugler: {
 		walk: 1.6, run: 6.5, gait: 2.6,
 		health: 16, bump: 3, meat: 3, hide: 1,
+		heavy:  true,
 		temper: herder, group: [2]int{5, 8}, most: 16, young: 0.3, wary: 9,
 		lands: []world.Biome{world.Prairie, world.Highland},
 		call:  sound.Horn, cry: sound.Alarm, callEvery: 70, carries: 3 * sound.Hearing,
@@ -182,6 +187,7 @@ var breeds = [render.Kinds]breed{
 	render.Shieldbrow: {
 		walk: 1.2, run: 7.0, gait: 1.5,
 		health: 60, meat: 8, hide: 3,
+		heavy:  true,
 		temper: guard, group: [2]int{3, 4}, grown: 2, most: 4,
 		warns: 10, charges: 6, blow: 6, steps: 2,
 		lands: []world.Biome{world.Prairie},
@@ -190,6 +196,7 @@ var breeds = [render.Kinds]breed{
 	render.Thornback: {
 		walk: 0.9, run: 1.6, gait: 1.7,
 		health: 45, meat: 6, hide: 2,
+		heavy:  true,
 		temper: guard, group: [2]int{1, 1}, most: 2,
 		warns: 6, swings: 2.2, blow: 5, steps: 2,
 		lands: []world.Biome{world.Highland, world.Jungle},
@@ -198,6 +205,7 @@ var breeds = [render.Kinds]breed{
 	render.Boulderback: {
 		walk: 0.7, run: 1.2, gait: 2.4,
 		health: 50, armor: 3, meat: 6, hide: 2,
+		heavy:  true,
 		temper: guard, group: [2]int{1, 1}, most: 2,
 		warns: 5, swings: 2.0, blow: 7, steps: 2,
 		lands: []world.Biome{world.Badlands}, bare: true,
@@ -207,6 +215,7 @@ var breeds = [render.Kinds]breed{
 	// The giant among them: it goes in a pair, slowly, and takes no notice of anything.
 	render.Cloudgrazer: {
 		walk: 1.0, run: 1.0, gait: 1.15,
+		heavy:  true,
 		temper: herder, group: [2]int{2, 2}, most: 2,
 		calm: true, wades: true, steps: 2,
 		stamp: 8, foot: [2]float64{1.0, 2.3}, quake: 40,
@@ -220,6 +229,7 @@ var breeds = [render.Kinds]breed{
 	render.Dread: {
 		walk: 2.2, run: 6.0, gait: 1.25,
 		health: 200, bite: 8, meat: 12, hide: 4,
+		heavy:  true,
 		temper: hunter, group: [2]int{1, 1}, most: 1, sees: 40, hears: 28,
 		visits: true, from: dreadFrom, comes: [2]float64{70, 86}, fears: 7, stays: 300, every: [2]float64{1, 2},
 		stalks: 32, snaps: 1.5, feeds: 20, cows: true,
@@ -253,6 +263,7 @@ type beast struct {
 	velY    float64    // speed upward
 	climb   int        // how many blocks high the step it last hopped at is
 	trod    int        // which pair of its feet came down in the last step, 1 or 2, or 0 for none
+	peak    float64    // the highest it has been since it was last on the ground
 	walking bool       // or standing
 	timer   float64    // until it changes its mind
 	rng     *rand.Rand // its own, so that what it does can be told from a seed
@@ -336,6 +347,9 @@ type fauna struct {
 	// where a foot came down, and of which kind.
 	shove  geometry.Vector3
 	treads []said
+
+	// broken are the pit covers that heavy beasts broke through in the last step.
+	broken []world.Cell
 
 	robbed float64 // until a thief may take from the player again
 	feet   int     // the height of the player's feet, which a hunter comes out near
@@ -583,7 +597,7 @@ func (f *fauna) raise(herd int, from geometry.Vector3) bool {
 // and are gone in fallen, for the game to play and to put down what they leave.
 func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 	f.sounds, f.fallen, f.thefts, f.bitten, f.shove = f.sounds[:0], f.fallen[:0], 0, 0, geometry.Vector3{}
-	f.treads = f.treads[:0]
+	f.treads, f.broken = f.treads[:0], f.broken[:0]
 	f.robbed = max(f.robbed-dt, 0)
 	for herd, a := range f.alarms {
 		if a.left -= dt; a.left <= 0 {
@@ -651,6 +665,12 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		if c.trod != 0 {
 			f.tread(i, player)
 		}
+		if b.heavy && c.OnGround && !c.dead {
+			f.collapse(w, c)
+		}
+		if b.bump > 0 && c.flee > 0 && c.bumped == 0 && !c.dead {
+			f.trample(i)
+		}
 	}
 	f.all = slices.DeleteFunc(f.all, func(c beast) bool {
 		if c.dead && c.fall >= 1 {
@@ -714,6 +734,65 @@ func (c *beast) body() (at [6]geometry.Vector3, n int) {
 		at[i] = c.Pos.Add(ahead.Scale(along))
 	}
 	return at, n
+}
+
+// How a heavy beast fares with a pit.
+const (
+	fallSafe  = 2.0     // blocks it falls unhurt
+	fallPart  = 1.0 / 6 // the part of its kind's health each block more costs it
+	coverMost = 64      // the most covers that go at once: a cover wider than that is two
+	coverTip  = 0.4     // how far past half its width it is tipped forward as the cover goes, in blocks
+)
+
+// collapse breaks the pit cover a heavy beast has its middle on, and all of the cover
+// that joins it, and tips the beast forward into the pit: the whole of a cover gives
+// way at once, as branches laid across a hole do.
+func (f *fauna) collapse(w *world.World, c *beast) {
+	under := world.Cell{X: int(math.Floor(c.Pos.X)), Y: int(math.Floor(c.Pos.Y - 0.5)), Z: int(math.Floor(c.Pos.Z))}
+	if w.At(under.X, under.Y, under.Z) != world.PitCover {
+		return
+	}
+	from := len(f.broken)
+	for joined := []world.Cell{under}; len(joined) > 0 && len(f.broken)-from < coverMost; {
+		at := joined[len(joined)-1]
+		joined = joined[:len(joined)-1]
+		if w.At(at.X, at.Y, at.Z) != world.PitCover {
+			continue
+		}
+		w.Set(at.X, at.Y, at.Z, world.Air)
+		f.broken = append(f.broken, at)
+		for _, d := range [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+			joined = append(joined, world.Cell{X: at.X + d[0], Y: at.Y, Z: at.Z + d[1]})
+		}
+	}
+	// It was on the rim with its middle just over the cover: it goes on by half its
+	// width and a little more, which takes the rest of it off the rim.
+	width, _ := render.Size(c.kind, c.young)
+	c.push = c.push.Add(mesh.Camera{Yaw: c.Yaw}.Forward().Scale(knockDrag * (width/2 + coverTip)))
+}
+
+// trample has a running beast that runs others down hurt the first lighter beast of
+// another kind it runs into, as it hurts a player: a stampede kills what is in its way.
+func (f *fauna) trample(i int) {
+	c := &f.all[i]
+	b := &breeds[c.kind]
+	width, height := render.Size(c.kind, c.young)
+	lo, hi := boxOf(c.Pos, width, height)
+	for j := range f.all {
+		o := &f.all[j]
+		if o.kind == c.kind || o.dead || breeds[o.kind].heavy {
+			continue // its own kind runs with it, and a heavy beast is not run down
+		}
+		ow, oh := render.Size(o.kind, o.young)
+		olo, ohi := boxOf(o.Pos, ow, oh)
+		if lo[0] >= ohi[0] || hi[0] <= olo[0] || lo[1] >= ohi[1] || hi[1] <= olo[1] || lo[2] >= ohi[2] || hi[2] <= olo[2] {
+			continue
+		}
+		c.bumped = bumpWait
+		o.hit(c.Pos, b.bump)
+		f.sounds = append(f.sounds, said{breeds[o.kind].cry, o.kind, o.voice()})
+		return
+	}
 }
 
 // stampReach is how far from where a giant's foot comes down a player is under it.
@@ -980,10 +1059,25 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	c.push = c.push.Scale(max(1-knockDrag*dt, 0))
 	move.Y = c.velY * dt
 
+	if c.OnGround || afloat {
+		c.peak = c.Pos.Y
+	}
 	stopped := travelIn(w, &c.Pos, width, height, move, stops)
 	c.OnGround = stopped[1] && move.Y < 0
 	if stopped[1] {
 		c.velY = 0
+	}
+	if c.peak = max(c.peak, c.Pos.Y); c.OnGround {
+		// A heavy beast is hurt by a fall of more than fallSafe blocks: a part of what
+		// health its kind has for each block more, so the bigger it is, the harder it
+		// comes down.
+		if drop := c.peak - c.Pos.Y; b.heavy && b.health > 0 && drop > fallSafe && !c.dead {
+			c.hurt = hurtShow
+			if c.health -= b.health * fallPart * (drop - fallSafe); c.health <= 0 {
+				c.dead, c.walking, c.flee = true, false, 0
+			}
+		}
+		c.peak = c.Pos.Y
 	}
 	if (stopped[0] || stopped[2]) && c.walking && c.OnGround {
 		c.turnBack() // it walked into something the look ahead did not see: a corner
@@ -1033,6 +1127,10 @@ func (g *Game) stepBeasts(dt float64) {
 	}
 	for _, s := range f.sounds {
 		g.sayFrom(s.kind, s.name, s.at, 0.9)
+	}
+	for _, at := range f.broken {
+		g.ears.Play(sound.Break(materialOf(world.PitCover)), cellMid(at.X, at.Y, at.Z), 1)
+		g.shatter(at.X, at.Y, at.Z, world.PitCover)
 	}
 	for _, s := range f.treads {
 		// A giant's step is heard from far, and felt from nearer: the view shakes the
