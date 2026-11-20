@@ -159,3 +159,147 @@ func tusk(x, y int) (rgb, bool) {
 	}
 	return grain(c, 0.04, x, y, 895), true
 }
+
+// The hunters of the steppe, laid out as the others are: back, side, belly, the side of
+// the head, the face, a leg, the tail, and an ear or a fang.
+var (
+	howlerTiles    = []painter{howlBack, howlSide, howlBelly, howlHead, howlFace, howlLeg, howlTail, howlEar}
+	daggercatTiles = []painter{catBack, catSide, catBelly, catHead, catFace, catLeg, catTail, horn}
+)
+
+func init() {
+	giantTiles["howler"], giantTiles["daggercat"] = howlerTiles, daggercatTiles
+}
+
+var (
+	howlFur   = rgb{142, 146, 152} // a howler: grey, paler under
+	howlDark  = rgb{78, 80, 88}
+	howlPale  = rgb{216, 218, 220}
+	catFur    = rgb{196, 156, 96} // a daggercat: tawny, with faint spots
+	catDark   = rgb{128, 92, 56}
+	catCream  = rgb{232, 216, 180}
+	catNose   = rgb{92, 56, 50}
+	darkMouth = rgb{44, 34, 32}
+)
+
+// fur is short thick fur at a pixel: strands as shaggy hair has, but close, so that one
+// is little darker than the next.
+func fur(x, y int, base, dark rgb, down float64, seed int) rgb {
+	c := base.mix(dark, 0.5*down).scale(0.92 + 0.16*hash(x, y/4, seed))
+	return grain(c, 0.05, x, y, seed+2)
+}
+
+func howlBack(x, y int) (rgb, bool) { return fur(y, x, howlDark, howlDark, 0, 900), true }
+
+// howlSide is its side: dark along the back, and pale toward the belly.
+func howlSide(x, y int) (rgb, bool) {
+	down := float64(y) / float64(size-1)
+	return fur(x, y, howlDark.mix(howlFur, min(2*down, 1)).mix(howlPale, max(2*down-1, 0)), howlDark, 0, 903), true
+}
+
+func howlBelly(x, y int) (rgb, bool) { return grain(howlPale, 0.05, x, y, 906), true }
+
+// howlHead is the side of its head: a long muzzle, pale under, a dark nose, and an eye
+// of pale blue.
+func howlHead(x, y int) (rgb, bool) {
+	if c, ok := eyeOn(x, y, 5, 5, rgb{170, 210, 240}); ok {
+		return c, true
+	}
+	switch {
+	case x >= 14 && y >= 6 && y <= 8:
+		return darkMouth, true // the nose
+	case y == 11 && x >= 8:
+		return darkMouth, true // the line of the mouth
+	case y >= 9:
+		return grain(howlPale, 0.05, x, y, 907), true
+	}
+	return fur(x, y, howlFur, howlDark, 0.2, 908), true
+}
+
+// howlFace is its face from in front: a pale muzzle, the nose, and the mask of its brow.
+func howlFace(x, y int) (rgb, bool) {
+	switch {
+	case y >= 8 && y <= 10 && x >= 6 && x <= 9:
+		return darkMouth, true
+	case y >= 6 && x >= 4 && x <= 11:
+		return grain(howlPale, 0.05, x, y, 907), true
+	}
+	return fur(x, y, howlFur, howlDark, 0.3, 911), true
+}
+
+func howlLeg(x, y int) (rgb, bool) {
+	if y >= 14 {
+		return grain(howlDark, 0.05, x, y, 914), true // the paw
+	}
+	return fur(x, y, howlFur, howlDark, 0.3*float64(y)/float64(size-1), 915), true
+}
+
+// howlTail is its brush of a tail: grey, tipped dark.
+func howlTail(x, y int) (rgb, bool) {
+	return fur(x, y, howlFur, howlDark, float64(y)/float64(size-1), 918), true
+}
+
+func howlEar(x, y int) (rgb, bool) { return grain(howlDark, 0.06, x, y, 921), true }
+
+// catPelt is a daggercat's coat at a pixel: short, tawny, with faint darker spots.
+func catPelt(x, y int, down float64, seed int) rgb {
+	c := catFur.mix(catCream, 0.6*down).scale(0.9 + 0.2*blotch(x, y, 4, seed))
+	if blotch(x, y, 2, seed+1) > 0.74 && down < 0.7 {
+		c = c.mix(catDark, 0.45) // a spot
+	}
+	return grain(c, 0.04, x, y, seed+2)
+}
+
+func catBack(x, y int) (rgb, bool) { return catPelt(x, y, 0, 925), true }
+
+func catSide(x, y int) (rgb, bool) {
+	return catPelt(x, y, float64(y)/float64(size-1), 928), true
+}
+
+func catBelly(x, y int) (rgb, bool) { return grain(catCream, 0.05, x, y, 931), true }
+
+// catHead is the side of its head: a short broad muzzle, a nose, an eye of amber, and
+// the dark line of a mouth its fangs hang from.
+func catHead(x, y int) (rgb, bool) {
+	if c, ok := eyeOn(x, y, 7, 5, rgb{236, 180, 60}); ok {
+		return c, true
+	}
+	switch {
+	case x >= 13 && y >= 7 && y <= 9:
+		return catNose, true
+	case y == 12 && x >= 8:
+		return darkMouth, true
+	case y >= 10 && x >= 8:
+		return grain(catCream, 0.05, x, y, 932), true
+	}
+	return catPelt(x, y, 0.3, 933), true
+}
+
+// catFace is its face from in front: two eyes, a nose, and the pale muzzle.
+func catFace(x, y int) (rgb, bool) {
+	switch {
+	case y >= 4 && y <= 5 && (x >= 3 && x <= 4 || x >= 11 && x <= 12):
+		return rgb{236, 180, 60}, true
+	case y >= 8 && y <= 9 && x >= 6 && x <= 9:
+		return catNose, true
+	case y >= 8 && x >= 3 && x <= 12:
+		return grain(catCream, 0.05, x, y, 932), true
+	}
+	return catPelt(x, y, 0.2, 936), true
+}
+
+func catLeg(x, y int) (rgb, bool) {
+	if y >= 14 {
+		return grain(catCream, 0.05, x, y, 939), true // the paw
+	}
+	return catPelt(x, y, 0.5, 940), true
+}
+
+// catTail is its short tail: ringed, with a dark tip at the bottom of the tile.
+func catTail(x, y int) (rgb, bool) {
+	c := catPelt(x, y, 0.2, 943)
+	if y%5 == 4 || y >= 13 {
+		c = c.mix(catDark, 0.6)
+	}
+	return c, true
+}

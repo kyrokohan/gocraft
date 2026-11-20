@@ -28,3 +28,12 @@ func (w *World) Cold(x, z float64) bool {
 	b := landAt(int(math.Floor(x)), int(math.Floor(z)), uint32(w.Seed)^uint32(w.Seed>>32)).biome
 	return b == Tundra || b == Crags
 }
+
+// Land returns the land the column at x, z lies in. A world that is not made from a seed
+// has none.
+func (w *World) Land(x, z float64) (Biome, bool) {
+	if w.gen == nil {
+		return 0, false
+	}
+	return BiomeAt(w.Seed, int(math.Floor(x)), int(math.Floor(z))), true
+}
