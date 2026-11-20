@@ -81,6 +81,7 @@ const (
 
 	FurCloak // hides sewn with cord: carried, it keeps the cold off
 	Tusk     // of a snowtusk
+	Amber    // a piece of it, out of the trunk of a scale tree
 
 	itemEnd
 )
@@ -225,6 +226,9 @@ var things = [itemEnd - 256]thing{
 
 	// A tusk has no use yet.
 	Tusk - 256: {name: "tusk", icon: tile.Tusk},
+
+	// Amber has no use yet.
+	Amber - 256: {name: "amber", icon: tile.Amber},
 }
 
 // obsidianUses is how many uses a tool of obsidian lasts, and skyIronUses one of sky
@@ -382,7 +386,7 @@ func (b Block) DigWith(hand Item) (seconds float64, yields bool) {
 // itself, and nothing for leaves and grass that crumble away.
 func (b Block) Drop() (Item, int) {
 	switch b {
-	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fronds, FanLeaves, DryBush, Fire, HotCore:
+	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fronds, FanLeaves, ScaleCrown, DryBush, Fire, HotCore:
 		return NoItem, 0
 	case PalmCrown:
 		return PalmSeeds, 2
@@ -417,12 +421,13 @@ func (b Block) Drop() (Item, int) {
 }
 
 // fruitChance is the part of the leaves that hold a fruit, flintChance the part of the
-// gravel that holds a flint, and resinChance the part of the pine and redwood logs that
-// hold resin.
+// gravel that holds a flint, resinChance the part of the pine and redwood logs that
+// hold resin, and amberChance the part of the trunks of scale trees that hold amber.
 const (
 	fruitChance = 0.1
 	flintChance = 0.12
 	resinChance = 0.2
+	amberChance = 0.08
 )
 
 // cellChance is a number from 0 to 1 that is a hash of a cell: what the block there
@@ -451,10 +456,14 @@ func (b Block) DropAt(x, y, z int) (Item, int) {
 }
 
 // AlsoAt returns what the block in a cell leaves besides what DropAt says, and how many:
-// a pine or a redwood log now and then holds a piece of resin.
+// a pine or a redwood log now and then holds a piece of resin, and the trunk of a scale
+// tree a piece of amber.
 func (b Block) AlsoAt(x, y, z int) (Item, int) {
-	if (b == PineLog || b == RedwoodLog) && cellChance(x, y, z) < resinChance {
+	switch chance := cellChance(x, y, z); {
+	case (b == PineLog || b == RedwoodLog) && chance < resinChance:
 		return Resin, 1
+	case b == ScaleTrunk && chance < amberChance:
+		return Amber, 1
 	}
 	return NoItem, 0
 }

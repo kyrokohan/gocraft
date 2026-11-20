@@ -35,6 +35,7 @@ const (
 	Crags                 // bare stone, high up, with snow higher still
 	Highland              // high country of umbrella pines, fan-leaf trees and redwoods
 	Ashlands              // ash and dark rock round a fire mountain, where nothing grows
+	Swamp                 // the coal swamp: peat and black pools at the water's edge, under scale trees
 
 	biomeCount
 )
@@ -120,6 +121,17 @@ type land struct {
 	crater float64
 }
 
+// The coal swamp is low wet country that the water has soaked flat: where the land is
+// wetter than swampWet and stands lower than swampStand, by the slow noises that say so,
+// the ground is drawn down to a step or two over the sea. It is soaked the more the
+// farther inside both, so that the country round it comes down to it and does not end
+// in a cliff.
+const (
+	swampWet   = 0.58
+	swampStand = 0.54
+	swampEdge  = 0.03 // how far inside the wet, and the low, the ground is all the way down
+)
+
 // landAt returns the land of the column at x, z.
 func landAt(x, z int, seed uint32) land {
 	fx, fz := float64(x), float64(z)
@@ -147,6 +159,12 @@ func landAt(x, z int, seed uint32) land {
 		mesa := smooth(fx/36, fz/36, seed+8)
 		h += inside * (9*ramp(0.58, 0.62, mesa) + 7*ramp(0.72, 0.75, mesa))
 	}
+	soak := 0.0
+	if !dry && warm >= 0.38 && h >= SeaLevel {
+		soak = ramp(swampWet, swampWet+swampEdge, wetness) * (1 - ramp(swampStand-swampEdge, swampStand, stand))
+		level := float64(SeaLevel) + 1.5 + 0.9*(smooth(fx/11, fz/11, seed+43)-0.5)
+		h = level + (h-level)*(1-soak)
+	}
 	// A fire mountain stands on whatever land it is in.
 	m, far, ashen := mountainNear(x, z, seed)
 	if ashen {
@@ -165,6 +183,16 @@ func landAt(x, z int, seed uint32) land {
 		l.biome = Sea
 	case ashen && (l.cone || l.top > SeaLevel+1):
 		l.biome = Ashlands // to the top of its cone, however high
+	case soak > 0.8 && l.top <= SeaLevel+2:
+		// The coal swamp: all but flat, a step or two over the sea, and pitted with
+		// pools that stand to the level of the sea.
+		l.biome = Swamp
+		switch pool := smooth(fx/7, fz/7, seed+41); {
+		case pool > 0.74:
+			l.top = SeaLevel - 2
+		case pool > 0.6:
+			l.top = SeaLevel - 1
+		}
 	case l.top <= SeaLevel+1:
 		l.biome = Shore
 	case dry:
@@ -268,6 +296,8 @@ func (t terrain) column(x, z int, l land) {
 		}
 	case Tundra:
 		surface = Snow
+	case Swamp:
+		surface, under = Peat, Peat
 	case Crags:
 		surface, under = Stone, Stone
 		if l.top >= snowLine {
@@ -305,6 +335,8 @@ func (t terrain) column(x, z int, l land) {
 			b = surface
 		case l.biome == Badlands && y >= l.top-2:
 			b = surface // red rock, or the sand of a wash, over the sandstone
+		case l.biome == Swamp && y == l.top-2 && smooth(float64(x)/5, float64(z)/5, t.seed+42) > 0.62:
+			b = CoalOre // a seam of coal lies near the top of the peat
 		case y >= l.top-deep:
 			b = under
 		default:
@@ -381,6 +413,19 @@ func (t terrain) grow(x, z int, l land) {
 		if chance < 0.07 {
 			b = DryBush // a tussock of dry grass, through the snow
 		}
+	case Swamp:
+		// Giant horsetails in stands, and ferns between them: but nothing in a pool.
+		switch {
+		case l.top < SeaLevel:
+		case chance < 0.14:
+			b, tall = Horsetail, 2+int(chance*100)%2
+		case chance < 0.22:
+			b = TallFern
+		case chance < 0.3:
+			b = Fern
+		case chance < 0.32:
+			b = Mushroom
+		}
 	case Ashlands:
 		// What is left of the trees that stood here: a charred trunk, now and then, on
 		// the flat ground round the cone.
@@ -451,6 +496,10 @@ func (t terrain) plant(x, z int, l land, chance, kind float64) {
 		if chance < 0.14 {
 			t.pine(x, y, z, 3+int(kind*2))
 		}
+	case Swamp:
+		if chance < 0.5 && l.top >= SeaLevel {
+			t.scaleTree(x, y, z, 8+int(kind*5))
+		}
 	}
 }
 
@@ -507,6 +556,15 @@ func (t terrain) pine(x, y, z, trunk int) {
 			t.crown(x, at, z, reach, PineNeedles, false)
 		}
 	}
+}
+
+// scaleTree stands a scale tree: a bare trunk with a small crown of long leaves at the
+// top of it, and nothing below.
+func (t terrain) scaleTree(x, y, z, trunk int) {
+	t.trunk(x, y, z, trunk, ScaleTrunk)
+	top := y + trunk
+	t.disc(x, top-1, z, 2, ScaleCrown)
+	t.crown(x, top, z, 1, ScaleCrown, false)
 }
 
 // umbrellaPine stands an umbrella pine: a tall bare trunk that spreads its needles flat

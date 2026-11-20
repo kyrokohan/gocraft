@@ -79,6 +79,10 @@ const (
 	HotCore
 	SkyIronCore
 
+	Peat
+	ScaleTrunk
+	ScaleCrown
+
 	blockCount
 )
 
@@ -221,6 +225,13 @@ var infos = [256]Info{
 	// dark, and a flint pick breaks it out, slowly.
 	HotCore:     fixed(glowing(cube("glowing sky iron", tile.HotCore), 12)),
 	SkyIronCore: byPick(cube("sky iron core", tile.SkyIronCore), 12, TierFlint),
+
+	// What the coal swamp is made of. Peat is its ground, black and wet: it burns. A
+	// scale tree is a bare trunk, all diamonds where old leaves grew, with a crown of
+	// long leaves at the top of it.
+	Peat:       byShovel(cube("peat", tile.Peat), 0.7),
+	ScaleTrunk: byAxe(solid("scale tree trunk", tile.ScaleTrunkTop, tile.ScaleTrunkSide, tile.ScaleTrunkTop), 1.6),
+	ScaleCrown: dig(leaves("scale tree crown", tile.ScaleCrown), 0.2),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for
