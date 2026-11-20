@@ -687,3 +687,47 @@ func TestFromUnderWaterTheEyeSeesTwentyBlocksAndWhatIsDrawnIsWashed(t *testing.T
 		}
 	}
 }
+
+// A great flier that is too far off to draw as it is stands in the sky as a small dark
+// shape, wider the nearer it is, and nowhere else.
+func TestTheSkyDrawsAFlierThatIsFarOff(t *testing.T) {
+	w := world.New()
+	rend := newRenderer(t)
+	shape := func(ways ...geometry.Vector3) (n, left, right int) {
+		sky := NewSky(Noon)
+		plain := newCanvas(t, 120, 40)
+		rend.Draw(plain, w, facing, sky)
+		sky.SetWings(ways)
+		c := newCanvas(t, 120, 40)
+		rend.Draw(c, w, facing, sky)
+		left, right = c.Width(), -1
+		for y := range c.Height() {
+			for x := range c.Width() {
+				if c.At(x, y) == plain.At(x, y) {
+					continue
+				}
+				n, left, right = n+1, min(left, x), max(right, x)
+				red, green, blue := c.At(x, y).RGB()
+				if was, _, _ := plain.At(x, y).RGB(); red >= was || int(red)+int(green)+int(blue) > 420 {
+					t.Fatalf("a pixel of a far flier is %v against a sky of %v: wanted it dark", c.At(x, y), plain.At(x, y))
+				}
+			}
+		}
+		return n, left, right
+	}
+	if n, _, _ := shape(); n != 0 {
+		t.Errorf("with no flier the sky is changed in %d pixels", n)
+	}
+	// One 80 blocks off, a little up and to the right of the middle of the view.
+	n, left, right := shape(geometry.Vector3{X: 8, Y: 10, Z: 80})
+	if n < 6 || n > 200 || left < 60 || right > 100 || right-left < 6 {
+		t.Errorf("a flier 80 blocks off is drawn in %d pixels, from %d to %d across: wanted a small shape to the right of the middle, 60", n, left, right)
+	}
+	if _, l, r := shape(geometry.Vector3{X: 4, Y: 5, Z: 40}); r-l <= right-left {
+		t.Errorf("a flier 40 blocks off is %d pixels wide, and one 80 off %d: wanted the nearer one wider", r-l, right-left)
+	}
+	// Behind the eye there is none.
+	if n, _, _ := shape(geometry.Vector3{X: 8, Y: 10, Z: -80}); n != 0 {
+		t.Errorf("a flier behind the eye is drawn in %d pixels", n)
+	}
+}

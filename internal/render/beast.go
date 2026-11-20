@@ -43,6 +43,9 @@ const (
 	Leapfin  // a small quick swimmer that goes in schools, and leaps clear of the water
 	Deepmaw  // the hunter of the deep sea: twelve blocks long, with jaws a quarter of it
 
+	Galewing  // a flier with wings eight blocks across, that soars in circles over the shore and the sea
+	Stiltwing // a flier as tall as a tree when it stands, that stalks the badlands on foot
+
 	Kinds // how many kinds there are
 )
 
@@ -55,6 +58,7 @@ var kindNames = [Kinds]string{
 	Rattlewing: "rattlewing", Logcrawler: "logcrawler",
 	Sunback: "sunback", Sailjaw: "sailjaw",
 	Lakeneck: "lakeneck", Leapfin: "leapfin", Deepmaw: "deepmaw",
+	Galewing: "galewing", Stiltwing: "stiltwing",
 }
 
 // String returns the name of a kind, as a save holds it.
@@ -115,6 +119,11 @@ var sizes = [Kinds][2]float64{
 	Lakeneck: {1.4, 3.4},
 	Leapfin:  {0.5, 0.6},
 	Deepmaw:  {2.4, 2.0},
+
+	// A galewing's is its body, and not its wings. A stiltwing's is as high as its head
+	// when it stands.
+	Galewing:  {1.2, 1.0},
+	Stiltwing: {1.0, 4.8},
 }
 
 // spans are how far behind and ahead of the point between its feet the body of a grown
@@ -191,15 +200,19 @@ type Beast struct {
 	// Lower is how far a beast that warns or charges has lowered its head, from 0 to 1,
 	// and Lash how far its tail is swung to a side as it strikes, from -1 to 1.
 	Lower, Lash float64
+
+	// Aloft is true while a beast that has wings is in the air: its wings are out.
+	Aloft bool
 }
 
 // limb is one box of a beast's shape.
 type limb struct {
 	mesh mesh.Mesh
 
-	// bare takes the place of mesh on a shorn beast, where there is one.
-	bare    mesh.Mesh
-	hasBare bool
+	// bare takes the place of mesh on a shorn beast, where there is one, and spread on
+	// one that is in the air: a wing that is out, a neck held forward, a leg that trails.
+	bare, spread       mesh.Mesh
+	hasBare, hasSpread bool
 
 	// right, up and front are where the origin of the box is, from the point between
 	// the beast's feet, and tilt how far its top is tipped back, as a camera's Pitch is.
@@ -261,6 +274,9 @@ func NewBeasts(set *assets.Set) *Beasts {
 		Lakeneck: lakeneckShape(set),
 		Leapfin:  leapfinShape(set),
 		Deepmaw:  deepmawShape(set),
+
+		Galewing:  galewingShape(set),
+		Stiltwing: stiltwingShape(set),
 	}}
 }
 
@@ -894,6 +910,59 @@ func deepmawShape(set *assets.Set) shape {
 	}
 }
 
+// wings returns the two wings of a beast that flies: each a limb that is folded while the
+// beast is down, so long and so thick, hanging by its side, and out while it is in the
+// air, so far to its side and so deep from front to back. They hang from its shoulders,
+// which are so far aside of its middle, so high and so far ahead.
+func wings(look mesh.Material, n int, aside, up, front, out, deep, folded, thick float64) []limb {
+	skin := all6(giantArmA)
+	return []limb{
+		{mesh: box(-0.1, -folded, -thick/2, 0.1, folded, thick, skin, n, look), spread: box(-out, 0, -deep/2, out, 0.06, deep, skin, n, look), hasSpread: true, right: -aside, up: up, front: front},
+		{mesh: box(0, -folded, -thick/2, 0.1, folded, thick, skin, n, look), spread: box(0, 0, -deep/2, out, 0.06, deep, skin, n, look), hasSpread: true, right: aside, up: up, front: front},
+	}
+}
+
+// galewingShape is a galewing: a small body between two wings that are eight blocks
+// from tip to tip, a head with a beak as long as the body before it and a crest as long
+// behind, and two small feet. On its roost its wings are folded at its sides.
+func galewingShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(196, 190, 176), Texture: set.Galewing}
+	const n = assets.GalewingTiles
+	hide, head := giantHide()
+	foot := box(-0.05, 0, -0.05, 0.1, 0.22, 0.1, all6(giantLeg), n, look)
+	parts := []limb{
+		{mesh: box(-0.25, 0.2, -0.6, 0.5, 0.45, 1.2, hide, n, look)},
+		{mesh: box(-0.14, 0.38, 0.6, 0.28, 0.3, 0.5, head, n, look)},
+		{mesh: box(-0.06, 0.42, 1.1, 0.12, 0.14, 1.0, all6(giantFace), n, look)},
+		{mesh: box(-0.03, 0.62, 0.1, 0.06, 0.2, 0.8, all6(giantArmB), n, look), up: 0, tilt: 0.25},
+		{mesh: foot, right: -0.15, front: -0.2},
+		{mesh: foot, right: 0.15, front: -0.2},
+	}
+	return shape{stand: 0.3, hurt: reddened(set.Galewing), parts: append(parts, wings(look, n, 0.25, 0.6, 0, 3.75, 0.9, 0.45, 0.9)...)}
+}
+
+// stiltwingShape is a stiltwing: a body carried two blocks up on four stilts, of which
+// the front two are its folded wings, a neck that stands as high again, and a head that
+// is nearly all beak. In the air its wings are out, seven blocks from tip to tip, its
+// neck is held out before it and its legs trail behind.
+func stiltwingShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(168, 132, 96), Texture: set.Stiltwing}
+	const n = assets.StiltwingTiles
+	const hip = 1.9
+	hide, head := giantHide()
+	neck := all6(giantArmB)
+	leg, trails := box(-0.08, -hip, -0.08, 0.16, hip, 0.16, all6(giantLeg), n, look), box(-0.08, -0.08, -hip, 0.16, 0.16, hip, all6(giantLeg), n, look)
+	parts := []limb{
+		{mesh: box(-0.35, hip, -0.65, 0.7, 0.7, 1.3, hide, n, look)},
+		// The neck and the head hang from one point: up it, or out before it.
+		{mesh: box(-0.12, 0, -0.12, 0.24, 2.2, 0.24, neck, n, look), spread: box(-0.12, -0.12, 0, 0.24, 0.24, 2.2, neck, n, look), hasSpread: true, up: hip + 0.5, front: 0.6},
+		{mesh: box(-0.13, 2.1, -0.15, 0.26, 0.32, 1.6, head, n, look), spread: box(-0.13, -0.16, 2.1, 0.26, 0.32, 1.6, head, n, look), hasSpread: true, up: hip + 0.5, front: 0.6},
+		{mesh: leg, spread: trails, hasSpread: true, right: -0.25, up: hip, front: -0.5, swing: 0.5},
+		{mesh: leg, spread: trails, hasSpread: true, right: 0.25, up: hip, front: -0.5, swing: -0.5},
+	}
+	return shape{stand: hip, hurt: reddened(set.Stiltwing), parts: append(parts, wings(look, n, 0.35, hip+0.6, 0.35, 3.15, 1.1, hip+0.6, 0.2)...)}
+}
+
 // dreadEyes is the color of the dread's eyes.
 var dreadEyes = engine.RGB(255, 96, 40)
 
@@ -1098,6 +1167,9 @@ func (b *Beasts) Draw(c *engine.Canvas, cam mesh.Camera, all []Beast, sky *Sky) 
 			m := p.mesh
 			if one.Shorn && p.hasBare {
 				m = p.bare
+			}
+			if one.Aloft && p.hasSpread {
+				m = p.spread
 			}
 			at := one.Pos.Add(aside.Scale(p.right * size)).Add(ahead.Scale(p.front * size))
 			at.Y += (p.up - one.Fall*s.stand) * size

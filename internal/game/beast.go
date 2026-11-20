@@ -152,6 +152,13 @@ type breed struct {
 	draft, sinks, leaps, plays, jaws float64
 	deep                             int
 
+	// One that soars comes down to the water under it about once in dips seconds, and
+	// one that roosts comes down for the night on high ground, where there is some near.
+	// takes is how high over the ground a beast that walks flies when it runs: it has
+	// wings, and takes to them.
+	dips, takes float64
+	roosts      bool
+
 	// A guard does not run. warns is how near what it guards, its young or itself, a
 	// threat may come before it turns on it and gives its cry. charges is how near
 	// before it runs at the threat, for one that charges, and swings how far from the
@@ -387,6 +394,25 @@ var breeds = [render.Kinds]breed{
 		stalks: 20, snaps: 2.5, feeds: feedTime,
 		call: sound.Splash, cry: sound.Splash, callEvery: math.Inf(1),
 	},
+
+	// The two great fliers. Galewings soar in circles over the shore and the sea, dip
+	// to the water, sleep on high ground, and take no notice of a player. Stiltwings
+	// stalk the badlands on foot, and take to their wings when one comes near.
+	render.Galewing: {
+		walk: 6.0, run: 9.0, gait: 1.0,
+		health: 12, meat: 2,
+		moves: gaitSoar, hover: 14, dips: 25, roosts: true,
+		group: [2]int{1, 2}, most: 3,
+		lands: []world.Biome{world.Sea, world.Shore},
+		call:  sound.Skree, cry: sound.Skree, callEvery: 35, carries: 3 * sound.Hearing,
+	},
+	render.Stiltwing: {
+		walk: 1.4, run: 9.0, gait: 2.0,
+		health: 25, meat: 4, hide: 1,
+		temper: herder, group: [2]int{1, 2}, most: 2, wary: 14, takes: 10,
+		lands: []world.Biome{world.Badlands}, bare: true,
+		call: sound.Clack, cry: sound.Clack, callEvery: 45,
+	},
 }
 
 // gait is how a beast gets about.
@@ -397,6 +423,7 @@ const (
 	gaitFly       // it keeps a height over what is under it, and goes where it looks
 	gaitWade      // it lies at the top of still water, and leaves the water only after its prey
 	gaitSwim      // it keeps to water deep enough for it, and goes up and down in it
+	gaitSoar      // it circles in the air, high over what is under it
 )
 
 // slowclawGrudge is how near what it was hit by a slowclaw must be for the slowclaw to
@@ -458,6 +485,13 @@ type beast struct {
 	pace                       float64 // how much of its speed one that the sun warms has: all of it, if this says nothing
 	leapt                      bool    // one that swims has left the water in a leap, and has not come back into it
 	stalking                   bool    // a hunter is after a beast
+
+	// One with wings: whether it is in the air, and, for one that roosts, whether it is
+	// the hour to be on its roost, whether it has found one, and where. A soarer turns
+	// so much a second, and is so many seconds into a dip yet.
+	aloft, abed, roosting bool
+	roost                 geometry.Vector3
+	turn, dip             float64
 
 	// den is where one that keeps to a place lives, once it has been seen there, and
 	// homing whether it is on its way back there.
@@ -601,6 +635,7 @@ func faunaFrom(w *world.World, s world.Meta, round geometry.Vector3) *fauna {
 			health: min(max(b.Health, 1), max(breeds[kind].health, 1)), regrow: b.Regrow,
 			tame: b.Tame, fed: b.Fed,
 			timer: r.Float64() * 2, rng: r,
+			aloft: breeds[kind].moves == gaitSoar,
 		})
 		f.herds = max(f.herds, b.Herd)
 	}
@@ -646,7 +681,7 @@ func (f *fauna) standing(w *world.World, k render.Kind, young bool, x, z int) (g
 		return f.wading(w, k, x, z)
 	case breeds[k].moves == gaitSwim:
 		return f.afloat(w, k, x, z)
-	case breeds[k].moves == gaitFly && (on == world.Water || on == world.Peat || on == world.Turf || on == world.Sand):
+	case (breeds[k].moves == gaitFly || breeds[k].moves == gaitSoar) && (on == world.Water || on == world.Peat || on == world.Turf || on == world.Sand):
 		y += int(math.Ceil(breeds[k].hover)) - 1 // it is in the air over it: over open ground or water, and not over a tree
 	case breeds[k].bare && (on == world.Redrock || on == world.Sand || on == world.Sandstone || on == world.Snow || on == world.Peat):
 	default:
@@ -726,6 +761,7 @@ func (f *fauna) add(w *world.World, k render.Kind, round geometry.Vector3, near,
 			Yaw:   own.Float64()*2*math.Pi - math.Pi,
 			timer: own.Float64() * 2,
 			rng:   own,
+			aloft: b.moves == gaitSoar,
 		})
 		placed++
 	}
@@ -860,6 +896,7 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		if b.warms {
 			c.pace = coldPace + (1-coldPace)*f.noon
 		}
+		c.abed = b.roosts && f.sun < sunUp
 		c.step(w, dt, middle)
 		if c.trod != 0 {
 			f.tread(i, player)
@@ -1047,6 +1084,9 @@ func (c *beast) Pose() render.Beast {
 	}
 	if (c.lower || c.curl > 0) && !c.dead {
 		pose.Lower = 1
+	}
+	if pose.Aloft = c.aloft && !c.dead; pose.Aloft {
+		pose.Stride = 0 // its legs trail, and do not walk
 	}
 	if c.leapt && !c.dead {
 		pose.Lower = min(max(c.velY/leapUp, -1), 1) // nose up as it rises, and down as it falls
@@ -1244,6 +1284,25 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	}
 	if b.moves == gaitSwim && !c.dead {
 		c.swim(w, speed, dt, middle)
+		return
+	}
+	if b.moves == gaitSoar && !c.dead {
+		if c.aloft || !c.abed {
+			c.soar(w, speed, dt)
+			return
+		}
+		c.walking, c.timer = false, max(c.timer, rethink) // on its roost, until the sun is up
+	}
+	if b.takes > 0 && !c.dead && (c.aloft || c.flee > 0) {
+		// One that walks has taken to its wings: it flies the way it ran, and when it
+		// is done with running comes down where there is ground to stand on.
+		c.aloft, c.walking = true, true
+		if c.flee <= 0 {
+			speed = b.run / 2 // it is done with running, and glides
+		}
+		if high, down := c.wing(w, speed, b.takes, dt, c.flee <= 0, false); down && high < setDown {
+			c.aloft, c.walking, c.timer = false, false, rethink
+		}
 		return
 	}
 	mired := inTar(w, c.Pos)
@@ -1478,23 +1537,40 @@ const (
 // darts, turns from what is in its way and from the edge of its lands, and its wings
 // beat all the while.
 func (c *beast) fly(w *world.World, speed, dt float64) {
-	b := &breeds[c.kind]
-	width, height := render.Size(c.kind, c.young)
 	if c.timer -= dt; c.timer <= 0 {
 		// A new mind: it hangs where it is, or darts off some new way.
 		c.walking = c.rng.Float64() < 0.65
 		c.timer = 0.4 + 1.8*c.rng.Float64()
 		c.Yaw = c.rng.Float64()*2*math.Pi - math.Pi
 	}
+	c.wing(w, speed, breeds[c.kind].hover, dt, false, true)
+}
+
+// over returns the height of what is under a beast in the air, ground or water, and
+// what block that is: it looks so far down, and finds air if there is nothing that near.
+func (c *beast) over(w *world.World, down float64) (floor float64, on world.Block) {
 	x, z := int(math.Floor(c.Pos.X)), int(math.Floor(c.Pos.Z))
-	floor := c.Pos.Y - flyTurn
-	for y := int(math.Floor(c.Pos.Y)); float64(y) > c.Pos.Y-flyTurn; y-- {
+	for y := int(math.Floor(c.Pos.Y)); float64(y) > c.Pos.Y-down; y-- {
 		if under := w.At(x, y, z); under != world.Air && !under.Info().Stands() {
-			floor = float64(y + 1)
-			break
+			return float64(y + 1), under
 		}
 	}
-	c.velY = min(max(3*(floor+b.hover-c.Pos.Y), -flyClimb), flyClimb)
+	return c.Pos.Y - down, world.Air
+}
+
+// wing moves a beast that is in the air for dt seconds, at a speed, the way it faces. It
+// keeps so high over what is under it, ground or water. One that would settle comes
+// down instead where what is under it is ground to stand on. One that is bound to its
+// lands turns back at the edge of them. It returns how high over what is under it the
+// beast then is, and whether it is coming down to settle.
+func (c *beast) wing(w *world.World, speed, high, dt float64, settle, bound bool) (over float64, down bool) {
+	b := &breeds[c.kind]
+	width, height := render.Size(c.kind, c.young)
+	floor, on := c.over(w, high+flyTurn)
+	if down = settle && on.Info().Solid; down {
+		high = 0
+	}
+	c.velY = min(max(3*(floor+high-c.Pos.Y), -flyClimb), flyClimb)
 
 	move := geometry.Vector3{Y: c.velY * dt}
 	if c.walking {
@@ -1502,7 +1578,7 @@ func (c *beast) fly(w *world.World, speed, dt float64) {
 		move = move.Add(ahead.Scale(speed * dt))
 		// It keeps to its lands: at the edge of them it turns back.
 		next := c.Pos.Add(ahead.Scale(2))
-		if land, ok := w.Land(next.X, next.Z); ok && b.lands != nil && !slices.Contains(b.lands, land) {
+		if land, ok := w.Land(next.X, next.Z); ok && bound && b.lands != nil && !slices.Contains(b.lands, land) {
 			c.Yaw += math.Pi
 			move.X, move.Z = 0, 0
 		}
@@ -1514,6 +1590,103 @@ func (c *beast) fly(w *world.World, speed, dt float64) {
 	}
 	c.OnGround, c.peak = false, c.Pos.Y
 	c.Stride += b.gait * dt
+	return c.Pos.Y - floor, down
+}
+
+// How a beast that soars gets about, and where it roosts.
+const (
+	soarNear   = 10.0 // the least radius of a circle it turns in, in blocks, and soarWide how much wider one may be
+	soarWide   = 10.0
+	soarAhead  = 14.0 // how far ahead it looks for the edge of its lands
+	soarRoam   = 24.0 // how far from where it was first seen it goes before it turns for home
+	soarMind   = 8.0  // the least seconds it keeps to a circle, and soarLong how many more it may
+	soarLong   = 14.0
+	dipTime    = 6.0 // how long a dip to the water lasts
+	dipHeight  = 1.4 // how high over the water it skims
+	roostReach = 40  // how far off it looks for high ground to roost on
+	roostTries = 24  // how many columns it looks at, each time it looks
+	roostHigh  = 6.0 // how much higher than what it is over ground must be for a roost
+	roostNear  = 2.5 // how near its roost it begins to come down
+	roostClear = 3.0 // how far over its roost it keeps until then
+	setDown    = 0.1 // how near the ground one that comes down is down
+)
+
+// soar moves a beast that soars for dt seconds, at a speed. It turns in a circle, and
+// now and then in another, tighter where the land ahead is none of its own. Over water
+// it dips to it at times. At the hour to roost it looks for high ground near, goes to
+// it and comes down on it.
+func (c *beast) soar(w *world.World, speed, dt float64) {
+	b := &breeds[c.kind]
+	c.aloft, c.walking = true, true
+	floor, on := c.over(w, b.hover+flyTurn)
+	if c.timer -= dt; c.timer <= 0 || c.turn == 0 {
+		// A new circle: wider or tighter, and one time in three the other way round.
+		c.timer = soarMind + soarLong*c.rng.Float64()
+		way := math.Copysign(1, c.turn)
+		if c.turn == 0 && c.rng.IntN(2) == 0 || c.turn != 0 && c.rng.IntN(3) == 0 {
+			way = -way
+		}
+		c.turn = way * speed / (soarNear + soarWide*c.rng.Float64())
+		if c.abed && !c.roosting {
+			c.roost, c.roosting = c.findRoost(w, floor)
+			c.timer = min(c.timer, 3) // it looks again soon, if it found none
+		}
+	}
+	if !c.abed {
+		c.roosting = false
+	}
+	high, settle := b.hover, false
+	if c.roosting {
+		to := geometry.Vector3{X: c.roost.X - c.Pos.X, Z: c.roost.Z - c.Pos.Z}
+		high = max(high, c.roost.Y+roostClear-floor) // over its roost, however high that stands
+		if far := to.Length(); far > roostNear {
+			c.Yaw = yawOf(to)
+		} else {
+			settle, speed = true, min(speed, 2*far)
+		}
+	} else {
+		// Where it was first seen in the air is its home: it keeps its circles by it,
+		// and over its lands, by turning tighter when it heads away from either.
+		if !c.denned {
+			c.den, c.denned = c.Pos, true
+		}
+		c.Yaw += c.turn * dt
+		ahead := mesh.Camera{Yaw: c.Yaw}.Forward()
+		next, home := c.Pos.Add(ahead.Scale(soarAhead)), geometry.Vector3{X: c.den.X - c.Pos.X, Z: c.den.Z - c.Pos.Z}
+		if land, ok := w.Land(next.X, next.Z); ok && !slices.Contains(b.lands, land) || home.Length() > soarRoam && home.Dot(ahead) < 0 {
+			c.Yaw += 2 * c.turn * dt
+		}
+		switch {
+		case on != world.Water:
+			c.dip = 0
+		case c.dip > 0:
+			c.dip, high = c.dip-dt, dipHeight
+		case b.dips > 0 && c.rng.Float64() < dt/b.dips:
+			c.dip = dipTime
+		}
+	}
+	if over, down := c.wing(w, speed, high, dt, settle, false); down && over < setDown {
+		c.aloft, c.walking = false, false // it is on its roost
+	}
+}
+
+// findRoost looks at some columns round a beast for the highest ground it could roost
+// on: bare ground or rock, open above, and well over what the beast is over now. It
+// reports whether it found any.
+func (c *beast) findRoost(w *world.World, floor float64) (geometry.Vector3, bool) {
+	best, found := geometry.Vector3{Y: floor + roostHigh}, false
+	for range roostTries {
+		x := int(math.Floor(c.Pos.X)) + c.rng.IntN(2*roostReach+1) - roostReach
+		z := int(math.Floor(c.Pos.Z)) + c.rng.IntN(2*roostReach+1) - roostReach
+		y := w.Ground(x, z)
+		if y < 0 || w.At(x, y, z).Info().Shade != world.MaxLight || !w.At(x, y, z).Info().Solid || w.At(x, y+1, z) != world.Air || w.At(x, y+2, z) != world.Air {
+			continue // no ground, or a tree top, or no room
+		}
+		if top := float64(y + 1); top > best.Y {
+			best, found = geometry.Vector3{X: float64(x) + 0.5, Y: top, Z: float64(z) + 0.5}, true
+		}
+	}
+	return best, found
 }
 
 // How a beast that swims gets about.
