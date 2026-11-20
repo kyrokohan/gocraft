@@ -97,6 +97,12 @@ type Sky struct {
 	seen  int
 	ball  float64
 
+	// The great fliers that are too far off to be drawn as they are: for each, the way
+	// to it, one long, the ways to its right and up from there, and half of how wide
+	// its wings look from here.
+	wings  [maxWings]farWing
+	winged int
+
 	// The comet: how near it is, from 0, none, to 1; where its head is, one long, and
 	// the way its tail goes from there, one long and square to that; how long the tail
 	// is, in radians; and how much of the comet is seen at this hour, from 0 to 1.
@@ -148,6 +154,45 @@ func (s *Sky) SetStreaks(clock, perMinute float64) {
 
 // maxBalls is how many fireballs the sky shows at once.
 const maxBalls = 4
+
+// farWing is a great flier seen from far off, as the sky draws it.
+type farWing struct {
+	to, right, up geometry.Vector3
+	half          float64
+}
+
+// How the sky draws a flier that is far off: a dark shape of two wings held up a little.
+const (
+	maxWings  = 4     // how many it shows at once
+	wingSpan  = 8.0   // how far its wings are from tip to tip, in blocks
+	wingRise  = 0.3   // how far a wing rises toward its tip, of its length
+	wingThick = 0.16  // how thick a wing is at the body, of its length
+	wingLeast = 0.005 // the least a wing is thick, as an angle, so that a far one is not lost between pixels
+	wingHaze  = 0.6   // how much of its dark shows through the air between
+)
+
+// wingDark is the color of a flier against the sky.
+var wingDark = color{42, 40, 46}
+
+// SetWings has great fliers stand in the sky that are too far off to be drawn as they
+// are: for each, the way from the eye to it, as long as it is far.
+func (s *Sky) SetWings(ways []geometry.Vector3) {
+	s.winged = 0
+	for _, w := range ways {
+		far := w.Length()
+		if s.winged == maxWings || far < 1 {
+			continue
+		}
+		to := w.Scale(1 / far)
+		right := geometry.Vector3{X: to.Z, Z: -to.X}
+		if right.Length() < 1e-6 {
+			continue // straight overhead, or under
+		}
+		right = right.Normalize()
+		s.wings[s.winged] = farWing{to: to, right: right, up: to.Cross(right).Normalize(), half: wingSpan / 2 / far}
+		s.winged++
+	}
+}
 
 // SetFireballs has fireballs stand in the sky: for each, the ways from the eye to it and
 // to the end of its tail, of any length; and how bright they are, from 0, none, to 1.
@@ -419,6 +464,15 @@ func (s *Sky) color(d geometry.Vector3) color {
 			if off := d.Sub(s.cometHead).Length(); off < cometGlow*head {
 				glow := 1 - off/(cometGlow*head)
 				c = c.mix(cometColor, part(s.cometSeen*glow*glow)).mix(starColor, part(s.cometSeen*smooth(0.55, 0.9, glow)))
+			}
+		}
+	}
+	for _, f := range s.wings[:s.winged] {
+		// A flier far off: two wings, each thinner toward its tip and held a little up.
+		off := d.Sub(f.to)
+		if side := math.Abs(off.Dot(f.right)); side < f.half && d.Dot(f.to) > 0.9 {
+			if high := math.Abs(off.Dot(f.up) - wingRise*side); high < max(f.half*wingThick*(1.2-side/f.half), wingLeast) {
+				c = c.mix(wingDark, part(wingHaze))
 			}
 		}
 	}

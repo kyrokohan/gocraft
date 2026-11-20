@@ -711,6 +711,22 @@ const (
 	plumeFar  = 1200.0
 )
 
+// farWings returns the ways from a camera to the beasts that soar and are too far from
+// it to be drawn as they are: the sky draws those, small and dark.
+func (g *Game) farWings(cam mesh.Camera) (ways []geometry.Vector3) {
+	far := cam.Far
+	if far == 0 {
+		far = render.ViewDistance
+	}
+	for i := range g.fauna.all {
+		c := &g.fauna.all[i]
+		if to := c.Pos.Sub(cam.Position); breeds[c.kind].moves == gaitSoar && c.aloft && !c.dead && to.Length() > far {
+			ways = append(ways, to)
+		}
+	}
+	return ways
+}
+
 // plume has the sky show the smoke of the nearest fire mountain, in the way to it from
 // where the player is: more of it the nearer the mountain.
 func (g *Game) plume() {
@@ -772,6 +788,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		cam.Position.Y += 4
 		cam.Fog = g.fogAt(cam)
 		cam.Yaw, cam.Pitch = g.spin, 0.15
+		g.sky.SetWings(g.farWings(cam))
 		g.rend.Draw(c, g.world, cam, g.sky)
 		g.drawThings(c, cam, false)
 		g.drawTitle(fb, c)
@@ -786,6 +803,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		seconds, _ := g.digTime(g.target.Block)
 		g.rend.Crack = render.Crack{X: g.target.X, Y: g.target.Y, Z: g.target.Z, Part: g.digging / seconds}
 	}
+	g.sky.SetWings(g.farWings(cam))
 	g.rend.Draw(c, g.world, cam, g.sky)
 	g.drawThings(c, cam, behind)
 	if g.aimed && (g.screen == playing || g.screen == paused) {
