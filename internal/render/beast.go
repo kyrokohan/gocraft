@@ -36,6 +36,9 @@ const (
 	Rattlewing // a dragonfly of the coal swamp as long as an arm: the first thing that flies
 	Logcrawler // a many-legged crawler of the swamp floor in plates, that curls up
 
+	Sunback // a low hunter with a sail on its back, slow in the morning and quick at noon
+	Sailjaw // a great hunter that lies in still water with only its sail showing
+
 	Kinds // how many kinds there are
 )
 
@@ -46,6 +49,7 @@ var kindNames = [Kinds]string{
 	Snowtusk: "snowtusk", Slowclaw: "slowclaw",
 	Howler: "howler", Daggercat: "daggercat",
 	Rattlewing: "rattlewing", Logcrawler: "logcrawler",
+	Sunback: "sunback", Sailjaw: "sailjaw",
 }
 
 // String returns the name of a kind, as a save holds it.
@@ -98,6 +102,9 @@ var sizes = [Kinds][2]float64{
 
 	Rattlewing: {0.5, 0.35},
 	Logcrawler: {0.6, 0.4},
+
+	Sunback: {0.9, 1.0},
+	Sailjaw: {1.2, 1.2},
 }
 
 // spans are how far behind and ahead of the point between its feet the body of a grown
@@ -113,6 +120,8 @@ var spans = [Kinds][2]float64{
 	Slowclaw:    {-1.5, 1.6},
 	Daggercat:   {-1.2, 1.4},
 	Logcrawler:  {-1.0, 1.0},
+	Sunback:     {-2.2, 1.6},
+	Sailjaw:     {-3.6, 3.0},
 }
 
 // Span returns how far behind and ahead of the point between its feet a beast's body
@@ -232,6 +241,9 @@ func NewBeasts(set *assets.Set) *Beasts {
 
 		Rattlewing: rattlewingShape(set),
 		Logcrawler: logcrawlerShape(set),
+
+		Sunback: sunbackShape(set),
+		Sailjaw: sailjawShape(set),
 	}}
 }
 
@@ -739,6 +751,43 @@ func logcrawlerShape(set *assets.Set) shape {
 		)
 	}
 	return shape{stand: hip, hurt: reddened(set.Logcrawler), parts: parts}
+}
+
+// sailed returns the boxes of a beast with a sail on its back, that goes low on four
+// legs: a body, a head with deep jaws, a tail in two lengths that sways, the sail, which
+// stands on the spine from the shoulders to the hips, and the legs. wide, high and long
+// are those of its body, hip how high it is carried, jaw how long its head is, and sail
+// how high its sail stands.
+func sailed(look mesh.Material, n int, wide, high, long, hip, jaw, sail float64) []limb {
+	hide, head := giantHide()
+	fin := [6]int{giantArmA, giantArmA, giantArmA, giantArmA, giantArmA, giantArmA}
+	tail := all6(giantArmB)
+	parts := []limb{
+		{mesh: box(-wide/2, hip-0.05, -long/2, wide, high, long, hide, n, look)},
+		{mesh: box(-wide*0.32, hip+0.02, long/2, wide*0.64, high*0.8, jaw, head, n, look)},
+		{mesh: box(-0.04, hip+high-0.08, -long*0.4, 0.08, sail, long*0.8, fin, n, look)},
+		{mesh: box(-wide*0.3, -high*0.3, -long*0.6, wide*0.6, high*0.6, long*0.6, tail, n, look), up: hip + high*0.45, front: -long / 2, tilt: 0.12},
+		{mesh: box(-wide*0.16, -high*0.16, -long*0.6, wide*0.32, high*0.32, long*0.6, tail, n, look), up: hip + high*0.3, front: -long * 1.08, tilt: 0.18, sway: 0.25},
+	}
+	leg := box(-wide*0.14, -hip, -wide*0.14, wide*0.28, hip, wide*0.28, all6(giantLeg), n, look)
+	return append(parts, fourLegs(leg, hip, wide*0.52, long*0.36, -long*0.36, 0.5)...)
+}
+
+// sunbackShape is a sunback: a low body as long as a person, a deep head, and a sail
+// the color of fire that stands as high over its back as its back is from the ground.
+func sunbackShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(112, 122, 70), Texture: set.Sunback}
+	const hip = 0.4
+	return shape{stand: hip, hurt: reddened(set.Sunback), parts: sailed(look, assets.SunbackTiles, 0.7, 0.55, 1.8, hip, 0.7, 1.0)}
+}
+
+// sailjawShape is a sailjaw: twice a sunback every way, with jaws as long as a person is
+// tall. It goes with its belly near the ground, so that in water, where its feet are a
+// block under the top, its back is under too and its sail stands out.
+func sailjawShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(84, 104, 100), Texture: set.Sailjaw}
+	const hip = 0.2
+	return shape{stand: hip, hurt: reddened(set.Sailjaw), parts: sailed(look, assets.SailjawTiles, 1.1, 0.8, 3.2, hip, 1.7, 1.3)}
 }
 
 // dreadEyes is the color of the dread's eyes.
