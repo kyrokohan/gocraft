@@ -513,3 +513,68 @@ func TestFrostWhitensTheOpenGroundAndNotSidesOrWhatIsRoofed(t *testing.T) {
 		}
 	}
 }
+
+// What glonk draws under the top of water is seen through the water, as the ground under
+// it is. What it draws in front of the water is not.
+func TestWaterIsOverWhatIsDrawnUnderIt(t *testing.T) {
+	w := world.New()
+	wall(w, 8, world.Sand)
+	for z := 5; z <= 7; z++ {
+		wall(w, z, world.Water)
+	}
+	rend := newRenderer(t)
+	marker := engine.RGB(255, 0, 255)
+
+	// The view with the edges of a cube in the marker's color at z, washed so many times.
+	view := func(z float64, washes int) *engine.Canvas {
+		c := newCanvas(t, 40, 20)
+		rend.Draw(c, w, facing, noon)
+		if z > 0 {
+			cube := mesh.Cube(1)
+			cube.Transform.Position = geometry.Vector3{X: 12.5, Y: 12.5, Z: z}
+			cube.DrawDepthPixels(c, facing, marker)
+		}
+		for range washes {
+			rend.Wash(c)
+		}
+		return c
+	}
+	// How many pixels of a are not as they are in b, and how many of those are the marker's.
+	differ := func(a, b *engine.Canvas) (n, marked int) {
+		for y := range a.Height() {
+			for x := range a.Width() {
+				if a.At(x, y) != b.At(x, y) {
+					n++
+					if a.At(x, y) == marker {
+						marked++
+					}
+				}
+			}
+		}
+		return n, marked
+	}
+
+	bare := view(0, 0)
+	if n, _ := differ(view(0, 1), bare); n != 0 {
+		t.Errorf("a wash changed %d pixels of water with nothing in it", n)
+	}
+	if n, marked := differ(view(3.9, 1), bare); n == 0 || marked != n {
+		t.Errorf("of the %d pixels of a cube in front of the water, %d are as they were drawn", n, marked)
+	}
+	drawn, _ := differ(view(6.5, 0), bare)
+	under := view(6.5, 1)
+	if n, marked := differ(under, bare); drawn == 0 || n != drawn || marked != 0 {
+		t.Fatalf("a cube under the water was drawn in %d pixels: washed, %d are not the water's, and %d are as they were drawn", drawn, n, marked)
+	}
+	for y := range under.Height() {
+		for x := range under.Width() {
+			red, _, blue := under.At(x, y).RGB()
+			if was, _, _ := bare.At(x, y).RGB(); under.At(x, y) != bare.At(x, y) && (red <= was || red > 150 || blue < 100) {
+				t.Fatalf("a pixel of a cube under the water is %v: wanted it between its own %v and the water's %v", under.At(x, y), marker, bare.At(x, y))
+			}
+		}
+	}
+	if n, _ := differ(view(6.5, 2), under); n != 0 {
+		t.Errorf("a second wash changed %d pixels", n)
+	}
+}
