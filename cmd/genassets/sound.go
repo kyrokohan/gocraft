@@ -357,6 +357,27 @@ func makeSound(n sound.Name) []float64 {
 		pitch := func(t float64) float64 { return (44 + 7*math.Sin(math.Pi*t/2.6)) * (1 + 0.01*math.Sin(2*math.Pi*3*t)) }
 		loud := func(t float64) float64 { return math.Pow(math.Sin(math.Pi*min(t/2.6, 1)), 0.8) }
 		return peakTo(voiced(2.6, pitch, loud, 180, 420), 0.7)
+	case sound.Roar:
+		// The dread has seen what it wants: a roar from a throat as wide as a cave, that
+		// opens, tears and falls away, with its breath in it.
+		pitch := func(t float64) float64 { return 96 + 64*math.Sin(math.Pi*min(t/0.5, 1)) - 46*max(t-0.7, 0) }
+		loud := func(t float64) float64 {
+			return math.Pow(math.Sin(math.Pi*min(t/1.9, 1)), 0.5) * (0.72 + 0.28*math.Sin(2*math.Pi*31*t))
+		}
+		s := voiced(1.9, pitch, loud, 520, 1250)
+		breath := newBand(900, 1.2)
+		for i := range s {
+			s[i] += 0.5 * breath.at(noise(i, 991)) * swell(float64(i)/rate, 0.2, 1.2)
+		}
+		return peakTo(s, 0.9)
+	case sound.Rumble:
+		// The dread, to itself: breath drawn through a great chest, with a slow rattle
+		// under it, more felt than heard.
+		pitch := func(t float64) float64 { return 38 + 6*math.Sin(math.Pi*t/1.4) }
+		loud := func(t float64) float64 {
+			return math.Sin(math.Pi*min(t/1.4, 1)) * (0.6 + 0.4*math.Sin(2*math.Pi*11*t))
+		}
+		return peakTo(voiced(1.4, pitch, loud, 200, 520), 0.65)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))

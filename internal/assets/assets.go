@@ -73,6 +73,10 @@ type Set struct {
 	// two are the bands of its neck and the end of its tail.
 	Cloudgrazer *bitmap.Bitmap
 
+	// Dread is the same for the dread, with DreadTiles tiles: the last two are an arm
+	// and the inside of its mouth.
+	Dread *bitmap.Bitmap
+
 	// Person is the same for the cave person, once for each look, one look after
 	// another: PersonTiles tiles each, the face, the hair, the front, the back and a
 	// side of the hide, an arm and a leg.
@@ -95,6 +99,7 @@ const (
 	ThornbackTiles   = 8
 	BoulderbackTiles = 8
 	CloudgrazerTiles = 8
+	DreadTiles       = 8
 )
 
 // PersonLooks is how many looks a cave person can have.
@@ -156,6 +161,7 @@ func Load() (*Set, error) {
 		{&set.Thornback, "img/thornback.png", ThornbackTiles},
 		{&set.Boulderback, "img/boulderback.png", BoulderbackTiles},
 		{&set.Cloudgrazer, "img/cloudgrazer.png", CloudgrazerTiles},
+		{&set.Dread, "img/dread.png", DreadTiles},
 	} {
 		if *giant.into, err = creature(giant.file, giant.tiles); err != nil {
 			return nil, err
