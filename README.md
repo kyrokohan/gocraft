@@ -4,7 +4,7 @@
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
 
-**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, cloudgrazers whose steps shake the ground, and the dread, which hunts everything. A fire mountain smokes on the horizon. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
+**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, cloudgrazers whose steps shake the ground, and the dread, which hunts everything. A fire mountain smokes on the horizon, with hot springs and geysers at its foot and a lava tube in its side. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
 
 ![A cave person with a pick, seen from behind, before the skeleton of a great beast, drawn in terminal cells](docs/shot.png)
 
@@ -89,6 +89,9 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - The crater smokes: great puffs that stand nine blocks over it.
   - **Obsidian** runs in black veins on the cone, more of them toward the top, and nowhere else in the world. A flint pick breaks it out.
   - **Firestone** lies in a ring at the rim of the crater, within three blocks of it: lumps the color of brass in the dark rock. It breaks by hand.
+  - **Hot springs** lie on the ash 50 to 60 blocks from the middle of the mountain, three or four to a mountain: a pool of warm water one block deep, in rings of rust, gold and green stone. Stand in one and you heal twice as fast, if you have eaten enough to heal at all.
+  - **Geysers** stand in the middle of some pools: the first of a mountain's springs always has one. Every 30 seconds a geyser spouts water and steam for three seconds, and the ground trembles for two seconds before. Stand on it when it goes and it throws you about twelve blocks up: come down in the pool and the fall does not hurt. Each goes at its own moment.
+  - **A lava tube** runs level into the side of the cone, two blocks wide and three high, lit by lava that still hangs in its roof. 23 blocks in is a chamber with a pool of lava in its floor, and obsidian and firestone in its walls. The dread is too big to follow you in.
 - **Tools of obsidian** are knapped at a knapping stone, as flint is. They hit hardest and dig fastest, and are worn out after 40 uses, where flint on a handle lasts 130.
   - An obsidian knife (an obsidian, a stick and a cord) hits for 5 and carves a kill.
   - An obsidian pick (3 obsidian, 2 sticks and a cord) digs four times as fast as a hand, and is the one tool that breaks out crystal. Crystal shards have no use yet.
@@ -96,6 +99,8 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 - **A striker** is a flint and a firestone, made by hand. E with it on a hearth that has fuel lights it at once, where a fire drill takes six seconds. E with it anywhere else lights the first unlit torches you carry, with no fire near. It lasts 30 fires.
 
 ![A fire mountain at night from its foot, a dark cone with the red of its fire rising from the crater](docs/mountain.png)
+
+![A hot spring at the foot of the cone, blue water in rings of rust, gold and green stone, with the white steam of its geyser going up](docs/spring.png)
 
 - **Giants that stand their ground.** Three armed plant-eaters do not run from you. Each is few, strong and worth a great deal of meat, and each can be killed, with work. A giant is met by a spear or a hand all along its body, climbs a step of two blocks, and is too heavy for a hit to knock back.
   - **Shieldbrows** are horned, with a shield of bone behind the head, and go as a family on the prairie: two grown and one or two young. Come within ten blocks of a young one and a grown one turns on you, lowers its head and bellows. Come within six, or hit one of the family, and it charges at 7 blocks a second: 6 points, and you are thrown. It cannot turn fast, so something solid between you saves you. Then it goes back to its young. It charges a quickclaw the same way. 60 points of health, 8 pieces of meat and 3 hides.
@@ -203,7 +208,7 @@ Four slow noises say how high the land stands, how rough it is, how warm and how
 
 A thing bigger than a chunk cannot be built by one. So the ground is also cut into squares of 160 blocks, and the seed gives each square one landmark or none, well inside it. A chunk asks only about the squares it lies in and builds its part from the seed alone. The first landmark is a great skeleton: a skull, ribs that stand as arches you can walk under, and a tail. Most lie in the badlands and a few on the prairie. The second is a tree that lightning struck, in seven of ten of the squares of dry land that hold no skeleton: so the game can ask the seed where the fires near you are, and let them smoke, without looking through the blocks for them.
 
-A fire mountain is far bigger than any landmark, so it is not put down on the land: it is part of the land. The squares of a coarser grid, 1,600 blocks wide, hold one each, and the function that says how high the ground of a column is adds the mountain's cone to it, and its crater. So a chunk on the mountain is made from the seed and its place alone, as every chunk is, and it costs a chunk off the mountain nothing that can be measured: 0.190 ms before and after.
+A fire mountain is far bigger than any landmark, so it is not put down on the land: it is part of the land. The squares of a coarser grid, 1,600 blocks wide, hold one each, and the function that says how high the ground of a column is adds the mountain's cone to it, and its crater. So a chunk on the mountain is made from the seed and its place alone, as every chunk is, and it costs a chunk off the mountain nothing that can be measured: 0.190 ms before and after. Its hot springs and its lava tube are placed by the seed from the mountain's own place, so a chunk builds its part of each as it builds its part of the cone. A geyser spouts by the clock of the world, each at its own moment of a round of 30 seconds, so nothing of it is in a save.
 
 ![A jungle of tree ferns under tall trees, with flowers](docs/jungle.png)
 
@@ -223,7 +228,7 @@ glonk also runs the loop and the terminal, reads the keys, the mouse and what is
 
 ## Sound
 
-Every sound is heard from where it is made: quieter the farther it is, gone at 24 blocks, and louder in the ear on its side. A bugler's voice carries three times as far, so you hear a herd before you see it. Your steps sound as the ground you walk on, and digging, breaking and placing as the block, in seven kinds: earth, stone, sand, wood, plants, glass and snow. You hear water you fall into, what you pick up or make, being hurt and eating; mossbacks to themselves and when hit, the long horn of a bugler and the two blasts of its alarm, the chirp of a nipper, the low growl of a quickclaw and the screech it gives when it has seen you, the grunt of a giant at its feed, the bellow of a shieldbrow and the rattle of a thornback's plates, the long low drone of a cloudgrazer and the thud of a giant's step, the rumble of the dread's breath and its roar, the fire of a hearth or of a struck tree, and water dripping in caves. Under all of it the wind blows as much as the sky reaches you, and fades into the low air of a cave where it does not.
+Every sound is heard from where it is made: quieter the farther it is, gone at 24 blocks, and louder in the ear on its side. A bugler's voice carries three times as far, so you hear a herd before you see it. Your steps sound as the ground you walk on, and digging, breaking and placing as the block, in seven kinds: earth, stone, sand, wood, plants, glass and snow. You hear water you fall into, what you pick up or make, being hurt and eating; mossbacks to themselves and when hit, the long horn of a bugler and the two blasts of its alarm, the chirp of a nipper, the low growl of a quickclaw and the screech it gives when it has seen you, the grunt of a giant at its feed, the bellow of a shieldbrow and the rattle of a thornback's plates, the long low drone of a cloudgrazer and the thud of a giant's step, the rumble of the dread's breath and its roar, the fire of a hearth or of a struck tree, the rush of a geyser, and water dripping in caves. Under all of it the wind blows as much as the sky reaches you, and fades into the low air of a cave where it does not.
 
 A small mixer of the game's own plays up to 16 sounds at once, each a little higher or lower at random so that steps do not sound the same, bends the loudest moments so that many at once do not crack, and brings the wind and the cave air up and down slowly. [oto](https://github.com/ebitengine/oto) v3.5.1 plays what it makes, with no C compiler needed on macOS, Linux or Windows. With no sound device the game plays on in silence and the title says why. On Linux oto plays through PulseAudio, which PipeWire also serves.
 
@@ -272,7 +277,7 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - Soft shadows from leaves and glass: only blocks that let no light through cast them.
 - Torches on walls: a torch stands on the ground, as a plant does.
 - Anything a tame mossback does for you but follow: carrying comes later.
-- Hot springs, geysers and lava tubes: that is the next step. Then eruptions.
+- Eruptions: that is the next step.
 - A use for crystal.
 - Lava that flows.
 - A beast that digs or climbs out of a pit. The dread in one is let go when its time is up, as anywhere.
