@@ -75,6 +75,8 @@ const (
 	HearthLitSide
 	CharredSide
 	CharredTop
+	PitCoverTop
+	PitCoverSide
 
 	// Pictures that are on no block.
 
