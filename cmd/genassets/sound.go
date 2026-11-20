@@ -411,6 +411,14 @@ func makeSound(n sound.Name) []float64 {
 			s[i] = 2.2*deep.at(noise(i, 995))*(blow+0.5*math.Exp(-t/0.9)) + 0.5*roll.at(noise(i, 996))*math.Exp(-t/0.6)*(0.7+0.3*math.Sin(2*math.Pi*5*t))
 		}
 		return peakTo(s, 0.95)
+	case sound.Trumpet:
+		// A blast through a long trunk: it leaps up, holds, and falls away, brassy and
+		// rough.
+		pitch := func(t float64) float64 { return 300 + 260*math.Sin(math.Pi*min(t/0.25, 0.5)) - 120*max(t-0.7, 0) }
+		loud := func(t float64) float64 {
+			return math.Pow(math.Sin(math.Pi*min(t/1.0, 1)), 0.5) * (0.82 + 0.18*math.Sin(2*math.Pi*23*t))
+		}
+		return peakTo(voiced(1.0, pitch, loud, 900, 2100), 0.8)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))

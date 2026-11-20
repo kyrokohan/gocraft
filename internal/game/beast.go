@@ -116,6 +116,11 @@ type breed struct {
 	lands []world.Biome
 
 	meat, hide int // pieces of raw meat, and hides, it leaves
+	tusks      int // and tusks, for a grown one that has them
+
+	// rears is true for a guard that stands up on its hind legs: when it stops, as to
+	// feed from a tree, and when it strikes.
+	rears bool
 
 	// A guard does not run. warns is how near what it guards, its young or itself, a
 	// threat may come before it turns on it and gives its cry. charges is how near
@@ -236,7 +241,34 @@ var breeds = [render.Kinds]breed{
 		steps: 2, quake: 60,
 		call: sound.Rumble, cry: sound.Roar, callEvery: 14, carries: 90,
 	},
+
+	// The life of the cold steppe. A herd of snowtusks guards its young as a family of
+	// shieldbrows does, and its grown ones charge together. A slowclaw goes alone and
+	// takes no notice of anything, until it is hit: then it stands up and comes.
+	render.Snowtusk: {
+		walk: 1.1, run: 6.0, gait: 1.2,
+		health: 80, meat: 10, hide: 4, tusks: 2,
+		heavy:  true,
+		temper: guard, group: [2]int{3, 5}, grown: 3, most: 5,
+		warns: 10, charges: 6, blow: 7, steps: 2,
+		lands: []world.Biome{world.Tundra}, bare: true,
+		call: sound.Grunt, cry: sound.Trumpet, callEvery: 50, carries: 2 * sound.Hearing,
+	},
+	render.Slowclaw: {
+		walk: 0.6, run: 1.6, gait: 2.2,
+		health: 40, meat: 6, hide: 3,
+		heavy:  true,
+		temper: guard, group: [2]int{1, 1}, most: 2,
+		charges: slowclawGrudge, blow: 6, rears: true,
+		lands: []world.Biome{world.Tundra}, bare: true,
+		call: sound.Grunt, cry: sound.Bellow, callEvery: 60,
+	},
 }
+
+// slowclawGrudge is how near what it was hit by a slowclaw must be for the slowclaw to
+// go for it: nothing is that near that did not hit it, so it takes notice of nothing
+// else.
+const slowclawGrudge = 0.01
 
 // beast is one animal: it walks about, stands a while, and walks on. It is stopped by
 // blocks as the player is, hops up a single block, and turns back from walls, water and
@@ -449,8 +481,8 @@ func (f *fauna) count(k render.Kind) (n int) {
 }
 
 // standing returns where a beast of a kind could stand in the column at x, z: on mossy
-// earth, in a land of its breed, with room over it for its body, and not on top of
-// another beast.
+// earth, or for some kinds on bare rock, sand and snow, in a land of its breed, with
+// room over it for its body, and not on top of another beast.
 func (f *fauna) standing(w *world.World, k render.Kind, young bool, x, z int) (geometry.Vector3, bool) {
 	if breeds[k].visits {
 		return f.lair(w, k, x, z, f.feet)
@@ -458,7 +490,7 @@ func (f *fauna) standing(w *world.World, k render.Kind, young bool, x, z int) (g
 	y := w.Ground(x, z) // under any plant
 	switch on := w.At(x, y, z); {
 	case on == world.Turf:
-	case breeds[k].bare && (on == world.Redrock || on == world.Sand || on == world.Sandstone):
+	case breeds[k].bare && (on == world.Redrock || on == world.Sand || on == world.Sandstone || on == world.Snow):
 	default:
 		return geometry.Vector3{}, false // not ground it stands on, or a place that is not loaded
 	}
@@ -1154,9 +1186,16 @@ func (g *Game) stepBeasts(dt float64) {
 		if c.carved {
 			meat, hides = meat+1, max(hides, 1)
 		}
-		for i := range meat + hides {
+		tusks := 0
+		if !c.young {
+			tusks = breeds[c.kind].tusks
+		}
+		for i := range meat + hides + tusks {
 			item := world.Meat
-			if i >= meat {
+			switch {
+			case i >= meat+hides:
+				item = world.Tusk
+			case i >= meat:
 				item = world.Hide
 			}
 			at := c.Pos.Add(geometry.Vector3{

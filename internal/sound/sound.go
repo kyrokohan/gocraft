@@ -56,6 +56,7 @@ const (
 	Geyser  // a geyser that spouts: water and steam, up out of the ground
 	Tremor  // the ground under a fire mountain that is about to erupt, and while it does
 	Boom    // a star that struck, heard from far off and after
+	Trumpet // a snowtusk that warns, charges or is hit: a long blast through its trunk
 	Crackle // a hearth's fire
 	Drip    // water in a cave
 	Wind    // a loop
@@ -72,7 +73,7 @@ func Place(m Material) Name { return Name(m)*perMaterial + placeOf }
 var materialNames = [materials]string{"earth", "stone", "sand", "wood", "plant", "glass", "snow"}
 
 var otherNames = [Count - Splash]string{
-	"splash", "pickup", "hurt", "eat", "call", "cry", "horn", "alarm", "chirp", "growl", "screech", "bellow", "grunt", "rattle", "thud", "drone", "roar", "rumble", "geyser", "tremor", "boom", "crackle", "drip", "wind", "cave",
+	"splash", "pickup", "hurt", "eat", "call", "cry", "horn", "alarm", "chirp", "growl", "screech", "bellow", "grunt", "rattle", "thud", "drone", "roar", "rumble", "geyser", "tremor", "boom", "trumpet", "crackle", "drip", "wind", "cave",
 }
 
 // File is the name of the sound's file: step-wood.wav, say, or splash.wav.

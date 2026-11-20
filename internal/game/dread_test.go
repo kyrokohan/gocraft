@@ -51,7 +51,8 @@ func TestNoDreadComesBeforeTheThirdDayAndNeverTwo(t *testing.T) {
 	g.world = wide()
 	g.player.Pos = geometry.Vector3{X: 0.5, Y: 6, Z: 0.5}
 	g.fauna.all = nil
-	for _, days := range []float64{0, 0.9, 1.5, 1.9} { // the first two days, by day and by night
+	g.items[0] = world.Stack{Item: world.Torch.Item(), Count: 3} // which keeps the quickclaws of the second night off
+	for _, days := range []float64{0, 0.9, 1.5, 1.9} {           // the first two days, by day and by night
 		g.days = days
 		hold(t, g, seconds(40))
 		if n := len(only(g.fauna.all, render.Dread)); n != 0 {
