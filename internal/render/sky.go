@@ -85,6 +85,79 @@ type Sky struct {
 	// How much ash the sky holds, from 0 to 1, and how much of the fire of a mountain
 	// that is throwing it out shows at the foot of its smoke.
 	ash, fire float64
+
+	// A shooting star, if one streaks the sky now: where its head and the end of its
+	// tail are, one long each, and how bright it is, from 0, none, to 1.
+	streakHead, streakTail geometry.Vector3
+	streak                 float64
+
+	// A fireball: how bright it is and the land under it, from 0 to 1, and, if it is
+	// seen, the ways to its head and to the end of its tail, one long each.
+	ballHead, ballTail geometry.Vector3
+	ball               float64
+	ballSeen           bool
+}
+
+// How a shooting star and a fireball stand in the sky. Widths are in a direction one
+// long, so about radians.
+const (
+	streakTime = 0.9   // seconds a shooting star is seen
+	streakLong = 0.35  // how far across the sky it goes
+	streakWide = 0.008 // half its width: about a pixel
+	ballWide   = 0.045 // half the width of a fireball's head
+	ballHalo   = 0.3   // how far round its head the sky glows
+)
+
+var (
+	ballColor = color{255, 240, 190}
+	ballTrail = color{255, 150, 60}
+	ballLight = [3]float64{0.7, 0.6, 0.48} // the light a fireball gives the land: as bright as dusk, and warm
+)
+
+// SetStreaks has shooting stars streak the night sky, so many a minute, by a clock in
+// seconds that runs on from night to night: which streak is in the sky, and where, is
+// worked out from the clock alone. None is seen where no stars are.
+func (s *Sky) SetStreaks(clock, perMinute float64) {
+	s.streak = 0
+	if perMinute <= 0 {
+		return
+	}
+	every := 60 / perMinute
+	slot := math.Floor(clock / every)
+	n := int(slot)
+	into := (clock - slot*every - puff(n, 4, 71)*(every-streakTime)) / streakTime
+	if into < 0 || into >= 1 {
+		return
+	}
+	// It begins high, and goes across and down.
+	yaw, up, turn := 2*math.Pi*puff(n, 1, 71), 0.35+0.5*puff(n, 2, 71), 2*math.Pi*puff(n, 3, 71)
+	flat := math.Sqrt(1 - up*up)
+	start := geometry.Vector3{X: flat * math.Cos(yaw), Y: up, Z: flat * math.Sin(yaw)}
+	way := geometry.Vector3{X: -math.Sin(yaw) * math.Cos(turn), Y: -0.2 - 0.5*math.Abs(math.Sin(turn)), Z: math.Cos(yaw) * math.Cos(turn)}
+	s.streakHead = start.Add(way.Scale(streakLong * into)).Normalize()
+	s.streakTail = start.Add(way.Scale(streakLong * max(into-0.4, 0))).Normalize()
+	s.streak = math.Sin(math.Pi * into)
+}
+
+// SetFireball has a fireball stand in the sky: the ways from the eye to it and to the end
+// of its tail, of any length, and how bright it is, from 0, none, to 1. It lights the
+// land under it as dusk does, from the next Set. With no way to it there is no ball, and
+// the light alone: the flash of one that has struck.
+func (s *Sky) SetFireball(head, tail geometry.Vector3, bright float64) {
+	s.ball, s.ballSeen = min(max(bright, 0), 1), false
+	if s.ball > 0 && head.Length() > 1e-9 && tail.Length() > 1e-9 {
+		s.ballHead, s.ballTail, s.ballSeen = head.Normalize(), tail.Normalize(), true
+	}
+}
+
+// along returns where the point nearest to p lies on the line from a to b, from 0 at a
+// to 1 at b, and how far from p it is.
+func along(p, a, b geometry.Vector3) (t, off float64) {
+	ab := b.Sub(a)
+	if l := ab.Dot(ab); l > 1e-12 {
+		t = min(max(p.Sub(a).Dot(ab)/l, 0), 1)
+	}
+	return t, p.Sub(a.Add(ab.Scale(t))).Length()
 }
 
 // How ash in the sky looks by day and by night, and how much of the light of day the
@@ -190,6 +263,7 @@ func (s *Sky) Set(time float64) {
 
 	for c := range s.skyChannels {
 		s.skyChannels[c] = (nightTint[c] + (1-nightTint[c])*s.day) * (1 - (1-duskTint[c])*s.dusk*s.day) * (1 - ashDims*s.ash)
+		s.skyChannels[c] = max(s.skyChannels[c], ballLight[c]*s.ball)
 	}
 	for l := range s.shade {
 		light := world.Light(l)
@@ -269,6 +343,21 @@ func (s *Sky) color(d geometry.Vector3) color {
 			if glow := max(1-s.day, s.fire) * (1 - 1.6*up); glow > 0 {
 				c = c.mix(lavaGlow, part(0.9*thick*glow))
 			}
+		}
+	}
+
+	if s.streak > 0 && s.stars > 0 && climb > 0 {
+		if t, off := along(d, s.streakTail, s.streakHead); off < streakWide {
+			c = c.mix(starColor, part(s.stars*s.streak*(0.3+0.7*t)))
+		}
+	}
+	if s.ballSeen {
+		// The fireball: a head, a tail that narrows behind it, and a glow round the head.
+		t, off := along(d, s.ballTail, s.ballHead)
+		if wide := ballWide * (0.15 + 0.85*t*t); off < wide {
+			c = c.mix(ballTrail.mix(ballColor, part(t*t)), part(s.ball*(0.35+0.65*t)*(1-0.6*off/wide)))
+		} else if far := d.Sub(s.ballHead).Length(); far < ballHalo {
+			c = c.mix(duskGlow, part(0.6*s.ball*(1-far/ballHalo)*(1-far/ballHalo)))
 		}
 	}
 
