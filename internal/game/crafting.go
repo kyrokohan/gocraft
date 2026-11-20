@@ -91,6 +91,12 @@ var recipes = func() []recipe {
 		{world.ObsidianKnife, 1, []need{of(world.Obsidian, 1), of(world.Stick, 1), of(world.Cord, 1)}, atBench},
 		{world.ObsidianPick, 1, []need{of(world.Obsidian, 3), of(world.Stick, 2), of(world.Cord, 1)}, atBench},
 		{world.ObsidianSpear, 1, []need{of(world.Obsidian, 1), of(world.Stick, 3), of(world.Cord, 1)}, atBench},
+
+		// Sky iron, from the crater of a fallen star, is hammered cold on the stone.
+		{world.SkyIronKnife, 1, []need{of(world.SkyIron, 1), of(world.Stick, 1), of(world.Cord, 1)}, atBench},
+		{world.SkyIronPick, 1, []need{of(world.SkyIron, 3), of(world.Stick, 2), of(world.Cord, 1)}, atBench},
+		{world.SkyIronAxe, 1, []need{of(world.SkyIron, 3), of(world.Stick, 2), of(world.Cord, 1)}, atBench},
+		{world.SkyIronSpear, 1, []need{of(world.SkyIron, 1), of(world.Stick, 3), of(world.Cord, 1)}, atBench},
 	}
 }()
 

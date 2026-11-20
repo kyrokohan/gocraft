@@ -29,14 +29,14 @@ const (
 	CopperPick
 	CopperAxe
 	CopperShovel
-	IronPick
-	IronAxe
+	SkyIronPick
+	SkyIronAxe
 	IronShovel
 
 	WoodBlade
 	StoneBlade
 	CopperBlade
-	IronBlade
+	SkyIronKnife
 	Moss
 	MossCake
 
@@ -77,6 +77,7 @@ const (
 	Striker // a flint and a firestone: it strikes fire at once
 
 	SkyIron // a lump of it, broken out of the core a fallen star left
+	SkyIronSpear
 
 	itemEnd
 )
@@ -110,7 +111,7 @@ const (
 // than a hand does, and toolUses how many blocks it breaks before it is worn out.
 var (
 	toolSpeed = [...]float64{1, 2, 3, 4, 6}
-	toolUses  = [...]int{0, 60, 130, 200, 250}
+	toolUses  = [...]int{0, 60, 130, 200, skyIronUses}
 )
 
 // thing is what is known about an item that is not a block.
@@ -157,16 +158,16 @@ var things = [itemEnd - 256]thing{
 	CopperPick - 256:   {name: "copper pick", icon: tile.CopperPick, tool: Pick, tier: TierObsidian},
 	CopperAxe - 256:    {name: "copper axe", icon: tile.CopperAxe, tool: Axe, tier: TierObsidian},
 	CopperShovel - 256: {name: "copper shovel", icon: tile.CopperShovel, tool: Shovel, tier: TierObsidian},
-	IronPick - 256:     {name: "iron pick", icon: tile.IronPick, tool: Pick, tier: TierIron},
-	IronAxe - 256:      {name: "iron axe", icon: tile.IronAxe, tool: Axe, tier: TierIron},
+	SkyIronPick - 256:  {name: "sky iron pick", icon: tile.SkyIronPick, tool: Pick, tier: TierIron},
+	SkyIronAxe - 256:   {name: "sky iron axe", icon: tile.SkyIronAxe, tool: Axe, tier: TierIron},
 	IronShovel - 256:   {name: "iron shovel", icon: tile.IronShovel, tool: Shovel, tier: TierIron},
 
-	WoodBlade - 256:   {name: "wood blade", icon: tile.WoodBlade, tool: Blade, tier: TierWood},
-	StoneBlade - 256:  {name: "stone blade", icon: tile.StoneBlade, tool: Blade, tier: TierFlint},
-	CopperBlade - 256: {name: "copper blade", icon: tile.CopperBlade, tool: Blade, tier: TierObsidian},
-	IronBlade - 256:   {name: "iron blade", icon: tile.IronBlade, tool: Blade, tier: TierIron},
-	Moss - 256:        {name: "moss", icon: tile.Moss},
-	MossCake - 256:    {name: "moss cake", icon: tile.MossCake, food: 8},
+	WoodBlade - 256:    {name: "wood blade", icon: tile.WoodBlade, tool: Blade, tier: TierWood},
+	StoneBlade - 256:   {name: "stone blade", icon: tile.StoneBlade, tool: Blade, tier: TierFlint},
+	CopperBlade - 256:  {name: "copper blade", icon: tile.CopperBlade, tool: Blade, tier: TierObsidian},
+	SkyIronKnife - 256: {name: "sky iron knife", icon: tile.SkyIronKnife, tool: Blade, tier: TierIron, carves: true},
+	Moss - 256:         {name: "moss", icon: tile.Moss},
+	MossCake - 256:     {name: "moss cake", icon: tile.MossCake, food: 8},
 
 	Meat - 256: {name: "raw meat", icon: tile.Meat, food: 5},
 
@@ -210,11 +211,19 @@ var things = [itemEnd - 256]thing{
 	// A striker is no tool for digging, but it wears as one does: a use is a fire lit.
 	Striker - 256: {name: "striker", icon: tile.Striker, uses: 30},
 
-	SkyIron - 256: {name: "sky iron", icon: tile.SkyIron},
+	// Sky iron is hammered cold into the strongest tools there are, which last longest:
+	// a knife, a pick and an axe, which are the iron tools of the game as it was, and a
+	// spear.
+	SkyIron - 256:      {name: "sky iron", icon: tile.SkyIron},
+	SkyIronSpear - 256: {name: "sky iron spear", icon: tile.SkyIronSpear, tool: Blade, tier: TierIron, reach: 1, thrown: true},
 }
 
-// obsidianUses is how many uses a tool of obsidian lasts.
-const obsidianUses = 40
+// obsidianUses is how many uses a tool of obsidian lasts, and skyIronUses one of sky
+// iron.
+const (
+	obsidianUses = 40
+	skyIronUses  = 400
+)
 
 // MaxFood is how full the player can be.
 const MaxFood = 20

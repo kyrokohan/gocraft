@@ -107,7 +107,7 @@ func TestAToolIsOneToASlotAndWearsOut(t *testing.T) {
 			t.Errorf("%+v valid: %v, wanted %v", tc.stack, tc.stack.valid(), tc.valid)
 		}
 	}
-	if WoodPick.Uses() >= IronPick.Uses() || Stick.Uses() != 0 || Stick.StackSize() != StackSize {
+	if WoodPick.Uses() >= SkyIronPick.Uses() || Stick.Uses() != 0 || Stick.StackSize() != StackSize {
 		t.Error("an iron tool wears out no slower than a wood one, or a stick wears")
 	}
 }
@@ -122,11 +122,11 @@ func TestTheRightToolDigsFasterAndSomeBlocksNeedOne(t *testing.T) {
 		{Dirt, NoItem, 1, true},
 		{Dirt, WoodShovel, 2, true},
 		{Dirt, IronShovel, 6, true},
-		{Dirt, IronPick, 1, true},   // the wrong kind is no help
-		{Log, StoneAxe, 3, true},    // and the right kind is
-		{Stone, NoItem, 1, true},    // by hand stone breaks to rubble, slowly
-		{Stone, FlintPick, 3, true}, // and a pick is quicker
-		{CoalOre, NoItem, 1, false}, // coal needs a flint pick
+		{Dirt, SkyIronPick, 1, true}, // the wrong kind is no help
+		{Log, StoneAxe, 3, true},     // and the right kind is
+		{Stone, NoItem, 1, true},     // by hand stone breaks to rubble, slowly
+		{Stone, FlintPick, 3, true},  // and a pick is quicker
+		{CoalOre, NoItem, 1, false},  // coal needs a flint pick
 		{CoalOre, FlintPick, 3, true},
 		{FlintSeam, NoItem, 1, true},
 		{Log, HandAxe, 3, true},
@@ -189,13 +189,13 @@ func TestABladeHitsHarderTheBetterItIs(t *testing.T) {
 			NoItem.Damage(), Dirt.Item().Damage(), WoodPick.Damage())
 	}
 	last := WoodPick.Damage()
-	for _, b := range []Item{WoodBlade, StoneBlade, CopperBlade, IronBlade} {
+	for _, b := range []Item{WoodBlade, StoneBlade, CopperBlade, SkyIronKnife} {
 		if b.Damage() <= last || b.StackSize() != 1 || b.Uses() == 0 {
 			t.Errorf("%s hits %v after %v, stacks %d, lasts %d", b.Name(), b.Damage(), last, b.StackSize(), b.Uses())
 		}
 		last = b.Damage()
 	}
-	if s, _ := Stone.DigWith(IronBlade); s != Stone.Info().Dig {
+	if s, _ := Stone.DigWith(SkyIronKnife); s != Stone.Info().Dig {
 		t.Errorf("a blade digs stone in %v s, as a hand does in %v", s, Stone.Info().Dig)
 	}
 }

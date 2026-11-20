@@ -110,13 +110,13 @@ const (
 	CopperPick
 	CopperAxe
 	CopperShovel
-	IronPick
-	IronAxe
+	SkyIronPick
+	SkyIronAxe
 	IronShovel
 	WoodBlade
 	StoneBlade
 	CopperBlade
-	IronBlade
+	SkyIronKnife
 	Moss
 	MossCake
 	Meat
@@ -147,6 +147,7 @@ const (
 	ObsidianSpear
 	Striker
 	SkyIron
+	SkyIronSpear
 
 	// Count is the number of tiles in the strip.
 	Count
