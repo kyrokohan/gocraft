@@ -73,3 +73,56 @@ func TestACoreOfSkyIronIsTooHotToBreakAndThenNeedsAFlintPick(t *testing.T) {
 		t.Errorf("sky iron is %q, %d to a slot", SkyIron.Name(), SkyIron.StackSize())
 	}
 }
+
+func TestToolsOfSkyIronAreTheStrongestAndLastLongest(t *testing.T) {
+	for _, row := range [][]Item{
+		{SkyIronKnife, FlintKnife, ObsidianKnife},
+		{SkyIronPick, FlintPick, ObsidianPick},
+		{SkyIronSpear, HardSpear, ObsidianSpear},
+		{SkyIronAxe, HandAxe},
+	} {
+		iron := row[0]
+		if iron.Uses() != 400 || iron.StackSize() != 1 || !iron.Known() {
+			t.Errorf("%s lasts %d uses, %d to a slot: wanted 400, and one", iron.Name(), iron.Uses(), iron.StackSize())
+		}
+		for _, other := range row[1:] {
+			if iron.Uses() <= 2*other.Uses() || iron.Damage() < other.Damage() {
+				t.Errorf("%s lasts %d uses and hits for %v, and %s %d and %v: wanted it to last far longer and hit no less",
+					iron.Name(), iron.Uses(), iron.Damage(), other.Name(), other.Uses(), other.Damage())
+			}
+		}
+	}
+	for item, name := range map[Item]string{
+		SkyIronKnife: "sky iron knife", SkyIronPick: "sky iron pick", SkyIronAxe: "sky iron axe", SkyIronSpear: "sky iron spear",
+	} {
+		if item.Name() != name {
+			t.Errorf("%q is called %q", name, item.Name())
+		}
+	}
+	if SkyIronKnife.Damage() != 6 || !SkyIronKnife.Carves() || SkyIronKnife.Thrown() {
+		t.Errorf("a sky iron knife hits for %v, carves: %v, is thrown: %v", SkyIronKnife.Damage(), SkyIronKnife.Carves(), SkyIronKnife.Thrown())
+	}
+	if SkyIronSpear.Damage() != 6 || SkyIronSpear.Reach() != 1 || !SkyIronSpear.Thrown() || SkyIronSpear.Carves() {
+		t.Errorf("a sky iron spear hits for %v, reaches %v farther, is thrown: %v", SkyIronSpear.Damage(), SkyIronSpear.Reach(), SkyIronSpear.Thrown())
+	}
+
+	// A pick and an axe of it work six times as fast as a hand, which nothing else does.
+	if s, yields := Stone.DigWith(SkyIronPick); s != Stone.Info().Dig/6 || !yields {
+		t.Errorf("a sky iron pick digs stone in %v s, and by hand it is %v", s, Stone.Info().Dig)
+	}
+	if s, yields := PineLog.DigWith(SkyIronAxe); s != PineLog.Info().Dig/6 || !yields {
+		t.Errorf("a sky iron axe cuts a pine log in %v s, and by hand it is %v", s, PineLog.Info().Dig)
+	}
+	iron, _ := Stone.DigWith(SkyIronPick)
+	if glass, _ := Stone.DigWith(ObsidianPick); iron >= glass {
+		t.Errorf("a sky iron pick digs stone in %v s and an obsidian one in %v", iron, glass)
+	}
+	for _, b := range []Block{CrystalOre, ObsidianRock, SkyIronCore, CoalOre} {
+		if _, yields := b.DigWith(SkyIronPick); !yields {
+			t.Errorf("a sky iron pick breaks %s and it leaves nothing", b.Info().Name)
+		}
+	}
+	if SkyIronSpear != SkyIron+1 || HotCore != SinterGreen+1 || SkyIronCore != HotCore+1 {
+		t.Errorf("the numbers moved: sky iron spear %d, hot core %d, sky iron core %d", SkyIronSpear, HotCore, SkyIronCore)
+	}
+}

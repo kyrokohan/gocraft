@@ -74,11 +74,11 @@ func TestOnlyLeavesGlassPlantsAndPicturesOnNoBlockHaveHoles(t *testing.T) {
 			tile.Fern, tile.RedFlower, tile.YellowFlower, tile.Bush, tile.Horsetail, tile.DryBush, tile.Mushroom, tile.Torch, tile.FurBed,
 			tile.Berries, tile.Cracks, tile.Stick, tile.Coal, tile.CopperBar, tile.IronBar, tile.CrystalShard, tile.Fruit, tile.BerryLoaf,
 			tile.WoodPick, tile.WoodAxe, tile.WoodShovel, tile.StonePick, tile.StoneAxe, tile.StoneShovel,
-			tile.CopperPick, tile.CopperAxe, tile.CopperShovel, tile.IronPick, tile.IronAxe, tile.IronShovel,
-			tile.WoodBlade, tile.StoneBlade, tile.CopperBlade, tile.IronBlade, tile.Moss, tile.MossCake, tile.Meat,
+			tile.CopperPick, tile.CopperAxe, tile.CopperShovel, tile.SkyIronPick, tile.SkyIronAxe, tile.IronShovel,
+			tile.WoodBlade, tile.StoneBlade, tile.CopperBlade, tile.SkyIronKnife, tile.Moss, tile.MossCake, tile.Meat,
 			tile.Fiber, tile.Cord, tile.Flint, tile.Hide, tile.HandAxe, tile.FlintPick, tile.FlintKnife, tile.DiggingStick, tile.Club, tile.Spear,
 			tile.Fire, tile.CookedMeat, tile.PalmSeeds, tile.RoastSeeds, tile.Resin, tile.UnlitTorch, tile.FireDrill, tile.HardSpear, tile.SoftPot, tile.Pebble, tile.Sling,
-			tile.Obsidian, tile.Firestone, tile.ObsidianKnife, tile.ObsidianPick, tile.ObsidianSpear, tile.Striker, tile.SkyIron,
+			tile.Obsidian, tile.Firestone, tile.ObsidianKnife, tile.ObsidianPick, tile.ObsidianSpear, tile.Striker, tile.SkyIron, tile.SkyIronSpear,
 		}, tile.ID(id))
 		if seeThrough && holes == 0 {
 			t.Errorf("tile %d should have holes and has none", id)

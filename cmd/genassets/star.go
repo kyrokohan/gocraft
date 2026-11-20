@@ -48,3 +48,17 @@ func skyIronLump(x, y int) (rgb, bool) {
 	}
 	return c, true
 }
+
+// skyIronSpear is a spear with a point of sky iron bound to it.
+func skyIronSpear(x, y int) (rgb, bool) {
+	c, ok := spear(x, y)
+	a, _ := shaft(x, y, -14, 14, 1.1)
+	switch {
+	case !ok:
+	case a > 8.5:
+		c = pitted(x, y, 815).scale(1.35)
+	case a > 6.5:
+		c = grain(rgb{196, 168, 110}, 0.06, x, y, 816) // the cord that binds it
+	}
+	return c, ok
+}

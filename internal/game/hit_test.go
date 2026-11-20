@@ -48,7 +48,7 @@ func TestAHitKnocksAMossbackAwayAndItRuns(t *testing.T) {
 
 func TestAMossbackCannotBeKilled(t *testing.T) {
 	g := inSurvival(t)
-	g.items[0] = world.Stack{Item: world.IronBlade, Count: 1}
+	g.items[0] = world.Stack{Item: world.SkyIronKnife, Count: 1}
 	c := withMossback(t, g)
 	for range 20 {
 		c.Pos = geometry.Vector3{X: 20.5, Y: 6, Z: 23.5}
@@ -116,16 +116,16 @@ func TestAHeldKeyHitsNoFasterThanHitWait(t *testing.T) {
 	}
 }
 
-// A blade is the weapon: a hit with one of iron takes six points.
-func TestAnIronBladeKillsAQuickclawInTwoHits(t *testing.T) {
+// A knife is the weapon: a hit with one of sky iron takes six points.
+func TestASkyIronKnifeKillsAQuickclawInTwoHits(t *testing.T) {
 	g := inSurvival(t)
 	g.days = midnight
 	g.fauna.timer = math.Inf(1)
 	g.fauna.all = []beast{claw(20.5, 22.5)}
-	g.items[0] = world.Stack{Item: world.IronBlade, Count: 1}
+	g.items[0] = world.Stack{Item: world.SkyIronKnife, Count: 1}
 
 	g.strike(prey{i: 0})
-	if c := g.fauna.all[0]; c.health != breeds[render.Quickclaw].health-world.IronBlade.Damage() || g.items[0].Wear != 1 {
+	if c := g.fauna.all[0]; c.health != breeds[render.Quickclaw].health-world.SkyIronKnife.Damage() || g.items[0].Wear != 1 {
 		t.Fatalf("after a hit the quickclaw has %v health and the blade %d wear", c.health, g.items[0].Wear)
 	}
 	g.strike(prey{i: 0})
