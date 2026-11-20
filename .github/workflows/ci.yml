@@ -18,7 +18,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Tidy modules, formatting, vet and the tests with the race detector, on Linux and macOS.
+  # Tidy modules, formatting, vet and the tests, on Linux and macOS. The race detector
+  # runs on Linux only: it makes the tests take many times as long, and a race in this
+  # program does not depend on the system it runs on.
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -26,7 +28,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            race: -race
+          - os: macos-latest
+            race: ""
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -36,4 +42,4 @@ jobs:
           go-version-file: go.mod
       - name: go.mod and go.sum are tidy
         run: go mod tidy -diff
-      - run: make check
+      - run: make check RACE=${{ matrix.race }}
