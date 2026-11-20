@@ -21,10 +21,17 @@ const (
 	Nipper                // a quick little thief the size of a hen, that goes in flocks
 	Quickclaw             // a feathered hunter as tall as a person, that comes in the dark
 
+	Shieldbrow  // a horned giant with a shield of bone behind its head, that guards its young
+	Thornback   // a giant with plates along its back and spikes on its tail
+	Boulderback // a low giant in armor, with a club at the end of its tail
+
 	Kinds // how many kinds there are
 )
 
-var kindNames = [Kinds]string{Mossback: "mossback", Bugler: "bugler", Nipper: "nipper", Quickclaw: "quickclaw"}
+var kindNames = [Kinds]string{
+	Mossback: "mossback", Bugler: "bugler", Nipper: "nipper", Quickclaw: "quickclaw",
+	Shieldbrow: "shieldbrow", Thornback: "thornback", Boulderback: "boulderback",
+}
 
 // String returns the name of a kind, as a save holds it.
 func (k Kind) String() string {
@@ -56,6 +63,34 @@ var sizes = [Kinds][2]float64{
 	Nipper:   {0.4, 0.6},
 
 	Quickclaw: {0.6, 1.7},
+
+	// A giant's box is narrower than the giant, so that it does not stick on the land.
+	Shieldbrow:  {1.7, 2.4},
+	Thornback:   {1.4, 2.4},
+	Boulderback: {1.7, 1.3},
+}
+
+// spans are how far behind and ahead of the point between its feet the body of a grown
+// beast reaches, for a kind that is much longer than its box is wide: what is thrown or
+// swung at it meets it all along that.
+var spans = [Kinds][2]float64{
+	Shieldbrow:  {-3.6, 2.9},
+	Thornback:   {-3.9, 2.4},
+	Boulderback: {-3.3, 2.2},
+}
+
+// Span returns how far behind and ahead of the point between its feet a beast's body
+// reaches, along the way it faces: half its box each way, for a kind that is no longer
+// than that.
+func Span(k Kind, young bool) (back, front float64) {
+	width, _ := Size(k, young)
+	if s := spans[k]; s != [2]float64{} {
+		if young {
+			return s[0] * youngScale, s[1] * youngScale
+		}
+		return s[0], s[1]
+	}
+	return -width / 2, width / 2
 }
 
 // Size returns the box that blocks stop a beast in: how wide, and how high.
@@ -94,6 +129,10 @@ type Beast struct {
 	// Glow is true where it is dark enough for the eyes of a beast that has such eyes
 	// to shine: they are then drawn lit in full, whatever the light.
 	Glow bool
+
+	// Lower is how far a beast that warns or charges has lowered its head, from 0 to 1,
+	// and Lash how far its tail is swung to a side as it strikes, from -1 to 1.
+	Lower, Lash float64
 }
 
 // limb is one box of a beast's shape.
@@ -109,8 +148,10 @@ type limb struct {
 	right, up, front, tilt float64
 
 	// swing is how far the box swings forward and back as the beast steps, in radians:
-	// a leg. sway is how far it swings from side to side: a tail.
-	swing, sway float64
+	// a leg. sway is how far it swings from side to side: a tail, which swings lashMore
+	// times as far when the beast strikes with it. nod is how far its front tips down
+	// when the beast lowers its head.
+	swing, sway, nod float64
 
 	// eye is true for a box that is an eye: it has no picture, only a color, and it
 	// shines in the dark.
@@ -140,6 +181,10 @@ func NewBeasts(set *assets.Set) *Beasts {
 		Nipper:   nipperShape(set),
 
 		Quickclaw: quickclawShape(set),
+
+		Shieldbrow:  shieldbrowShape(set),
+		Thornback:   thornbackShape(set),
+		Boulderback: boulderbackShape(set),
 	}}
 }
 
@@ -279,6 +324,141 @@ func nipperShape(set *assets.Set) shape {
 			{mesh: leg, right: 0.08, up: hip, swing: -0.7},
 		},
 	}
+}
+
+// lashMore is how many times as far as it sways in a walk a tail swings in a blow.
+const lashMore = 3.5
+
+// The tiles of the picture of an armed plant-eater, from the left, as cmd/genassets
+// draws them: the last two are what it is armed with.
+const (
+	giantBack = iota
+	giantSide
+	giantBelly
+	giantHead
+	giantFace
+	giantLeg
+	giantArmA // a shieldbrow's frill, a thornback's plate, a boulderback's club
+	giantArmB // a horn or a spike, and a boulderback's tail
+)
+
+// giantHide returns the tiles of a box of a giant's hide, and of its head.
+func giantHide() (hide, head [6]int) {
+	hide = [6]int{giantSide, giantSide, giantBelly, giantBack, giantSide, giantSide}
+	head = hide
+	head[world.FaceXNeg], head[world.FaceXPos], head[world.FaceZPos] = giantHead, giantHead, giantFace
+	return hide, head
+}
+
+// fourLegs returns the legs of a beast that walks on four: each hangs from its hip, and
+// those at opposite corners swing together.
+func fourLegs(leg mesh.Mesh, hip, aside, ahead, behind, swing float64) []limb {
+	return []limb{
+		{mesh: leg, right: -aside, up: hip, front: ahead, swing: swing},
+		{mesh: leg, right: aside, up: hip, front: ahead, swing: -swing},
+		{mesh: leg, right: -aside, up: hip, front: behind, swing: -swing},
+		{mesh: leg, right: aside, up: hip, front: behind, swing: swing},
+	}
+}
+
+// shieldbrowShape is a shieldbrow: a barrel of a body on four legs like trees, a heavy
+// tail, and a great head it carries low, with a beak, a horn on its nose, two long ones
+// over its eyes, and a shield of bone standing up behind them. Its head is one piece,
+// hung from its neck, so that it lowers whole.
+func shieldbrowShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(134, 114, 90), Texture: set.Shieldbrow}
+	const n = assets.ShieldbrowTiles
+	const hip = 1.0
+	hide, head := giantHide()
+	frill := hide
+	frill[world.FaceZPos], frill[world.FaceZNeg] = giantArmA, giantArmA
+
+	// The head's boxes are all placed from the neck, and nod together.
+	neck := limb{up: hip + 0.75, front: 1.5, nod: 0.45}
+	part := func(m mesh.Mesh) limb {
+		l := neck
+		l.mesh = m
+		return l
+	}
+	parts := []limb{
+		{mesh: box(-0.95, hip-0.1, -1.6, 1.9, 1.5, 3.2, hide, n, look)},
+		{mesh: box(-0.4, -0.4, -1.0, 0.8, 0.8, 1.0, hide, n, look), up: hip + 0.7, front: -1.6},
+		{mesh: box(-0.22, -0.22, -1.1, 0.44, 0.44, 1.1, hide, n, look), up: hip + 0.6, front: -2.5, sway: 0.2},
+		part(box(-0.5, -0.55, 0, 1.0, 1.0, 1.4, head, n, look)),
+		part(box(-1.05, -0.1, -0.12, 2.1, 1.55, 0.24, frill, n, look)),
+		part(box(-0.38, 0.32, 0.5, 0.15, 0.15, 1.2, all6(giantArmB), n, look)),
+		part(box(0.23, 0.32, 0.5, 0.15, 0.15, 1.2, all6(giantArmB), n, look)),
+		part(box(-0.09, 0.4, 1.05, 0.18, 0.4, 0.18, all6(giantArmB), n, look)),
+	}
+	leg := box(-0.27, -hip, -0.27, 0.54, hip, 0.54, all6(giantLeg), n, look)
+	return shape{stand: hip, hurt: reddened(set.Shieldbrow), parts: append(parts, fourLegs(leg, hip, 0.62, 1.1, -1.1, 0.3)...)}
+}
+
+// thornbackShape is a thornback: a high arched body on four legs, a small head carried
+// low, a row of plates standing along its back, the tallest in the middle, and a tail
+// that ends in four spikes.
+func thornbackShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(98, 118, 72), Texture: set.Thornback}
+	const n = assets.ThornbackTiles
+	const hip = 0.9
+	hide, head := giantHide()
+	plate := all6(giantArmA)
+
+	// The end of the tail and its spikes are placed from one point, and swing together.
+	end := limb{up: hip + 0.75, front: -2.5, sway: 0.3}
+	part := func(m mesh.Mesh) limb {
+		l := end
+		l.mesh = m
+		return l
+	}
+	parts := []limb{
+		{mesh: box(-0.7, hip-0.05, -1.5, 1.4, 1.45, 3.0, hide, n, look)},
+		{mesh: box(-0.35, -0.35, -1.0, 0.7, 0.7, 1.0, hide, n, look), up: hip + 0.8, front: -1.5},
+		part(box(-0.2, -0.2, -1.4, 0.4, 0.4, 1.4, hide, n, look)),
+		part(box(0.15, 0, -1.3, 0.65, 0.1, 0.1, all6(giantArmB), n, look)),
+		part(box(-0.8, 0, -1.3, 0.65, 0.1, 0.1, all6(giantArmB), n, look)),
+		part(box(0.15, 0.05, -0.85, 0.6, 0.1, 0.1, all6(giantArmB), n, look)),
+		part(box(-0.75, 0.05, -0.85, 0.6, 0.1, 0.1, all6(giantArmB), n, look)),
+		{mesh: box(-0.22, hip+0.15, 1.5, 0.44, 0.5, 0.55, hide, n, look)},
+		{mesh: box(-0.26, hip-0.05, 1.95, 0.52, 0.5, 0.75, head, n, look)},
+	}
+	// Seven plates, in two rows a little to each side of the spine.
+	for i := range 7 {
+		high := 0.55 + 0.55*math.Sin(math.Pi*float64(i+1)/8)
+		parts = append(parts, limb{
+			mesh:  box(-0.05, 0, -0.26, 0.1, high, 0.52, plate, n, look),
+			right: 0.16 * float64(1-2*(i%2)), up: hip + 1.38, front: -1.3 + 0.43*float64(i),
+		})
+	}
+	leg := box(-0.22, -hip, -0.22, 0.44, hip, 0.44, all6(giantLeg), n, look)
+	return shape{stand: hip, hurt: reddened(set.Thornback), parts: append(parts, fourLegs(leg, hip, 0.48, 1.0, -1.0, 0.3)...)}
+}
+
+// boulderbackShape is a boulderback: a wide flat body close to the ground under a roof
+// of bone, a flat head, and a stiff tail with a club of bone at its end.
+func boulderbackShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(152, 114, 82), Texture: set.Boulderback}
+	const n = assets.BoulderbackTiles
+	const hip = 0.5
+	hide, head := giantHide()
+	tail := [6]int{giantArmB, giantArmB, giantBelly, giantArmB, giantSide, giantSide}
+
+	// The end of the tail and its club are placed from one point, and swing together.
+	end := limb{up: hip + 0.4, front: -2.4, sway: 0.25}
+	part := func(m mesh.Mesh) limb {
+		l := end
+		l.mesh = m
+		return l
+	}
+	parts := []limb{
+		{mesh: box(-1.0, hip-0.1, -1.4, 2.0, 0.95, 2.8, hide, n, look)},
+		{mesh: box(-0.3, -0.25, -1.0, 0.6, 0.5, 1.0, tail, n, look), up: hip + 0.45, front: -1.4},
+		part(box(-0.15, -0.15, -1.0, 0.3, 0.3, 1.0, tail, n, look)),
+		part(box(-0.42, -0.28, -1.65, 0.84, 0.56, 0.7, all6(giantArmA), n, look)),
+		{mesh: box(-0.42, hip, 1.4, 0.84, 0.62, 0.8, head, n, look)},
+	}
+	leg := box(-0.22, -hip, -0.22, 0.44, hip, 0.44, all6(giantLeg), n, look)
+	return shape{stand: hip, hurt: reddened(set.Boulderback), parts: append(parts, fourLegs(leg, hip, 0.7, 0.95, -0.95, 0.35)...)}
 }
 
 // shining is the light an eye that shines is drawn in: all of it, from every side.
@@ -445,7 +625,11 @@ func (b *Beasts) Draw(c *engine.Canvas, cam mesh.Camera, all []Beast, sky *Sky) 
 			}
 			at := one.Pos.Add(aside.Scale(p.right * size)).Add(ahead.Scale(p.front * size))
 			at.Y += (p.up - one.Fall*s.stand) * size
-			m.Transform = mesh.Transform{Position: at, Yaw: one.Yaw + p.sway*step, Pitch: p.tilt + p.swing*step}
+			m.Transform = mesh.Transform{
+				Position: at,
+				Yaw:      one.Yaw + p.sway*(step+lashMore*one.Lash),
+				Pitch:    p.tilt + p.swing*step - p.nod*one.Lower,
+			}
 			if one.Young {
 				m.Transform.Scale = size
 			}

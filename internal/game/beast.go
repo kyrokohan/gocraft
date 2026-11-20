@@ -55,6 +55,7 @@ const (
 	herder               // it keeps with its herd, and runs with it from what alarms it
 	thief                // it keeps with its flock, runs as a herd does, and comes for food held out
 	hunter               // it keeps with its pack, and goes for the player and for beasts it can kill
+	guard                // it stands its ground, and turns on what comes near its young or itself
 )
 
 // breed is a kind of beast as it lives: a row of the table. How it looks, and the box
@@ -97,6 +98,18 @@ type breed struct {
 
 	meat, hide int // pieces of raw meat, and hides, it leaves
 
+	// A guard does not run. warns is how near what it guards, its young or itself, a
+	// threat may come before it turns on it and gives its cry. charges is how near
+	// before it runs at the threat, for one that charges, and swings how far from the
+	// middle of its tail that reaches, for one that strikes with it. blow is the points
+	// its charge or its tail takes.
+	warns, charges, swings, blow float64
+
+	armor float64 // points taken off every hit it takes
+	steps int     // how many blocks high a step it climbs: one, if it says none
+	grown int     // the first so many of a group are grown, and the rest young: by chance, if it says none
+	bare  bool    // it stands on bare rock and sand as well as on mossy earth
+
 	// call is the sound it makes to itself, about once in callEvery seconds, and cry
 	// the one it makes when it is hit or takes alarm. carries is how far off they are
 	// heard, for a beast whose voice carries farther than other sounds do.
@@ -133,6 +146,32 @@ var breeds = [render.Kinds]breed{
 		temper: hunter, group: [2]int{2, 3}, most: 3, night: true, sees: 20, hears: 14,
 		call: sound.Growl, cry: sound.Screech, callEvery: 9,
 	},
+
+	// The armed plant-eaters. They are few, strong, and hard to kill.
+	render.Shieldbrow: {
+		walk: 1.2, run: 7.0, gait: 1.5,
+		health: 60, meat: 8, hide: 3,
+		temper: guard, group: [2]int{3, 4}, grown: 2, most: 4,
+		warns: 10, charges: 6, blow: 6, steps: 2,
+		lands: []world.Biome{world.Prairie},
+		call:  sound.Grunt, cry: sound.Bellow, callEvery: 45, carries: 2 * sound.Hearing,
+	},
+	render.Thornback: {
+		walk: 0.9, run: 1.6, gait: 1.7,
+		health: 45, meat: 6, hide: 2,
+		temper: guard, group: [2]int{1, 1}, most: 2,
+		warns: 6, swings: 2.2, blow: 5, steps: 2,
+		lands: []world.Biome{world.Highland, world.Jungle},
+		call:  sound.Grunt, cry: sound.Rattle, callEvery: 50,
+	},
+	render.Boulderback: {
+		walk: 0.7, run: 1.2, gait: 2.4,
+		health: 50, armor: 3, meat: 6, hide: 2,
+		temper: guard, group: [2]int{1, 1}, most: 2,
+		warns: 5, swings: 2.0, blow: 7, steps: 2,
+		lands: []world.Biome{world.Badlands}, bare: true,
+		call: sound.Grunt, cry: sound.Rattle, callEvery: 55,
+	},
 }
 
 // beast is one animal: it walks about, stands a while, and walks on. It is stopped by
@@ -158,6 +197,7 @@ type beast struct {
 	health float64 // points of harm it can still take, for a breed that has health
 
 	velY    float64    // speed upward
+	climb   int        // how many blocks high the step it last hopped at is
 	walking bool       // or standing
 	timer   float64    // until it changes its mind
 	rng     *rand.Rand // its own, so that what it does can be told from a seed
@@ -183,6 +223,14 @@ type beast struct {
 	keen, biteIn, feeding, lit float64
 	leaving                    bool
 	gone                       float64
+
+	// A guard: how long it still charges, until it can charge or strike again, and
+	// until it warns again; whether it was hurt, and where what it turns on is; whether
+	// its head is down; and how long its tail is still seen to swing, and to which side.
+	ire, rest, warned float64
+	angry, lower      bool
+	foe               geometry.Vector3
+	lash, lashSide    float64
 }
 
 // said is a sound a beast of a kind makes at a place.
@@ -218,6 +266,10 @@ type fauna struct {
 	// a place is.
 	moving, hidden, meaty, hunted bool
 	bright                        func(at geometry.Vector3) float64
+
+	// shove is the way the blows of the guards threw the player in the last step, and
+	// how far.
+	shove geometry.Vector3
 
 	robbed float64 // until a thief may take from the player again
 	feet   int     // the height of the player's feet, which a hunter comes out near
@@ -316,8 +368,11 @@ func (f *fauna) standing(w *world.World, k render.Kind, young bool, x, z int) (g
 		return f.lair(w, k, x, z, f.feet)
 	}
 	y := w.Ground(x, z) // under any plant
-	if w.At(x, y, z) != world.Turf {
-		return geometry.Vector3{}, false // not mossy earth, or a place that is not loaded
+	switch on := w.At(x, y, z); {
+	case on == world.Turf:
+	case breeds[k].bare && (on == world.Redrock || on == world.Sand || on == world.Sandstone):
+	default:
+		return geometry.Vector3{}, false // not ground it stands on, or a place that is not loaded
 	}
 	if lands := breeds[k].lands; lands != nil && !slices.Contains(lands, world.BiomeAt(w.Seed, x, z)) {
 		return geometry.Vector3{}, false
@@ -379,6 +434,9 @@ func (f *fauna) add(w *world.World, k render.Kind, round geometry.Vector3, near,
 			mz += f.rng.IntN(2*groupReach+1) - groupReach
 		}
 		young := placed > 0 && f.rng.Float64() < b.young
+		if b.grown > 0 {
+			young = placed >= b.grown // a family: its grown ones, and then its young
+		}
 		pos, ok := f.standing(w, k, young, mx, mz)
 		if !ok {
 			continue
@@ -400,11 +458,12 @@ func (f *fauna) add(w *world.World, k render.Kind, round geometry.Vector3, near,
 	return placed > 0
 }
 
-// middles returns the middle of every herd: where its living members are, on the whole.
-func (f *fauna) middles() map[int]geometry.Vector3 {
+// middles returns the middle of every herd: where its living members are, on the whole,
+// or only the young of them.
+func (f *fauna) middles(young bool) map[int]geometry.Vector3 {
 	sum, n := map[int]geometry.Vector3{}, map[int]float64{}
 	for i := range f.all {
-		if c := &f.all[i]; c.herd != 0 && !c.dead {
+		if c := &f.all[i]; c.herd != 0 && !c.dead && (c.young || !young) {
 			sum[c.herd], n[c.herd] = sum[c.herd].Add(c.Pos), n[c.herd]+1
 		}
 	}
@@ -429,6 +488,10 @@ func (f *fauna) raise(herd int, from geometry.Vector3) bool {
 		if c.herd != herd || c.dead {
 			continue
 		}
+		if breeds[c.kind].temper == guard && !c.young {
+			c.angry, c.foe = true, from // it does not run: it turns on what alarmed its young
+			continue
+		}
 		away := awayFrom(c.Pos, from, c.Yaw)
 		c.flee, c.walking = alarmTime, true
 		c.Yaw = yawOf(away) + (c.rng.Float64()-0.5)*0.6 // each a little its own way
@@ -443,7 +506,7 @@ func (f *fauna) raise(herd int, from geometry.Vector3) bool {
 // It leaves the cries of the herds that took alarm in sounds, and the beasts that died
 // and are gone in fallen, for the game to play and to put down what they leave.
 func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
-	f.sounds, f.fallen, f.thefts, f.bitten = f.sounds[:0], f.fallen[:0], 0, 0
+	f.sounds, f.fallen, f.thefts, f.bitten, f.shove = f.sounds[:0], f.fallen[:0], 0, 0, geometry.Vector3{}
 	f.robbed = max(f.robbed-dt, 0)
 	for herd, a := range f.alarms {
 		if a.left -= dt; a.left <= 0 {
@@ -453,7 +516,7 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		}
 	}
 
-	middles := f.middles()
+	middles, wards := f.middles(false), f.middles(true)
 	for i := range f.all {
 		c := &f.all[i]
 		if c.Pos.Distance(player) >= creatureAwake {
@@ -497,9 +560,15 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		if b.temper == hunter && !c.dead {
 			f.hunt(w, i, player, dt)
 		}
+		if b.temper == guard && !c.dead {
+			f.guard(i, player, dt)
+		}
 		var middle *geometry.Vector3
 		if m, ok := middles[c.herd]; ok && b.temper != loner {
 			middle = &m
+		}
+		if m, ok := wards[c.herd]; ok && b.temper == guard && !c.young {
+			middle = &m // a grown guard keeps by its young, and not by the middle of its family
 		}
 		c.step(w, dt, middle)
 	}
@@ -530,6 +599,24 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 	}
 }
 
+// body returns the middles of the feet of the boxes that cover a beast's body, for what
+// is aimed, swung or thrown at it: the one box that blocks stop it in, for most, and a
+// row of them along the way it faces, for a beast much longer than that box is wide.
+func (c *beast) body() (at [6]geometry.Vector3, n int) {
+	width, _ := render.Size(c.kind, c.young)
+	back, front := render.Span(c.kind, c.young)
+	n = min(max(int(math.Ceil((front-back)/width)), 1), len(at))
+	ahead := mesh.Camera{Yaw: c.Yaw}.Forward()
+	for i := range n {
+		along := (back + front) / 2
+		if n > 1 {
+			along = back + width/2 + float64(i)*(front-back-width)/float64(n-1)
+		}
+		at[i] = c.Pos.Add(ahead.Scale(along))
+	}
+	return at, n
+}
+
 // voice returns where a beast's sounds come from: its head, more or less.
 func (c *beast) voice() geometry.Vector3 {
 	_, height := render.Size(c.kind, c.young)
@@ -538,27 +625,45 @@ func (c *beast) voice() geometry.Vector3 {
 
 // Pose returns where the beast is and how it stands, for drawing.
 func (c *beast) Pose() render.Beast {
-	return render.Beast{
+	pose := render.Beast{
 		Kind: c.kind, Pos: c.Pos, Yaw: c.Yaw, Stride: c.Stride,
 		Shorn: c.regrow > 0, Hurt: c.hurt > 0, Young: c.young, Fall: c.fall,
 	}
+	if c.lower && !c.dead {
+		pose.Lower = 1
+	}
+	if c.lash > 0 && !c.dead {
+		pose.Lash = c.lashSide * math.Sin(math.Pi*(1-c.lash/swingShow)) // out, and back
+	}
+	return pose
 }
 
-// hit is the beast being hit by the player standing at from, by points of harm. It is
-// knocked away, and runs. A beast with health loses the points, and with none left it
-// dies. It reports whether the hit killed it.
+// hit is the beast being hit from a place, by points of harm, less what its armor
+// takes. It is knocked away, and runs, unless it is a guard. A beast with health loses
+// the points, and with none left it dies. It reports whether the hit killed it.
 func (c *beast) hit(from geometry.Vector3, points float64) (killed bool) {
 	if c.dead {
 		return false
 	}
-	away := awayFrom(c.Pos, from, c.Yaw)
-	c.push = away.Scale(knockSpeed)
-	if c.OnGround {
-		c.velY = knockHop
+	b := &breeds[c.kind]
+	points = max(points-b.armor, 0)
+	if b.temper == guard && !c.young {
+		// A grown guard is too heavy to knock back, and it does not run: it turns on
+		// what hurt it. A hit its armor took all of does not show.
+		c.angry, c.foe = true, from
+		if points > 0 {
+			c.hurt = hurtShow
+		}
+	} else {
+		away := awayFrom(c.Pos, from, c.Yaw)
+		c.push = away.Scale(knockSpeed)
+		if c.OnGround {
+			c.velY = knockHop
+		}
+		c.hurt, c.flee = hurtShow, fleeTime
+		c.walking, c.Yaw = true, yawOf(away)
 	}
-	c.hurt, c.flee = hurtShow, fleeTime
-	c.walking, c.Yaw = true, yawOf(away)
-	if breeds[c.kind].health > 0 {
+	if b.health > 0 {
 		if c.health -= points; c.health <= 0 {
 			c.dead, c.walking, c.flee = true, false, 0
 			return true
@@ -642,13 +747,19 @@ func (c *beast) wayAhead(w *world.World, ahead geometry.Vector3, afloat bool) (h
 	x, y, z := int(math.Floor(front.X)), int(math.Floor(c.Pos.Y+0.1)), int(math.Floor(front.Z))
 
 	if solid(w, x, y, z) {
-		// A block at the height of its feet. One block is a step it can hop, if it has
-		// its feet on something and there is room on top for the whole of it.
-		for up := 1; up <= int(math.Ceil(height)); up++ {
+		// A block at the height of its feet. It is a step the beast can hop, if it is no
+		// higher than its kind climbs, the beast has its feet on something, and there is
+		// room on top for the whole of it.
+		high := 1
+		for high < max(breeds[c.kind].steps, 1) && solid(w, x, y+high, z) {
+			high++
+		}
+		for up := high; up < high+int(math.Ceil(height)); up++ {
 			if solid(w, x, y+up, z) {
 				return false, true
 			}
 		}
+		c.climb = high
 		return c.OnGround || afloat, true
 	}
 	if w.At(x, y, z) == world.Water || w.At(x, y-1, z) == world.Water {
@@ -704,6 +815,9 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 		switch hop, blocked := c.wayAhead(w, ahead, afloat); {
 		case hop:
 			c.velY = creatureHop
+			if c.climb > 1 {
+				c.velY = math.Sqrt(2 * gravity * (float64(c.climb) + 0.2)) // enough to clear that many blocks
+			}
 		case blocked && (c.OnGround || afloat) && c.flee > 0:
 			c.Yaw += math.Pi / 2 * float64(1-2*c.rng.IntN(2)) // running, it turns aside
 		case blocked && (c.OnGround || afloat):
@@ -762,6 +876,7 @@ func (g *Game) stepBeasts(dt float64) {
 	g.sky.Set(timeOfDay(g.days)) // the light they keep out of is the light of this hour
 	f.step(g.world, g.player.Pos, dt)
 	if f.bitten > 0 && g.survival {
+		travel(g.world, &g.player.Pos, playerWidth, playerHeight, f.shove) // a blow throws
 		if g.hurt(f.bitten); g.screen != playing {
 			return // the player fainted
 		}

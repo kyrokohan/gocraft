@@ -46,6 +46,9 @@ const (
 	Chirp   // a nipper
 	Growl   // a quickclaw that hunts: low, and from the throat
 	Screech // a quickclaw hit, or one that has seen its prey
+	Bellow  // a shieldbrow that warns, charges or is hit: deep, and from the chest
+	Grunt   // a giant plant-eater, to itself
+	Rattle  // a thornback or a boulderback that warns: its plates shaken, and a hiss
 	Crackle // a hearth's fire
 	Drip    // water in a cave
 	Wind    // a loop
@@ -62,7 +65,7 @@ func Place(m Material) Name { return Name(m)*perMaterial + placeOf }
 var materialNames = [materials]string{"earth", "stone", "sand", "wood", "plant", "glass", "snow"}
 
 var otherNames = [Count - Splash]string{
-	"splash", "pickup", "hurt", "eat", "call", "cry", "horn", "alarm", "chirp", "growl", "screech", "crackle", "drip", "wind", "cave",
+	"splash", "pickup", "hurt", "eat", "call", "cry", "horn", "alarm", "chirp", "growl", "screech", "bellow", "grunt", "rattle", "crackle", "drip", "wind", "cave",
 }
 
 // File is the name of the sound's file: step-wood.wav, say, or splash.wav.

@@ -36,11 +36,15 @@ func readPNG(t *testing.T, name string) *image.NRGBA {
 // The pictures in the repo are what the generator draws now. If this fails after a
 // change to the generator, run `make assets`.
 func TestCommittedPicturesAreCurrent(t *testing.T) {
-	for name, want := range map[string]*image.NRGBA{
+	pictures := map[string]*image.NRGBA{
 		"blocks.png": drawBlocks(), "title.png": drawTitle(), "mossback.png": drawTiles(mossbackTiles),
 		"person.png": drawTiles(personTiles()), "bugler.png": drawTiles(buglerTiles),
 		"nipper.png": drawTiles(nipperTiles), "quickclaw.png": drawTiles(quickclawTiles),
-	} {
+	}
+	for name, tiles := range giantTiles {
+		pictures[name+".png"] = drawTiles(tiles)
+	}
+	for name, want := range pictures {
 		got := readPNG(t, name)
 		if got.Bounds() != want.Bounds() {
 			t.Errorf("%s is %v, the generator draws %v", name, got.Bounds(), want.Bounds())

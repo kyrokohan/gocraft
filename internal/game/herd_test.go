@@ -43,7 +43,7 @@ func herdOf(n int, x, z float64) *fauna {
 func TestBuglersAreFoundInHerdsOnThePrairieAndTheHighland(t *testing.T) {
 	found := 0
 	for seed := int64(1); seed <= 8; seed++ {
-		w := world.Generate(seed)
+		w := realWorld(seed)
 		spawn := w.Spawn()
 		all, again := newFauna(w, spawn).all, newFauna(w, spawn).all
 		if len(all) != len(again) {
@@ -99,7 +99,7 @@ func TestAHerdKeepsTogether(t *testing.T) {
 		f.step(w, far, frame)
 	}
 
-	middle := f.middles()[1]
+	middle := f.middles(false)[1]
 	for i, c := range f.all {
 		if d := math.Hypot(c.Pos.X-middle.X, c.Pos.Z-middle.Z); d > 2.5*herdReach {
 			t.Errorf("after a minute bugler %d is %.1f from the middle of its herd, wanted it kept within %.0f", i, d, 2.5*herdReach)

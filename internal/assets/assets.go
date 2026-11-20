@@ -14,7 +14,7 @@ import (
 	"github.com/kyrokohan/skyspear/internal/tile"
 )
 
-//go:embed img/blocks.png img/title.png img/mossback.png img/person.png img/bugler.png img/nipper.png img/quickclaw.png sound/*.wav
+//go:embed img/*.png sound/*.wav
 var files embed.FS
 
 // Levels is how many sizes each tile is kept in: 16, 8, 4, 2 and 1 pixels across. A
@@ -63,6 +63,12 @@ type Set struct {
 	// the side of its head, a leg and an arm.
 	Quickclaw *bitmap.Bitmap
 
+	// Shieldbrow, Thornback and Boulderback are the same for the three armed
+	// plant-eaters, with ShieldbrowTiles, ThornbackTiles and BoulderbackTiles tiles: for
+	// each its back, its side, its belly, the side of its head, its face, a leg, and
+	// what it is armed with.
+	Shieldbrow, Thornback, Boulderback *bitmap.Bitmap
+
 	// Person is the same for the cave person, once for each look, one look after
 	// another: PersonTiles tiles each, the face, the hair, the front, the back and a
 	// side of the hide, an arm and a leg.
@@ -80,6 +86,10 @@ const (
 
 	QuickclawTiles = 5
 	PersonTiles    = 7
+
+	ShieldbrowTiles  = 8
+	ThornbackTiles   = 8
+	BoulderbackTiles = 8
 )
 
 // PersonLooks is how many looks a cave person can have.
@@ -131,6 +141,19 @@ func Load() (*Set, error) {
 	}
 	if set.Person, err = creature("img/person.png", PersonTiles*PersonLooks); err != nil {
 		return nil, err
+	}
+	for _, giant := range []struct {
+		into  **bitmap.Bitmap
+		file  string
+		tiles int
+	}{
+		{&set.Shieldbrow, "img/shieldbrow.png", ShieldbrowTiles},
+		{&set.Thornback, "img/thornback.png", ThornbackTiles},
+		{&set.Boulderback, "img/boulderback.png", BoulderbackTiles},
+	} {
+		if *giant.into, err = creature(giant.file, giant.tiles); err != nil {
+			return nil, err
+		}
 	}
 	for n := range sound.Count {
 		if set.Sounds[n], err = readWAV("sound/" + n.File()); err != nil {

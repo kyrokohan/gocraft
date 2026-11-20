@@ -185,9 +185,22 @@ func TestACreatureWalksAndStandsByTurns(t *testing.T) {
 	}
 }
 
+// realWorlds are the worlds of the first seeds, each made once for all the tests that
+// only look at one or let beasts walk in it: making a world takes seconds under the race
+// detector, and a dozen tests would each make ten.
+var realWorlds = map[int64]*world.World{}
+
+// realWorld returns the world of a seed, which the test must leave as it found it.
+func realWorld(seed int64) *world.World {
+	if realWorlds[seed] == nil {
+		realWorlds[seed] = world.Generate(seed)
+	}
+	return realWorlds[seed]
+}
+
 func TestAHerdStartsOnGrassRoundThePlayer(t *testing.T) {
 	for seed := int64(1); seed <= 3; seed++ {
-		w := world.Generate(seed)
+		w := realWorld(seed)
 		spawn := w.Spawn()
 
 		all := only(newFauna(w, spawn).all, render.Mossback)
