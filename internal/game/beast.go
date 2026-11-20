@@ -143,6 +143,15 @@ type breed struct {
 	warms  bool
 	tether float64
 
+	// One that swims lies draft blocks under the top of the water, by its feet, and
+	// keeps to water deep blocks deep or more. sinks is how much lower it goes when it
+	// runs from something, or, a hunter, while it is after nothing. leaps is how many
+	// seconds it swims between two leaps clear of the water, about, for one that leaps.
+	// plays is from how far it comes to a player who is in the water, to swim by it.
+	// jaws is how far ahead of its middle its jaws are: it bites from that much farther.
+	draft, sinks, leaps, plays, jaws float64
+	deep                             int
+
 	// A guard does not run. warns is how near what it guards, its young or itself, a
 	// threat may come before it turns on it and gives its cry. charges is how near
 	// before it runs at the threat, for one that charges, and swings how far from the
@@ -350,6 +359,34 @@ var breeds = [render.Kinds]breed{
 		lands: []world.Biome{world.Swamp, world.Jungle},
 		call:  sound.Hiss, cry: sound.Hiss, callEvery: 45,
 	},
+
+	// The beasts of the sea, which swim. Lakenecks lie far out with their necks up,
+	// and sink and swim off from what comes near. Leapfins go in schools, leap, and
+	// come to swim by a player. The deepmaw hunts both, and a player, where the water
+	// is six deep or more: it lies low until it has seen its prey, and then comes up.
+	render.Lakeneck: {
+		walk: 1.2, run: 6.5, gait: 2.0,
+		health: 40, meat: 6, hide: 2,
+		temper: herder, group: [2]int{2, 3}, most: 3, wary: 12,
+		moves: gaitSwim, draft: 1.1, deep: 5, sinks: 3,
+		call: sound.Moan, cry: sound.Splash, callEvery: 40, carries: 2 * sound.Hearing,
+	},
+	render.Leapfin: {
+		walk: 3.0, run: 7.5, gait: 5.0,
+		health: 6, meat: 2,
+		temper: herder, group: [2]int{4, 7}, most: 7,
+		moves: gaitSwim, draft: 0.7, deep: 3, leaps: 5, plays: 22,
+		call: sound.Splash, cry: sound.Splash, callEvery: 9,
+	},
+	render.Deepmaw: {
+		walk: 2.0, run: 7.0, gait: 1.2,
+		health: 160, bite: 10, meat: 12, hide: 4,
+		heavy:  true,
+		temper: hunter, group: [2]int{1, 1}, most: 1, sees: 26,
+		from: firstHunt, moves: gaitSwim, draft: 1.9, deep: 6, sinks: 3, jaws: 4.5,
+		stalks: 20, snaps: 2.5, feeds: feedTime,
+		call: sound.Splash, cry: sound.Splash, callEvery: math.Inf(1),
+	},
 }
 
 // gait is how a beast gets about.
@@ -359,6 +396,7 @@ const (
 	gaitWalk gait = iota
 	gaitFly       // it keeps a height over what is under it, and goes where it looks
 	gaitWade      // it lies at the top of still water, and leaves the water only after its prey
+	gaitSwim      // it keeps to water deep enough for it, and goes up and down in it
 )
 
 // slowclawGrudge is how near what it was hit by a slowclaw must be for the slowclaw to
@@ -418,6 +456,8 @@ type beast struct {
 	leap                       float64 // how long the spring of one that springs still lasts
 	curl                       float64 // how long one that curls up when it is hit stays curled
 	pace                       float64 // how much of its speed one that the sun warms has: all of it, if this says nothing
+	leapt                      bool    // one that swims has left the water in a leap, and has not come back into it
+	stalking                   bool    // a hunter is after a beast
 
 	// den is where one that keeps to a place lives, once it has been seen there, and
 	// homing whether it is on its way back there.
@@ -604,6 +644,8 @@ func (f *fauna) standing(w *world.World, k render.Kind, young bool, x, z int) (g
 	case on == world.Turf:
 	case breeds[k].moves == gaitWade:
 		return f.wading(w, k, x, z)
+	case breeds[k].moves == gaitSwim:
+		return f.afloat(w, k, x, z)
 	case breeds[k].moves == gaitFly && (on == world.Water || on == world.Peat || on == world.Turf || on == world.Sand):
 		y += int(math.Ceil(breeds[k].hover)) - 1 // it is in the air over it: over open ground or water, and not over a tree
 	case breeds[k].bare && (on == world.Redrock || on == world.Sand || on == world.Sandstone || on == world.Snow || on == world.Peat):
@@ -786,6 +828,11 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 			if c.Pos.Distance(player) < wary && f.raise(c.herd, player) {
 				f.sounds = append(f.sounds, said{b.cry, c.kind, c.voice()}) // the one that saw it calls out
 			}
+		}
+		// One that plays comes to a player who is in the water, and keeps by it.
+		if b.plays > 0 && !c.dead && c.flee <= 0 && far < b.plays && far > playNear && swims(w, player) {
+			c.walking, c.Yaw, c.hurry = true, yawOf(to), far > playRun
+			c.timer = max(c.timer, rethink)
 		}
 		// A tame beast keeps by the player: it comes after one that goes, runs to catch
 		// up when it has fallen far behind, and stands by one that stands.
@@ -1001,6 +1048,9 @@ func (c *beast) Pose() render.Beast {
 	if (c.lower || c.curl > 0) && !c.dead {
 		pose.Lower = 1
 	}
+	if c.leapt && !c.dead {
+		pose.Lower = min(max(c.velY/leapUp, -1), 1) // nose up as it rises, and down as it falls
+	}
 	if c.lash > 0 && !c.dead {
 		pose.Lash = c.lashSide * math.Sin(math.Pi*(1-c.lash/swingShow)) // out, and back
 	}
@@ -1190,6 +1240,10 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	}
 	if b.moves == gaitFly && !c.dead {
 		c.fly(w, speed, dt)
+		return
+	}
+	if b.moves == gaitSwim && !c.dead {
+		c.swim(w, speed, dt, middle)
 		return
 	}
 	mired := inTar(w, c.Pos)
@@ -1460,6 +1514,118 @@ func (c *beast) fly(w *world.World, speed, dt float64) {
 	}
 	c.OnGround, c.peak = false, c.Pos.Y
 	c.Stride += b.gait * dt
+}
+
+// How a beast that swims gets about.
+const (
+	swimClimb = 3.0  // how fast it rises and sinks to where it lies, at the most, in blocks a second
+	leapUp    = 8.5  // the speed one that leaps leaves the water at: enough to clear it by a block
+	playNear  = 3.0  // how near a player one that plays comes
+	playRun   = 8.0  // how far from the player it hurries to catch up
+	deepMost  = 12   // as deep as water is counted: deeper is as deep as that
+	seaGap    = 4.0  // how far apart those that swim alone are put
+	swimAhead = 1.0  // how far past its own front one that swims looks at the depth
+	swimTurn  = 0.25 // how much of a turn it turns aside at the edge of its water when it runs
+)
+
+// deepAt returns how deep the water in the column at x, z is, from its top, which must
+// be open to the sky: none where the top of the column is not water. Water deeper than
+// deepMost is counted as that deep.
+func deepAt(w *world.World, x, z int) (deep int) {
+	for y := w.Ground(x, z); deep < deepMost && y >= 0 && w.At(x, y, z) == world.Water; y-- {
+		deep++
+	}
+	return deep
+}
+
+// swims reports whether a body at a place is in the water: its feet are in it, or just
+// over it, as a swimmer's are that comes up for air.
+func swims(w *world.World, at geometry.Vector3) bool {
+	return inWater(w, at) || inWater(w, at.Sub(geometry.Vector3{Y: 0.6}))
+}
+
+// afloat returns where a beast that swims could lie in the column at x, z: at the top
+// of water deep enough for it, with the sky over it, and room between it and the others.
+func (f *fauna) afloat(w *world.World, k render.Kind, x, z int) (geometry.Vector3, bool) {
+	b := &breeds[k]
+	if deepAt(w, x, z) < b.deep {
+		return geometry.Vector3{}, false
+	}
+	pos := geometry.Vector3{X: float64(x) + 0.5, Y: float64(w.Ground(x, z)+1) - b.draft, Z: float64(z) + 0.5}
+	gap := seaGap
+	if width, _ := render.Size(k, false); b.group[1] > 1 {
+		gap = width + 0.4
+	}
+	for i := range f.all {
+		if f.all[i].Pos.Distance(pos) < gap {
+			return geometry.Vector3{}, false
+		}
+	}
+	return pos, true
+}
+
+// swim moves a beast that swims for dt seconds, at a speed. It lies as far under the
+// top of the water as its kind does, or lower when it runs or lurks, goes the way it
+// faces, and turns from water too shallow for it. One that leaps leaves the water now
+// and then as it swims, and falls back into it.
+func (c *beast) swim(w *world.World, speed, dt float64, middle *geometry.Vector3) {
+	b := &breeds[c.kind]
+	width, height := render.Size(c.kind, c.young)
+	if c.timer -= dt; c.timer <= 0 {
+		c.decide(middle)
+	}
+	x, y, z := int(math.Floor(c.Pos.X)), int(math.Floor(c.Pos.Y)), int(math.Floor(c.Pos.Z))
+	wet := w.At(x, y, z) == world.Water
+	lies := 0.0 // the height its feet are at when it lies where it means to
+	if wet {
+		top := y
+		for w.At(x, top+1, z) == world.Water {
+			top++
+		}
+		lies = float64(top+1) - b.draft
+		if c.flee > 0 || b.temper == hunter && c.keen <= 0 && !c.stalking {
+			lies -= b.sinks
+		}
+	}
+	switch {
+	case c.leapt && wet && c.velY < 0 && c.Pos.Y <= lies+b.draft:
+		c.leapt = false // it is back in the water
+		fallthrough
+	case wet && !c.leapt:
+		c.velY = min(max(3*(lies-c.Pos.Y), -swimClimb), swimClimb)
+		if b.leaps > 0 && c.walking && c.flee <= 0 && math.Abs(lies-c.Pos.Y) < 0.2 && c.rng.Float64() < dt/b.leaps {
+			c.leapt, c.velY = true, leapUp
+		}
+	default:
+		c.velY = max(c.velY-gravity*dt, -fallSpeed) // in the air, or left dry
+	}
+
+	move := geometry.Vector3{Y: c.velY * dt}
+	if c.walking {
+		ahead := mesh.Camera{Yaw: c.Yaw}.Forward()
+		next := c.Pos.Add(ahead.Scale(width/2 + swimAhead))
+		switch shallow := deepAt(w, int(math.Floor(next.X)), int(math.Floor(next.Z))) < b.deep; {
+		case !shallow:
+			move = move.Add(ahead.Scale(speed * dt))
+		case c.keen > 0 || c.stalking:
+			// What it is after is beyond water it can swim in: it waits at the edge.
+		case c.flee > 0:
+			c.Yaw += 2 * math.Pi * swimTurn * float64(1-2*c.rng.IntN(2)) // running, it turns aside
+		default:
+			c.turnBack()
+		}
+	}
+	move = move.Add(c.push.Scale(dt))
+	c.push = c.push.Scale(max(1-knockDrag*dt, 0))
+	if stopped := travelIn(w, &c.Pos, width, height, move, solid); (stopped[0] || stopped[2]) && c.walking {
+		c.Yaw += math.Pi / 2 * float64(1-2*c.rng.IntN(2)) // something is in its way: it turns aside
+	} else if stopped[1] && c.velY > 0 {
+		c.velY = 0
+	}
+	c.OnGround, c.peak = false, c.Pos.Y
+	if c.walking {
+		c.Stride += b.gait * speed * dt
+	}
 }
 
 // coldPace is how much of its speed a beast that the sun warms has with no sun on it.
