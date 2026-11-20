@@ -62,6 +62,8 @@ const (
 	Whirr   // a rattlewing: its wings, dry and loud
 	Hiss    // a sunback or a sailjaw: breath let out through its teeth
 	Moan    // a lakeneck, to its mate: long and hollow, over the water
+	Skree   // a galewing, from high up: thin, and it falls
+	Clack   // a stiltwing: its long beak, clattered
 	Crackle // a hearth's fire
 	Drip    // water in a cave
 	Wind    // a loop
@@ -78,7 +80,7 @@ func Place(m Material) Name { return Name(m)*perMaterial + placeOf }
 var materialNames = [materials]string{"earth", "stone", "sand", "wood", "plant", "glass", "snow"}
 
 var otherNames = [Count - Splash]string{
-	"splash", "pickup", "hurt", "eat", "call", "cry", "horn", "alarm", "chirp", "growl", "screech", "bellow", "grunt", "rattle", "thud", "drone", "roar", "rumble", "geyser", "tremor", "boom", "trumpet", "howl", "snarl", "whirr", "hiss", "moan", "crackle", "drip", "wind", "cave",
+	"splash", "pickup", "hurt", "eat", "call", "cry", "horn", "alarm", "chirp", "growl", "screech", "bellow", "grunt", "rattle", "thud", "drone", "roar", "rumble", "geyser", "tremor", "boom", "trumpet", "howl", "snarl", "whirr", "hiss", "moan", "skree", "clack", "crackle", "drip", "wind", "cave",
 }
 
 // File is the name of the sound's file: step-wood.wav, say, or splash.wav.

@@ -91,6 +91,11 @@ type Set struct {
 	// fin and the side of its lower jaw.
 	Lakeneck, Leapfin, Deepmaw *bitmap.Bitmap
 
+	// Galewing and Stiltwing are the same for the two great fliers, with GalewingTiles
+	// and StiltwingTiles tiles: the face is the beak, and the last two are the skin of a
+	// wing, and a galewing's crest or a stiltwing's neck.
+	Galewing, Stiltwing *bitmap.Bitmap
+
 	// Cloudgrazer is the same for the cloudgrazer, with CloudgrazerTiles tiles: the last
 	// two are the bands of its neck and the end of its tail.
 	Cloudgrazer *bitmap.Bitmap
@@ -133,6 +138,8 @@ const (
 	LakeneckTiles    = 8
 	LeapfinTiles     = 8
 	DeepmawTiles     = 8
+	GalewingTiles    = 8
+	StiltwingTiles   = 8
 )
 
 // PersonLooks is how many looks a cave person can have.
@@ -206,6 +213,8 @@ func Load() (*Set, error) {
 		{&set.Lakeneck, "img/lakeneck.png", LakeneckTiles},
 		{&set.Leapfin, "img/leapfin.png", LeapfinTiles},
 		{&set.Deepmaw, "img/deepmaw.png", DeepmawTiles},
+		{&set.Galewing, "img/galewing.png", GalewingTiles},
+		{&set.Stiltwing, "img/stiltwing.png", StiltwingTiles},
 	} {
 		if *giant.into, err = creature(giant.file, giant.tiles); err != nil {
 			return nil, err

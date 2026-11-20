@@ -468,6 +468,23 @@ func makeSound(n sound.Name) []float64 {
 		}
 		loud := func(t float64) float64 { return math.Pow(math.Sin(math.Pi*min(t/2.2, 1)), 0.7) }
 		return peakTo(voiced(2.2, pitch, loud, 300, 700), 0.6)
+	case sound.Skree:
+		// A thin cry from high up that starts sharp and falls away.
+		pitch := func(t float64) float64 { return 1500 - 620*t/0.7 + 40*math.Sin(2*math.Pi*18*t) }
+		loud := func(t float64) float64 {
+			return math.Pow(math.Sin(math.Pi*min(t/0.7, 1)), 0.5) * math.Min(1, (0.7-t)/0.25)
+		}
+		return peakTo(voiced(0.7, pitch, loud, 1800, 3600), 0.5)
+	case sound.Clack:
+		// A long beak clattered: dry knocks, quicker toward the end.
+		s := make([]float64, samples(0.8))
+		knock := newBand(1100, 3)
+		for i := range s {
+			t := float64(i) / rate
+			into := math.Mod(math.Pow(t/0.8, 1.4)*9, 1)
+			s[i] = knock.at(noise(i, 1003)) * math.Exp(-into*9) * math.Min(1, (0.8-t)/0.05)
+		}
+		return peakTo(s, 0.6)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))
