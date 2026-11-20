@@ -977,8 +977,8 @@ func (c *beast) wayAhead(w *world.World, ahead geometry.Vector3, afloat bool, so
 		c.climb = high
 		return c.OnGround || afloat, true
 	}
-	if w.At(x, y, z) == world.Water || w.At(x, y-1, z) == world.Water {
-		return false, true
+	if in, under := w.At(x, y, z), w.At(x, y-1, z); in == world.Water || under == world.Water || in == world.Lava || under == world.Lava {
+		return false, true // it keeps out of water, and out of lava
 	}
 	for down := 1; down <= longDrop; down++ {
 		if solid(w, x, y-down, z) {

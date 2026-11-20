@@ -33,6 +33,9 @@ func (g *Game) stepDrops(dt float64) {
 		if d.Age += dt; d.Age > dropLife {
 			continue
 		}
+		if g.world.At(int(math.Floor(d.Pos.X)), int(math.Floor(d.Pos.Y+0.1)), int(math.Floor(d.Pos.Z))) == world.Lava {
+			continue // what falls in lava is burnt up
+		}
 		if g.world.Loaded(int(math.Floor(d.Pos.X)), int(math.Floor(d.Pos.Z))) {
 			d.velY = max(d.velY-gravity*dt, -fallSpeed)
 			if inWater(g.world, d.Pos) {

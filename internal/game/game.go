@@ -679,6 +679,27 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera, body bool) {
 	g.clouds.Draw(c, cam, g.sky)
 }
 
+// The smoke of the nearest fire mountain is seen in the sky from plumeFar blocks off, and
+// all of it from plumeNear.
+const (
+	plumeNear = 250.0
+	plumeFar  = 1200.0
+)
+
+// plume has the sky show the smoke of the nearest fire mountain, in the way to it from
+// where the player is: more of it the nearer the mountain.
+func (g *Game) plume() {
+	p := g.player.Pos
+	crater, far, ok := g.world.Mountain(p.X, p.Z)
+	if !ok {
+		g.sky.SetPlume(geometry.Vector3{}, 0)
+		return
+	}
+	eye := g.player.head()
+	to := geometry.Vector3{X: float64(crater.X) + 0.5 - eye.X, Y: float64(crater.Y) - eye.Y, Z: float64(crater.Z) + 0.5 - eye.Z}
+	g.sky.SetPlume(to, 1-(far-plumeNear)/(plumeFar-plumeNear))
+}
+
 // lightAt returns the light in the cell a point is in.
 func (g *Game) lightAt(p geometry.Vector3) world.Light {
 	return g.world.LightAt(int(math.Floor(p.X)), int(math.Floor(p.Y)), int(math.Floor(p.Z)))
@@ -712,6 +733,7 @@ func (g *Game) fogAt(cam mesh.Camera) *mesh.Fog {
 func (g *Game) Draw(fb *engine.FrameBuffer) {
 	c := fb.Canvas()
 	g.sky.Set(timeOfDay(g.days))
+	g.plume()
 	g.rend.Crack = render.Crack{}
 	if g.titleShown() {
 		// The world from a little above where the player will stand, turning slowly.
@@ -746,6 +768,9 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	if g.screen != inBag && !behind {
 		// Last, over everything in the world. From behind it is in the body's hand.
 		g.look.DrawHand(c, g.inHand())
+	}
+	if eye := cam.Position; g.lightAt(eye) != 0 && g.world.At(int(math.Floor(eye.X)), int(math.Floor(eye.Y)), int(math.Floor(eye.Z))) == world.Lava {
+		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(255, 120, 30), 0.75) // the eye is in lava
 	}
 	if g.flash > 0 {
 		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(200, 20, 20), 0.4*g.flash/hurtFlash)
