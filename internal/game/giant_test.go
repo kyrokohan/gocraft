@@ -354,18 +354,21 @@ func TestAGiantClimbsAStepOfTwoBlocksAndABuglerOnlyOne(t *testing.T) {
 // The risk named in the design: a big beast that sticks on the land. Each giant found
 // in ten real worlds is left to walk for two minutes, and must get somewhere.
 func TestGiantsDoNotStickOnTheLand(t *testing.T) {
+	big := append(slices.Clone(giants), render.Cloudgrazer)
 	walked, stuck := 0, 0
+	stuckOf := map[render.Kind]int{}
 	for seed := int64(1); seed <= 10; seed++ {
 		w := realWorld(seed)
 		spawn := w.Spawn()
 		f := newFauna(w, spawn)
-		f.all = slices.DeleteFunc(f.all, func(c beast) bool { return !slices.Contains(giants, c.kind) }) // only they are walked: it is them the test is about
-		f.timer = math.Inf(1)                                                                            // none come or go
-		sky := spawn.Add(geometry.Vector3{Y: 60})                                                        // a player too far off to be a threat, and near enough for them to be awake
+		f.all = slices.DeleteFunc(f.all, func(c beast) bool { return !slices.Contains(big, c.kind) }) // only they are walked: it is them the test is about
+		f.timer = math.Inf(1)                                                                         // none come or go
+		sky := spawn.Add(geometry.Vector3{Y: 60})                                                     // a player too far off to be a threat, and near enough for them to be awake
 		start, farthest := map[*rand.Rand]geometry.Vector3{}, map[*rand.Rand]float64{}
+		kindOf := map[*rand.Rand]render.Kind{}
 		for i := range f.all {
-			if c := &f.all[i]; slices.Contains(giants, c.kind) && !c.young {
-				start[c.rng] = c.Pos
+			if c := &f.all[i]; !c.young {
+				start[c.rng], kindOf[c.rng] = c.Pos, c.kind
 			}
 		}
 		for range seconds(120) {
@@ -380,10 +383,11 @@ func TestGiantsDoNotStickOnTheLand(t *testing.T) {
 		for who := range start {
 			if walked++; farthest[who] < 3 {
 				stuck++
+				stuckOf[kindOf[who]]++
 			}
 		}
 	}
-	t.Logf("%d giants walked for two minutes in ten worlds, and %d never got three blocks from where they began", walked, stuck)
+	t.Logf("%d giants walked for two minutes in ten worlds, and %d never got three blocks from where they began: %v", walked, stuck, stuckOf)
 	if walked < 10 {
 		t.Fatalf("only %d giants were found in ten worlds", walked)
 	}

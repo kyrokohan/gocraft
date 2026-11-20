@@ -146,6 +146,11 @@ type Game struct {
 
 	swing float64 // seconds left of a swing of the hand
 
+	// quake is how hard the ground shakes under the player, from 0 to 1, since the step
+	// of a giant: it dies away, and shook is how long it has shaken, which is what the
+	// view trembles by.
+	quake, shook float64
+
 	// The player's body, in survival.
 	health, food, air float64
 	hunger, mend      float64 // seconds since food last went down, and since the body last mended
@@ -476,6 +481,11 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		g.worldSounds(dt)
 		g.flash = max(g.flash-dt, 0)
 		g.swing = max(g.swing-dt, 0)
+		if g.shook += dt; g.quake > 0 {
+			if g.quake *= math.Exp(-dt / shakeFade); g.quake < 0.01 {
+				g.quake = 0
+			}
+		}
 		if g.survival {
 			if g.live(dt); g.screen != playing {
 				return nil // the player fainted

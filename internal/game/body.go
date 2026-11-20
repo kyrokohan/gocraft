@@ -46,12 +46,28 @@ func inWater(w *world.World, pos geometry.Vector3) bool {
 // block stopped it. It goes a part at a time, each under half a block, and along one
 // axis at a time, which is what lets a body slide along a wall it meets at an angle.
 func travel(w *world.World, pos *geometry.Vector3, width, height float64, move geometry.Vector3) (stopped [3]bool) {
+	return travelIn(w, pos, width, height, move, solid)
+}
+
+// firm reports whether the block at a cell stops a beast that walks through the leaves
+// of trees: a solid block that is not leaves.
+func firm(w *world.World, x, y, z int) bool {
+	if y < 0 {
+		return true
+	}
+	info := w.At(x, y, z).Info()
+	return info.Solid && info.Shade != 1
+}
+
+// travelIn is travel for a body that the blocks stops says stop: solid for most, and
+// firm for one that walks through leaves.
+func travelIn(w *world.World, pos *geometry.Vector3, width, height float64, move geometry.Vector3, stops func(*world.World, int, int, int) bool) (stopped [3]bool) {
 	steps := max(1, int(math.Ceil(max(math.Abs(move.X), math.Abs(move.Y), math.Abs(move.Z))/maxStep)))
 	part := move.Scale(1 / float64(steps))
 	for range steps {
 		for _, axis := range [3]int{0, 2, 1} { // along the ground first, then up or down
 			delta := [3]float64{part.X, part.Y, part.Z}[axis]
-			if slide(w, pos, width, height, axis, delta) {
+			if slide(w, pos, width, height, axis, delta, stops) {
 				stopped[axis] = true
 			}
 		}
@@ -61,7 +77,7 @@ func travel(w *world.World, pos *geometry.Vector3, width, height float64, move g
 
 // slide moves a body along one axis and, if that takes its box into a solid block, puts
 // it back against the block's face. It reports whether the body was stopped.
-func slide(w *world.World, pos *geometry.Vector3, width, height float64, axis int, delta float64) bool {
+func slide(w *world.World, pos *geometry.Vector3, width, height float64, axis int, delta float64, stops func(*world.World, int, int, int) bool) bool {
 	if delta == 0 {
 		return false
 	}
@@ -83,7 +99,7 @@ func slide(w *world.World, pos *geometry.Vector3, width, height float64, axis in
 	for y := from[1]; y <= to[1]; y++ {
 		for z := from[2]; z <= to[2]; z++ {
 			for x := from[0]; x <= to[0]; x++ {
-				if !solid(w, x, y, z) {
+				if !stops(w, x, y, z) {
 					continue
 				}
 				stopped = true

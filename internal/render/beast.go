@@ -24,6 +24,7 @@ const (
 	Shieldbrow  // a horned giant with a shield of bone behind its head, that guards its young
 	Thornback   // a giant with plates along its back and spikes on its tail
 	Boulderback // a low giant in armor, with a club at the end of its tail
+	Cloudgrazer // a giant among giants: a long neck that feeds from the tops of trees
 
 	Kinds // how many kinds there are
 )
@@ -31,6 +32,7 @@ const (
 var kindNames = [Kinds]string{
 	Mossback: "mossback", Bugler: "bugler", Nipper: "nipper", Quickclaw: "quickclaw",
 	Shieldbrow: "shieldbrow", Thornback: "thornback", Boulderback: "boulderback",
+	Cloudgrazer: "cloudgrazer",
 }
 
 // String returns the name of a kind, as a save holds it.
@@ -68,6 +70,9 @@ var sizes = [Kinds][2]float64{
 	Shieldbrow:  {1.7, 2.4},
 	Thornback:   {1.4, 2.4},
 	Boulderback: {1.7, 1.3},
+
+	// A cloudgrazer's is its legs and its trunk: its neck goes higher still.
+	Cloudgrazer: {2.6, 7.3},
 }
 
 // spans are how far behind and ahead of the point between its feet the body of a grown
@@ -77,6 +82,7 @@ var spans = [Kinds][2]float64{
 	Shieldbrow:  {-3.6, 2.9},
 	Thornback:   {-3.9, 2.4},
 	Boulderback: {-3.3, 2.2},
+	Cloudgrazer: {-11.5, 8.5},
 }
 
 // Span returns how far behind and ahead of the point between its feet a beast's body
@@ -185,6 +191,7 @@ func NewBeasts(set *assets.Set) *Beasts {
 		Shieldbrow:  shieldbrowShape(set),
 		Thornback:   thornbackShape(set),
 		Boulderback: boulderbackShape(set),
+		Cloudgrazer: cloudgrazerShape(set),
 	}}
 }
 
@@ -459,6 +466,34 @@ func boulderbackShape(set *assets.Set) shape {
 	}
 	leg := box(-0.22, -hip, -0.22, 0.44, hip, 0.44, all6(giantLeg), n, look)
 	return shape{stand: hip, hurt: reddened(set.Boulderback), parts: append(parts, fourLegs(leg, hip, 0.7, 0.95, -0.95, 0.35)...)}
+}
+
+// cloudgrazerShape is a cloudgrazer: a trunk as big as a hut on four legs like the
+// boles of trees, a neck that rises ahead of it to twice that height with a small head
+// at its end, and a tail as long again that sinks behind it.
+func cloudgrazerShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(106, 124, 142), Texture: set.Cloudgrazer}
+	const n = assets.CloudgrazerTiles
+	const hip = 4.6
+	hide, head := giantHide()
+	neck := [6]int{giantArmA, giantArmA, giantBelly, giantArmA, giantSide, giantSide}
+	end := [6]int{giantArmB, giantArmB, giantBelly, giantArmB, giantArmB, giantArmB}
+
+	parts := []limb{
+		{mesh: box(-1.5, hip-0.3, -3.4, 3.0, 3.0, 6.8, hide, n, look)},
+		// The neck is two lengths, each from its root and tipped up, and the head
+		// level at the top of them.
+		{mesh: box(-0.65, -0.65, 0, 1.3, 1.3, 4.4, neck, n, look), up: hip + 1.9, front: 2.9, tilt: 0.9},
+		{mesh: box(-0.5, -0.5, 0, 1.0, 1.0, 3.7, neck, n, look), up: hip + 5.1, front: 5.4, tilt: 1.1},
+		{mesh: box(-0.5, hip+7.9, 6.7, 1.0, 0.95, 1.9, head, n, look)},
+		// The tail is three lengths, each from its root and sinking, and the last two
+		// sway.
+		{mesh: box(-0.8, -0.8, -3.1, 1.6, 1.6, 3.1, hide, n, look), up: hip + 1.6, front: -3.3, tilt: 0.3},
+		{mesh: box(-0.5, -0.5, -3.3, 1.0, 1.0, 3.3, hide, n, look), up: hip + 0.75, front: -6.1, tilt: 0.42, sway: 0.1},
+		{mesh: box(-0.25, -0.25, -3.1, 0.5, 0.5, 3.1, end, n, look), up: hip - 0.55, front: -9.0, tilt: 0.5, sway: 0.2},
+	}
+	leg := box(-0.45, -hip, -0.45, 0.9, hip, 0.9, all6(giantLeg), n, look)
+	return shape{stand: hip, hurt: reddened(set.Cloudgrazer), parts: append(parts, fourLegs(leg, hip, 1.0, 2.3, -2.3, 0.28)...)}
 }
 
 // shining is the light an eye that shines is drawn in: all of it, from every side.
