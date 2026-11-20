@@ -70,6 +70,9 @@ func (g *Game) live(dt float64) {
 	for g.hunger += dt; g.hunger >= hungerTime; g.hunger -= hungerTime {
 		g.food = max(g.food-1, 0)
 	}
+	if g.food >= mendFood && inWater(g.world, p.Pos) && g.world.Spring(p.Pos.X, p.Pos.Z) {
+		g.mend += dt // the warm water of a hot spring: a body mends twice as fast in it
+	}
 	if g.mend += dt; g.mend >= mendTime {
 		g.mend = 0
 		switch {

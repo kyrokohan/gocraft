@@ -480,3 +480,16 @@ func striker(x, y int) (rgb, bool) {
 	}
 	return rgb{}, false
 }
+
+// sinter returns the painter of the stone a hot spring leaves, of a color: laid down in
+// thin wavy terraces, pale along the lip of each.
+func sinter(base rgb, seed int) painter {
+	return func(x, y int) (rgb, bool) {
+		wave := y + int(2*blotch(x, y, 8, seed))
+		c := base.scale(0.86 + 0.24*blotch(x, y, 4, seed+1))
+		if wave%4 == 0 {
+			c = c.mix(rgb{240, 232, 214}, 0.4) // the lip of a terrace
+		}
+		return grain(c, 0.05, x, y, seed+2), true
+	}
+}

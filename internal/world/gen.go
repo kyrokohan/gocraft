@@ -233,6 +233,7 @@ func (t terrain) build() {
 	}
 
 	t.landmarks()
+	t.mountains()
 
 	// The trees whose leaves can reach into this chunk: those rooted in it or within
 	// treeReach of it. A tree takes the place of whatever small thing grew at its foot.
