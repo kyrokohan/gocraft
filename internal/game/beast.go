@@ -97,6 +97,13 @@ type breed struct {
 	stalks, snaps, feeds float64
 	cows                 bool
 
+	// heralds is how many seconds before a pack that visits comes its cry is heard from
+	// where it will come: none, for one that comes unheard. byDay is true for a hunter
+	// that hunts in the light and lies still in the dark. springs is how far from what
+	// it hunts it springs at it: none, for one that runs it down.
+	heralds, springs float64
+	byDay            bool
+
 	temper temper
 	group  [2]int  // the fewest and the most that are found together
 	most   int     // of its kind round the player
@@ -263,6 +270,30 @@ var breeds = [render.Kinds]breed{
 		lands: []world.Biome{world.Tundra}, bare: true,
 		call: sound.Grunt, cry: sound.Bellow, callEvery: 60,
 	},
+
+	// The hunters of the steppe. Howlers come by night in a pack, to a player who is on
+	// the steppe, and their howl is heard before they are seen: light holds them off as
+	// it does quickclaws. A daggercat lives there, alone, and hunts by day: it stalks,
+	// springs, and backs off to spring again, and it will not come at a fire.
+	render.Howler: {
+		walk: 2.2, run: 5.4, gait: 5.0,
+		health: 12, bite: 3, meat: 1, hide: 1,
+		temper: hunter, group: [2]int{4, 6}, most: 6, sees: 26, hears: 18,
+		visits: true, from: firstHunt, comes: [2]float64{hunterFar, hunterFar + 12}, bears: hunterLit,
+		heralds: 8,
+		stalks:  preySight, snaps: biteWait, feeds: feedTime,
+		lands: []world.Biome{world.Tundra},
+		call:  sound.Growl, cry: sound.Howl, callEvery: 11, carries: 4 * sound.Hearing,
+	},
+	render.Daggercat: {
+		walk: 1.5, run: 5.6, gait: 3.4,
+		health: 30, bite: 10, meat: 3, hide: 2,
+		temper: hunter, group: [2]int{1, 1}, most: 1, sees: 26, hears: 12,
+		from: firstHunt, byDay: true, springs: 8,
+		stalks: 20, snaps: 4, feeds: feedTime,
+		lands: []world.Biome{world.Tundra}, bare: true,
+		call: sound.Growl, cry: sound.Snarl, callEvery: 40,
+	},
 }
 
 // slowclawGrudge is how near what it was hit by a slowclaw must be for the slowclaw to
@@ -319,6 +350,7 @@ type beast struct {
 	// long it still stands over its kill, how long it has stood in the light, and
 	// whether it has turned to go, and for how long.
 	keen, biteIn, feeding, lit float64
+	leap                       float64 // how long the spring of one that springs still lasts
 	leaving                    bool
 	gone                       float64
 	about                      float64 // how long a hunter that visits has been about
@@ -366,10 +398,17 @@ type fauna struct {
 	// light at a place is. fires are the fires near the player that burn three or more
 	// together, which is a big fire: a hunter that fears one keeps off them.
 	moving, hidden, meaty, hunted bool
-	winter                        bool // it is the Long Winter: herds are thin, and hunters do not mind the day
-	day                           float64
-	bright                        func(at geometry.Vector3) float64
-	fires                         []geometry.Vector3
+	winter                        bool    // it is the Long Winter: herds are thin, and hunters do not mind the day
+	fireside                      bool    // the player is by a fire, which some hunters will not come to
+	sun                           float64 // how bright the day is, from 0 to 1, whatever a hunter makes of it
+
+	// For a pack that is heard before it comes: how many seconds ago its cry was heard,
+	// none if it has not been, and where it was heard from, which is where it comes.
+	howled [render.Kinds]float64
+	howlAt [render.Kinds]geometry.Vector3
+	day    float64
+	bright func(at geometry.Vector3) float64
+	fires  []geometry.Vector3
 
 	// wait is how many seconds are left before the next of a kind that comes only now
 	// and then may come.
@@ -741,6 +780,8 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 	for k := range render.Kinds {
 		switch b := &breeds[k]; {
 		case f.count(k) >= f.most(k):
+		case b.visits && b.heralds > 0:
+			f.herald(w, k, player)
 		case b.visits:
 			if f.about(k) && f.wait[k] == 0 {
 				f.add(w, k, player, b.comes[0], b.comes[1]) // near enough to find the player
@@ -1042,6 +1083,9 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	if c.hurry {
 		speed = b.run
 	}
+	if c.leap > 0 {
+		speed = springSpeed
+	}
 	if c.flee > 0 {
 		c.flee -= dt
 		c.walking, c.timer, speed = true, max(c.timer, rethink), b.run
@@ -1145,7 +1189,7 @@ func (g *Game) stepBeasts(dt float64) {
 	f.moving, f.hidden, f.hunted, f.day = g.paced, g.hidden(), g.survival, firstMorning+g.days
 	g.findFires(dt)
 	f.meaty = slices.ContainsFunc(g.items[:], func(s world.Stack) bool { return s.Item == world.Meat })
-	f.winter = g.winter()
+	f.winter, f.fireside = g.winter(), g.byFire()
 	f.bright = func(at geometry.Vector3) float64 {
 		l := g.lightAt(at)
 		if f.winter {
@@ -1154,6 +1198,7 @@ func (g *Game) stepBeasts(dt float64) {
 		return g.sky.Brightness(l)
 	}
 	g.sky.Set(timeOfDay(g.days)) // the light they keep out of is the light of this hour
+	f.sun = g.sky.Brightness(world.Light(world.MaxLight << 4))
 	f.step(g.world, g.player.Pos, dt)
 	if f.bitten > 0 && g.survival {
 		travel(g.world, &g.player.Pos, playerWidth, playerHeight, f.shove) // a blow throws

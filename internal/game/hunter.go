@@ -46,6 +46,14 @@ const (
 	staggerFor = 0.5  // how long a hit sets back one that stands its ground
 
 	glowBelow = 0.5 // the light under which eyes that can shine do
+
+	// A hunter that springs.
+	springTime  = 0.55 // how long its spring lasts
+	springSpeed = 15.0 // how fast it goes through the air, in blocks a second
+	springHop   = 5.0  // how fast it leaves the ground
+	springBack  = 3.0  // how long it backs off after a spring that hit
+	springShy   = 4.0  // how much farther off than it springs from it keeps from a player by a fire
+	sunUp       = 0.5  // how bright the day must be for a hunter of the day to hunt
 )
 
 // brightAt returns how bright the light at a place is. With no light to ask it is dark:
@@ -189,6 +197,13 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 		return
 	}
 	if c.flee > 0 {
+		c.leap = 0
+		return
+	}
+	if b.byDay && f.sun < sunUp {
+		// A hunter of the day lies still through the dark.
+		c.keen, c.leap = 0, 0
+		c.walking, c.timer = false, max(c.timer, rethink)
 		return
 	}
 	// A lesser hunter runs from the dread.
@@ -235,10 +250,42 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 
 	to := geometry.Vector3{X: goal.X - c.Pos.X, Z: goal.Z - c.Pos.Z}
 	far := to.Length()
+	if c.leap > 0 {
+		// In the air: it goes the way it sprang, and cannot turn. It bites what it
+		// reaches, and backs off; what stepped out of its way it misses.
+		c.leap = max(c.leap-dt, 0)
+		c.walking, c.timer = true, max(c.timer, rethink)
+		switch {
+		case far < biteReach+0.3 && math.Abs(goal.Y-c.Pos.Y) < 2:
+			if quarry == nil {
+				f.bitten += b.bite
+			} else if quarry.hit(c.Pos, b.bite) {
+				c.feeding = b.feeds
+			}
+			c.leap, c.biteIn = 0, b.snaps
+			if quarry == nil {
+				c.flee = springBack
+				c.Yaw = yawOf(to.Neg())
+			}
+		case c.leap == 0:
+			c.biteIn = b.snaps / 2 // it missed, and gathers itself
+		}
+		return
+	}
 	if far > 1e-6 {
 		c.Yaw = yawOf(to)
 	}
 	c.timer = max(c.timer, rethink)
+	if b.springs > 0 && quarry == nil && f.fireside && far < b.springs+springShy {
+		c.walking = false // it will not come at a player by a fire: it waits, out of its spring
+		return
+	}
+	if b.springs > 0 && c.biteIn == 0 && c.OnGround && far <= b.springs && far > 2*biteReach && clearSight(w, c.voice(), goal.Add(geometry.Vector3{Y: 1})) {
+		c.leap, c.velY = springTime, springHop
+		c.walking = true
+		f.sounds = append(f.sounds, said{b.cry, c.kind, c.voice()})
+		return
+	}
 	if far < biteReach && math.Abs(goal.Y-c.Pos.Y) < 2 {
 		c.walking = false
 		if c.biteIn > 0 {
@@ -273,7 +320,38 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 			}
 		}
 	}
-	c.walking, c.hurry = true, true
+	// One that springs stalks: it comes on at a walk once it is near, and runs from far.
+	c.walking, c.hurry = true, b.springs == 0 || far > 2*b.springs
+}
+
+// herald brings a pack of a kind that is heard before it comes: to a player in one of
+// its lands, when it is about. Its cry is heard from where it will come out, and so
+// many seconds after that it comes out there. It is asked once a second.
+func (f *fauna) herald(w *world.World, k render.Kind, player geometry.Vector3) {
+	b := &breeds[k]
+	land, ok := w.Land(player.X, player.Z)
+	if !ok || !slices.Contains(b.lands, land) || !f.about(k) || f.wait[k] > 0 || f.count(k) > 0 {
+		f.howled[k] = 0
+		return
+	}
+	if f.howled[k] == 0 {
+		// Where it will come from: a dark place, as far off as it comes out.
+		angle := f.rng.Float64() * 2 * math.Pi
+		at := player.Add(geometry.Vector3{X: b.comes[1] * math.Cos(angle), Z: b.comes[1] * math.Sin(angle)})
+		f.feet = int(math.Floor(player.Y))
+		if _, ok := f.lair(w, k, int(math.Floor(at.X)), int(math.Floor(at.Z)), f.feet); !ok {
+			return // not there: another place is tried in a second
+		}
+		f.howlAt[k], f.howled[k] = at, 1
+		f.sounds = append(f.sounds, said{b.cry, k, at.Add(geometry.Vector3{Y: 1})})
+		return
+	}
+	if f.howled[k]++; f.howled[k] > b.heralds && f.add(w, k, f.howlAt[k], 0, 6) {
+		f.howled[k] = 0
+	}
+	if f.howled[k] > 3*b.heralds {
+		f.howled[k] = 0 // it found no way out there: it howls again from somewhere else
+	}
 }
 
 // dismiss lets go of every hunter that comes and goes: the night is over, or the player

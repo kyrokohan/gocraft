@@ -73,6 +73,10 @@ type Set struct {
 	// those are, with SnowtuskTiles and SlowclawTiles tiles.
 	Snowtusk, Slowclaw *bitmap.Bitmap
 
+	// Howler and Daggercat are the same for the hunters of the steppe, with HowlerTiles
+	// and DaggercatTiles tiles: the last two are its tail, and an ear or a fang.
+	Howler, Daggercat *bitmap.Bitmap
+
 	// Cloudgrazer is the same for the cloudgrazer, with CloudgrazerTiles tiles: the last
 	// two are the bands of its neck and the end of its tail.
 	Cloudgrazer *bitmap.Bitmap
@@ -106,6 +110,8 @@ const (
 	DreadTiles       = 8
 	SnowtuskTiles    = 8
 	SlowclawTiles    = 8
+	HowlerTiles      = 8
+	DaggercatTiles   = 8
 )
 
 // PersonLooks is how many looks a cave person can have.
@@ -170,6 +176,8 @@ func Load() (*Set, error) {
 		{&set.Dread, "img/dread.png", DreadTiles},
 		{&set.Snowtusk, "img/snowtusk.png", SnowtuskTiles},
 		{&set.Slowclaw, "img/slowclaw.png", SlowclawTiles},
+		{&set.Howler, "img/howler.png", HowlerTiles},
+		{&set.Daggercat, "img/daggercat.png", DaggercatTiles},
 	} {
 		if *giant.into, err = creature(giant.file, giant.tiles); err != nil {
 			return nil, err
