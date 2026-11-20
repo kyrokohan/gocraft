@@ -91,11 +91,11 @@ type Sky struct {
 	streakHead, streakTail geometry.Vector3
 	streak                 float64
 
-	// A fireball: how bright it is and the land under it, from 0 to 1, and, if it is
-	// seen, the ways to its head and to the end of its tail, one long each.
-	ballHead, ballTail geometry.Vector3
-	ball               float64
-	ballSeen           bool
+	// Fireballs: how bright they are and the land under them, from 0 to 1, and for each
+	// that is seen the ways to its head and to the end of its tail, one long each.
+	balls [maxBalls][2]geometry.Vector3
+	seen  int
+	ball  float64
 
 	// The comet: how near it is, from 0, none, to 1; where its head is, one long, and
 	// the way its tail goes from there, one long and square to that; how long the tail
@@ -146,14 +146,20 @@ func (s *Sky) SetStreaks(clock, perMinute float64) {
 	s.streak = math.Sin(math.Pi * into)
 }
 
-// SetFireball has a fireball stand in the sky: the ways from the eye to it and to the end
-// of its tail, of any length, and how bright it is, from 0, none, to 1. It lights the
-// land under it as dusk does, from the next Set. With no way to it there is no ball, and
-// the light alone: the flash of one that has struck.
-func (s *Sky) SetFireball(head, tail geometry.Vector3, bright float64) {
-	s.ball, s.ballSeen = min(max(bright, 0), 1), false
-	if s.ball > 0 && head.Length() > 1e-9 && tail.Length() > 1e-9 {
-		s.ballHead, s.ballTail, s.ballSeen = head.Normalize(), tail.Normalize(), true
+// maxBalls is how many fireballs the sky shows at once.
+const maxBalls = 4
+
+// SetFireballs has fireballs stand in the sky: for each, the ways from the eye to it and
+// to the end of its tail, of any length; and how bright they are, from 0, none, to 1.
+// They light the land under them as dusk does, from the next Set. With none there is no
+// ball, and the light alone: the flash of one that has struck.
+func (s *Sky) SetFireballs(ways [][2]geometry.Vector3, bright float64) {
+	s.ball, s.seen = min(max(bright, 0), 1), 0
+	for _, w := range ways {
+		if s.ball > 0 && s.seen < maxBalls && w[0].Length() > 1e-9 && w[1].Length() > 1e-9 {
+			s.balls[s.seen] = [2]geometry.Vector3{w[0].Normalize(), w[1].Normalize()}
+			s.seen++
+		}
 	}
 }
 
@@ -168,7 +174,13 @@ const (
 	cometGlow = 3.0   // how many times wider than that the glow round its head is
 )
 
-var cometColor = color{206, 228, 255}
+// cometOmen is how near the comet is when the sky begins to redden: in its last hours.
+const cometOmen = 0.97
+
+var (
+	cometColor = color{206, 228, 255}
+	omenRed    = color{150, 34, 26}
+)
 
 // SetComet has the comet stand among the stars, as near as near says, from 0, none, to
 // 1, at which it is biggest. It shows from the next Set.
@@ -297,6 +309,9 @@ func (s *Sky) Set(time float64) {
 		// A near one shows before the stars do: through the dusk and the dawn.
 		early := 0.3 * smooth(0.5, 1, s.comet)
 		s.cometSeen = (1 - smooth(-0.25+early, 0.02+early, height)) * (1 - s.ash) * (0.45 + 0.55*s.comet)
+		// On its last night the low sky is red with it.
+		omen := smooth(cometOmen, 1, s.comet)
+		s.horizon, s.zenith = s.horizon.mix(omenRed, part(0.6*omen)), s.zenith.mix(omenRed, part(0.2*omen))
 	}
 
 	for c := range s.skyChannels {
@@ -398,7 +413,7 @@ func (s *Sky) color(d geometry.Vector3) color {
 			behind := math.Atan2(back, ahead)
 			if far, wide := behind/s.cometLong, head*(1+cometFan*behind/s.cometLong); far >= 0 && far < 1 && side < wide {
 				faint := 1 - far
-				c = c.mix(cometColor, part(s.cometSeen*(1-side/wide)*(0.12+0.88*faint*faint)))
+				c = c.mix(cometColor.mix(duskGlow, part(smooth(cometOmen, 1, s.comet))), part(s.cometSeen*(1-side/wide)*(0.12+0.88*faint*faint)))
 			}
 			// Its head: a glow, and a bright middle to it.
 			if off := d.Sub(s.cometHead).Length(); off < cometGlow*head {
@@ -407,12 +422,12 @@ func (s *Sky) color(d geometry.Vector3) color {
 			}
 		}
 	}
-	if s.ballSeen {
-		// The fireball: a head, a tail that narrows behind it, and a glow round the head.
-		t, off := along(d, s.ballTail, s.ballHead)
+	for _, b := range s.balls[:s.seen] {
+		// A fireball: a head, a tail that narrows behind it, and a glow round the head.
+		t, off := along(d, b[1], b[0])
 		if wide := ballWide * (0.15 + 0.85*t*t); off < wide {
 			c = c.mix(ballTrail.mix(ballColor, part(t*t)), part(s.ball*(0.35+0.65*t)*(1-0.6*off/wide)))
-		} else if far := d.Sub(s.ballHead).Length(); far < ballHalo {
+		} else if far := d.Sub(b[0]).Length(); far < ballHalo {
 			c = c.mix(duskGlow, part(0.6*s.ball*(1-far/ballHalo)*(1-far/ballHalo)))
 		}
 	}

@@ -64,18 +64,19 @@ func (g *Game) erupting() (crater world.Cell, since, near float64) {
 }
 
 // ash returns how much ash the sky holds, from 0 to 1, and how much of the fire of a
-// mountain that is throwing it out is seen: the ash comes with the first rocks, and
-// thins for half a day after the last.
+// mountain that is throwing it out is seen. The ash of a mountain comes with its first
+// rocks, and thins for half a day after the last. The ash of the Great Fall is there
+// with it, and the sky holds the more of the two.
 func (g *Game) ash() (ash, fire float64) {
 	_, since, near := g.erupting()
 	switch after := since - eruptWarn - eruptTime; {
 	case since < eruptWarn:
-		return 0, 0
 	case after < 0:
-		return near * min((since-eruptWarn)/ashRise, 1), near
+		ash, fire = near*min((since-eruptWarn)/ashRise, 1), near
 	default:
-		return near * max(1-after/(ashAfter*dayLength), 0), 0
+		ash = near * max(1-after/(ashAfter*dayLength), 0)
 	}
+	return max(ash, g.fallAsh()), fire
 }
 
 // erupt runs the fire mountain near the player for dt seconds: the tremble and the

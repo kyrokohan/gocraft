@@ -111,7 +111,7 @@ func TestAStarComesDownFortyBlocksOffOrMoreAndNeverNearTheBed(t *testing.T) {
 		before, flew, bright := len(cores(g)), false, 0.0
 		for range seconds(starFlight + 3) {
 			hold(t, g, 1)
-			_, _, ball := g.fireball()
+			_, ball := g.fireballs()
 			flew, bright = flew || starInSky(g), max(bright, ball)
 		}
 		if !flew || bright < 1 || starInSky(g) {
@@ -182,7 +182,7 @@ func TestTheBoomOfAStarComesASecondLaterForEachFortyBlocks(t *testing.T) {
 	for _, far := range []float64{40, 72} {
 		g := among(t, 0.5)
 		g.impact(geometry.Vector3{X: 0.5, Y: 6.5, Z: 0.5 + far})
-		if _, _, flash := g.fireball(); flash <= 0 {
+		if _, flash := g.fireballs(); flash <= 0 {
 			t.Errorf("a star struck %v blocks off and no flash is seen at once", far)
 		}
 		wait := far / boomPace
@@ -195,7 +195,7 @@ func TestTheBoomOfAStarComesASecondLaterForEachFortyBlocks(t *testing.T) {
 			t.Errorf("%.1f s after a star struck %v blocks off, %d booms were heard and the ground shakes by %.2f", wait+0.2, far, heard(g)[sound.Boom], g.quake)
 		}
 		hold(t, g, seconds(2))
-		if _, _, flash := g.fireball(); flash != 0 || heard(g)[sound.Boom] != 1 {
+		if _, flash := g.fireballs(); flash != 0 || heard(g)[sound.Boom] != 1 {
 			t.Errorf("two seconds on the flash is %.2f and %d booms were heard", flash, heard(g)[sound.Boom])
 		}
 	}
@@ -309,7 +309,7 @@ func TestAStarHurtsWhatItStrikesAndSparesWhatMustBeKept(t *testing.T) {
 		g := among(t, 0.5)
 		keep(g)
 		g.impact(geometry.Vector3{X: 30.5, Y: 6.5, Z: 30.5})
-		if _, _, flash := g.fireball(); g.world.At(30, 5, 30) != world.Stone || len(g.embers) != 0 || flash <= 0 || len(g.booms) != 1 {
+		if _, flash := g.fireballs(); g.world.At(30, 5, 30) != world.Stone || len(g.embers) != 0 || flash <= 0 || len(g.booms) != 1 {
 			t.Errorf("a star that came down by %s left %v where it struck and %d fires, with a flash of %.2f and %d booms to come", name, g.world.At(30, 5, 30), len(g.embers), flash, len(g.booms))
 		}
 	}

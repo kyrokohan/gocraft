@@ -23,6 +23,21 @@ const (
 	cometEvery = 24 // how many days it is from one arrival to the next
 	cometFalls = 3  // in so many nights before it arrives a star falls near the player every night
 
+	// The Great Fall: round the midnight the Skyspear arrives stars come down thick, and
+	// then the Skyspear itself strikes, far off.
+	fallLasts = 180.0 // how long the stars come down: half of it before that midnight
+	fallEvery = 2.0   // from one of them to the next
+	fallFar   = 96.0  // how far from the player the farthest is aimed: any nearer may be
+	fallScare = 40.0  // how far from where a star strikes beasts run from it
+	fallRun   = 5.0   // and for how long
+
+	whiteTime    = 3.0  // how long the sky is white when the Skyspear strikes
+	skyspearBoom = 20.0 // how long its boom is on its way: it struck 800 blocks off
+	shockTime    = 6.0  // how long the ground shakes when its boom comes
+	ashClimb     = 60.0 // how long its ash takes to fill the sky
+	winterAsh    = 0.7  // how much ash the sky holds through the winter after
+	winterDays   = 4.0  // how many days that winter lasts
+
 	starNear   = 40.0  // the nearest the player a star is aimed
 	starFar    = 90.0  // and the farthest
 	starFlight = 4.0   // how long a fireball is in the sky
@@ -38,19 +53,21 @@ const (
 
 	bowlWide    = 3.5       // how far from its middle a crater reaches: it is seven across
 	bowlDeep    = 3         // how deep it is
-	blastHigh   = 6.0       // how far over and under its rim what stands in it is hurt
+	blastHigh   = 6.0       // how far over its rim what stands in it is hurt
 	blastHarm   = 12.0      // points a star takes from what is in its crater when it strikes
 	craterFires = 5         // how many fires it leaves round its crater
 	starFire    = dayLength // how long those burn: a day
 	coreHot     = 120.0     // how long the core is too hot to touch
+	coreFalls   = 12        // how far under its crater a core that broke through a roof is looked for a floor to lie in
 	storeSafe   = 8.0       // how near a pot or a hearth no star comes down
 	mountSafe   = 75.0      // how near the middle of a fire mountain none does: on its ash
 )
 
 // boom is the sound of a star that struck, on its way to the player.
 type boom struct {
-	at   geometry.Vector3
-	left float64 // seconds until it is heard
+	at    geometry.Vector3
+	left  float64 // seconds until it is heard
+	great bool    // it is the boom of the Skyspear itself, which shakes the ground hard
 }
 
 // cometAt returns how near the Skyspear is on a day of the world, from 0, when the last
@@ -67,8 +84,51 @@ func cometAt(days float64) (near, left float64) {
 }
 
 // comet returns how near the Skyspear is now, and how many days it is until it arrives.
+// Through the Great Fall it is all here, until it strikes.
 func (g *Game) comet() (near, left float64) {
-	return cometAt(g.days)
+	near, left = cometAt(g.days)
+	if since := g.greatFall(); since >= 0 && since < fallLasts {
+		near = 1
+	}
+	return near, left
+}
+
+// greatFall returns how many seconds ago the last Great Fall began: its stars come down
+// for fallLasts, round the midnight the Skyspear arrives, and then the Skyspear strikes.
+// Before the first has begun it is fewer than none. It is by the clock alone, so a
+// world opened half way through one goes on with it, and nothing of it is in a save.
+func (g *Game) greatFall() float64 {
+	first := cometNight - firstMorning - fallLasts/2/dayLength // the day the first begins
+	if g.days < first {
+		return (g.days - first) * dayLength
+	}
+	return math.Mod(g.days-first, cometEvery) * dayLength
+}
+
+// fallTonight reports whether the Great Fall is on, or begins within half a day: on such
+// a night nobody sleeps.
+func (g *Game) fallTonight() bool {
+	since := g.greatFall()
+	until := -since
+	if since >= 0 {
+		until = cometEvery*dayLength - since
+	}
+	return since >= 0 && since < fallLasts || until < dayLength/2
+}
+
+// fallAsh returns how much ash the Great Fall has put in the sky: none until the
+// Skyspear strikes, then it climbs, stays through the winter, and thins for half a day
+// after.
+func (g *Game) fallAsh() float64 {
+	after := g.greatFall() - fallLasts // seconds since the Skyspear struck
+	switch winter := winterDays * dayLength; {
+	case after < 0:
+		return 0
+	case after < winter:
+		return winterAsh * min(after/ashClimb, 1)
+	default:
+		return winterAsh * max(1-(after-winter)/(ashAfter*dayLength), 0)
+	}
 }
 
 // streaks returns how many shooting stars a minute streak the sky tonight: more the
@@ -103,39 +163,68 @@ func (g *Game) nextStar() (when float64, ok bool) {
 // stars runs the falling stars for dt seconds: the flash of one that struck fades, its
 // boom comes when it has crossed the land, and a star whose moment has come falls. One
 // whose moment the clock was moved past still falls if it is night, and one slept
-// through does not.
+// through does not. In the Great Fall they come one after another, and at its end the
+// Skyspear strikes.
 func (g *Game) stars(dt float64) {
-	g.glare = max(g.glare-dt, 0)
+	g.glare, g.white = max(g.glare-dt, 0), max(g.white-dt, 0)
+	if g.shock > 0 {
+		g.shock = max(g.shock-dt, 0)
+		g.quake = max(g.quake, min(1.5*g.shock/shockTime, 1))
+	}
 	kept := g.booms[:0]
 	for _, b := range g.booms {
-		if b.left -= dt; b.left > 0 {
+		switch b.left -= dt; {
+		case b.left > 0:
 			kept = append(kept, b)
-			continue
-		}
-		g.ears.PlayFar(sound.Boom, b.at, 1, boomHeard)
-		if far := b.at.Distance(g.player.Pos); far < boomFelt {
-			g.quake = max(g.quake, math.Pow(1-far/boomFelt, 2))
+		case b.great:
+			g.ears.PlayFar(sound.Boom, b.at, 1, 2*b.at.Distance(g.player.Pos))
+			g.ears.PlayNear(sound.Tremor, 1)
+			g.shock = shockTime
+		default:
+			g.ears.PlayFar(sound.Boom, b.at, 1, boomHeard)
+			if far := b.at.Distance(g.player.Pos); far < boomFelt {
+				g.quake = max(g.quake, math.Pow(1-far/boomFelt, 2))
+			}
 		}
 	}
 	g.booms = kept
 
 	from := g.fallen
 	g.fallen = g.days
+	switch since := g.greatFall(); {
+	case since >= 0 && since < fallLasts:
+		if math.Floor(since/fallEvery) != math.Floor((since-dt)/fallEvery) {
+			g.dropStar(0, fallFar)
+		}
+		return
+	case since >= fallLasts && since-(g.days-from)*dayLength < fallLasts:
+		g.skyspear()
+		return
+	}
 	when, ok := g.starFall(int(math.Floor(g.days + firstMorning + 0.5)))
 	if at := timeOfDay(g.days); !ok || when <= from || when > g.days || at > 0.2 && at < 0.8 {
 		return
 	}
-	g.dropStar()
+	g.dropStar(starNear, starFar)
 }
 
-// dropStar lets a star fall at a place round the player where one may strike. It comes
-// across the sky, from a side of that place as the player sees it and never from the
-// player's side of it: so what it meets on its way down is no nearer the player than
-// where it was aimed. With no place to strike, none falls.
-func (g *Game) dropStar() {
+// skyspear has the Skyspear itself strike, far off, where it stood in the sky: the sky
+// goes white, and its boom is on its way.
+func (g *Game) skyspear() {
+	g.white, g.glare = whiteTime, flashTime
+	g.booms = append(g.booms, boom{
+		at: g.player.Pos.Add(geometry.Vector3{Z: skyspearBoom * boomPace}), left: skyspearBoom, great: true,
+	})
+}
+
+// dropStar lets a star fall at a place where one may strike, so far from the player and
+// no farther. It comes across the sky, from a side of that place as the player sees it
+// and never from the player's side of it: so what it meets on its way down is no nearer
+// the player than where it was aimed. With no place to strike, none falls.
+func (g *Game) dropStar(near, most float64) {
 	p, r := g.player.Pos, g.scatter
 	for range starTries {
-		bearing, far := 2*math.Pi*r.Float64(), starNear+(starFar-starNear)*r.Float64()
+		bearing, far := 2*math.Pi*r.Float64(), near+(most-near)*r.Float64()
 		x, z := int(math.Floor(p.X+far*math.Cos(bearing))), int(math.Floor(p.Z+far*math.Sin(bearing)))
 		if !g.starMayStrike(x, z) {
 			continue
@@ -196,32 +285,39 @@ func (g *Game) starMayStrike(x, z int) bool {
 	return y >= bowlDeep && over != world.Water && over != world.Lava
 }
 
-// fireball returns what the sky is to show of a falling star: the ways from the player's
-// eyes to it and to the end of its tail, and how bright it is. With none in the sky the
-// ways are nothing, and the brightness is what is left of the flash of one that struck.
-func (g *Game) fireball() (head, tail geometry.Vector3, bright float64) {
+// fireballs returns what the sky is to show of the falling stars: for each, the ways from
+// the player's eyes to it and to the end of its tail; and how bright they are. With none
+// in the sky the brightness is what is left of the flash of one that struck.
+func (g *Game) fireballs() (ways [][2]geometry.Vector3, bright float64) {
 	eye := g.player.head()
+	g.balls = g.balls[:0]
 	for _, m := range g.missiles {
 		if fliers[m.kind].falls {
-			return m.pos.Sub(eye), m.pos.Sub(m.vel.Scale(starTail)).Sub(eye), 1
+			g.balls = append(g.balls, [2]geometry.Vector3{m.pos.Sub(eye), m.pos.Sub(m.vel.Scale(starTail)).Sub(eye)})
 		}
 	}
-	return head, tail, g.glare / flashTime
+	if len(g.balls) > 0 {
+		return g.balls, 1
+	}
+	return nil, g.glare / flashTime
 }
 
 // impact has a star come down at a place. It is seen at once and heard when its boom
-// has crossed the land. Where it may, it hurts what is there and makes its crater; over
-// water, or what must be kept, it burns up and leaves nothing.
+// has crossed the land, and the beasts near run from it. Where it may, it hurts what is
+// there and makes its crater; over water, or what must be kept, it burns up and leaves
+// nothing. What is deeper under where it struck than its crater goes is not hurt: three
+// blocks of earth or stone overhead keep a star off.
 func (g *Game) impact(at geometry.Vector3) {
 	g.glare = flashTime
 	g.booms = append(g.booms, boom{at: at, left: at.Distance(g.player.Pos) / boomPace})
+	g.fauna.drive(at, fallScare, fallRun)
 	x, z := int(math.Floor(at.X)), int(math.Floor(at.Z))
 	if !g.starMayStrike(x, z) {
 		return
 	}
 	y := g.firm(x, z)
 	in := func(p geometry.Vector3) bool {
-		return math.Hypot(p.X-at.X, p.Z-at.Z) <= bowlWide+1 && math.Abs(p.Y-float64(y)) < blastHigh
+		return math.Hypot(p.X-at.X, p.Z-at.Z) <= bowlWide+1 && p.Y > float64(y-bowlDeep)-0.5 && p.Y < float64(y)+blastHigh
 	}
 	for i := range g.fauna.all {
 		if c := &g.fauna.all[i]; !c.dead && in(c.Pos) {
@@ -263,8 +359,15 @@ func (g *Game) crater(x, y, z int) {
 			}
 		}
 	}
-	w.Set(x, y-bowlDeep, z, world.HotCore)
-	g.embers = append(g.embers, world.Ember{At: world.Cell{X: x, Y: y - bowlDeep, Z: z}, Left: coreHot, Into: world.SkyIronCore})
+	// The core lies in the ground under the bowl. Where the star broke through a roof
+	// into the open, it lies in the floor under that.
+	for cy := y - bowlDeep; cy > max(y-bowlDeep-coreFalls, 0); cy-- {
+		if b := w.At(x, cy, z).Info(); b.Solid && !b.Fixed {
+			w.Set(x, cy, z, world.HotCore)
+			g.embers = append(g.embers, world.Ember{At: world.Cell{X: x, Y: cy, Z: z}, Left: coreHot, Into: world.SkyIronCore})
+			break
+		}
+	}
 
 	turn := 2 * math.Pi * g.scatter.Float64()
 	for i := range craterFires {

@@ -37,6 +37,8 @@ func (g *Game) lieDown(c world.Cell) {
 		g.tell("you will wake here")
 	case g.hunterWithin(sleepHunter):
 		g.tell("you will wake here, but you cannot sleep with a hunter near")
+	case g.fallTonight():
+		g.tell("you will wake here, but nobody sleeps tonight: the Skyspear is here")
 	default:
 		// The clock goes on to the next morning, the hour a world begins at, and the
 		// night's hunters are gone with it.
