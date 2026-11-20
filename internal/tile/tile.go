@@ -149,6 +149,7 @@ const (
 	SkyIron
 	SkyIronSpear
 	FurCloak
+	Tusk
 
 	// Count is the number of tiles in the strip.
 	Count

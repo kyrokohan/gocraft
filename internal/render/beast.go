@@ -27,6 +27,9 @@ const (
 	Cloudgrazer // a giant among giants: a long neck that feeds from the tops of trees
 	Dread       // the top hunter: jaws as long as a person, on two legs like trees
 
+	Snowtusk // a giant of the cold steppe in long hair, with a trunk and two great tusks
+	Slowclaw // a slow shaggy beast of the steppe that stands up on its hind legs, with long claws
+
 	Kinds // how many kinds there are
 )
 
@@ -34,6 +37,7 @@ var kindNames = [Kinds]string{
 	Mossback: "mossback", Bugler: "bugler", Nipper: "nipper", Quickclaw: "quickclaw",
 	Shieldbrow: "shieldbrow", Thornback: "thornback", Boulderback: "boulderback",
 	Cloudgrazer: "cloudgrazer", Dread: "dread",
+	Snowtusk: "snowtusk", Slowclaw: "slowclaw",
 }
 
 // String returns the name of a kind, as a save holds it.
@@ -77,6 +81,9 @@ var sizes = [Kinds][2]float64{
 
 	// The dread is too wide for a gap of two blocks.
 	Dread: {2.2, 4.6},
+
+	Snowtusk: {2.0, 4.6},
+	Slowclaw: {1.2, 1.9},
 }
 
 // spans are how far behind and ahead of the point between its feet the body of a grown
@@ -88,6 +95,8 @@ var spans = [Kinds][2]float64{
 	Boulderback: {-3.3, 2.2},
 	Cloudgrazer: {-11.5, 8.5},
 	Dread:       {-5.4, 3.7},
+	Snowtusk:    {-3.0, 2.9},
+	Slowclaw:    {-1.5, 1.6},
 }
 
 // Span returns how far behind and ahead of the point between its feet a beast's body
@@ -198,6 +207,9 @@ func NewBeasts(set *assets.Set) *Beasts {
 		Boulderback: boulderbackShape(set),
 		Cloudgrazer: cloudgrazerShape(set),
 		Dread:       dreadShape(set),
+
+		Snowtusk: snowtuskShape(set),
+		Slowclaw: slowclawShape(set),
 	}}
 }
 
@@ -500,6 +512,82 @@ func cloudgrazerShape(set *assets.Set) shape {
 	}
 	leg := box(-0.45, -hip, -0.45, 0.9, hip, 0.9, all6(giantLeg), n, look)
 	return shape{stand: hip, hurt: reddened(set.Cloudgrazer), parts: append(parts, fourLegs(leg, hip, 1.0, 2.3, -2.3, 0.28)...)}
+}
+
+// snowtuskShape is a snowtusk: a high body in long hair on four legs like pillars, its
+// back sloping down behind, a domed head carried high, a trunk that hangs from it and
+// sways, and two tusks that sweep out ahead and up. Its head is one piece, hung from
+// its neck, so that it lowers whole.
+func snowtuskShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(122, 82, 52), Texture: set.Snowtusk}
+	const n = assets.SnowtuskTiles
+	const hip = 2.3
+	hide, head := giantHide()
+	trunk := all6(giantArmA)
+
+	// The head's boxes are all placed from the neck, and nod together.
+	neck := limb{up: hip + 1.5, front: 0.3, nod: 0.4}
+	part := func(m mesh.Mesh) limb {
+		l := neck
+		l.mesh = m
+		return l
+	}
+	tusk := all6(giantArmB)
+	parts := []limb{
+		{mesh: box(-1.1, hip-0.2, -1.9, 2.2, 2.3, 2.3, hide, n, look)},                                          // the shoulders, high
+		{mesh: box(-1.0, hip-0.2, -3.0, 2.0, 1.9, 1.2, hide, n, look)},                                          // the back, lower
+		{mesh: box(-0.12, -0.9, -0.12, 0.24, 0.9, 0.24, hide, n, look), up: hip + 1.5, front: -3.0, sway: 0.25}, // its tail
+		part(box(-0.75, -0.6, 0, 1.5, 1.7, 1.4, head, n, look)),
+		part(box(-0.3, -1.9, 1.25, 0.6, 1.5, 0.6, trunk, n, look)),
+		part(box(-0.22, -3.0, 1.35, 0.44, 1.2, 0.44, trunk, n, look)),
+		// The tusks: out of the face and forward, low, and then up at their ends.
+		part(box(-0.78, -0.95, 1.1, 0.26, 0.26, 1.5, tusk, n, look)),
+		part(box(0.52, -0.95, 1.1, 0.26, 0.26, 1.5, tusk, n, look)),
+		part(box(-0.76, -0.75, 2.38, 0.22, 0.75, 0.22, tusk, n, look)),
+		part(box(0.54, -0.75, 2.38, 0.22, 0.75, 0.22, tusk, n, look)),
+	}
+	leg := box(-0.36, -hip, -0.36, 0.72, hip, 0.72, all6(giantLeg), n, look)
+	return shape{stand: hip, hurt: reddened(set.Snowtusk), parts: append(parts, fourLegs(leg, hip, 0.7, 0.7, -2.2, 0.25)...)}
+}
+
+// slowclawShape is a slowclaw: a heavy body in shaggy fur that slopes up from short hind
+// legs, a small head on a thick neck with a long muzzle, a tail as thick as a leg that
+// rests on the ground, and long arms that end in three claws. All of it above the hips
+// is placed from them and tips up together: so it stands up, to feed and to strike.
+func slowclawShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(168, 140, 96), Texture: set.Slowclaw}
+	const n = assets.SlowclawTiles
+	const hip = 0.8
+	hide, head := giantHide()
+
+	// What rears: it is hung from the hips, and its front goes up as the beast stands.
+	hips := limb{up: hip + 0.3, front: -0.7, nod: -1.05}
+	part := func(m mesh.Mesh) limb {
+		l := hips
+		l.mesh = m
+		return l
+	}
+	claw := all6(giantArmB)
+	arm := func(side float64) []limb {
+		at := side*0.62 - 0.14
+		l := []limb{part(box(at, -1.25, 1.35, 0.28, 1.3, 0.3, all6(giantArmA), n, look))}
+		for i := range 3 {
+			l = append(l, part(box(at+0.1*float64(i), -1.6, 1.42, 0.07, 0.4, 0.1, claw, n, look)))
+		}
+		return l
+	}
+	parts := []limb{
+		part(box(-0.6, -0.5, 0, 1.2, 1.15, 2.0, hide, n, look)),   // the body
+		part(box(-0.3, 0.05, 1.9, 0.6, 0.6, 0.45, hide, n, look)), // the neck
+		part(box(-0.25, 0.05, 2.25, 0.5, 0.48, 0.75, head, n, look)),
+		{mesh: box(-0.25, 0, -1.1, 0.5, 0.45, 1.1, hide, n, look), front: -0.7}, // the tail, on the ground
+	}
+	parts = append(append(parts, arm(-1)...), arm(1)...)
+	leg := box(-0.24, -hip, -0.26, 0.48, hip, 0.52, all6(giantLeg), n, look)
+	return shape{stand: hip, hurt: reddened(set.Slowclaw), parts: append(parts,
+		limb{mesh: leg, right: -0.42, up: hip, front: -0.6, swing: 0.35},
+		limb{mesh: leg, right: 0.42, up: hip, front: -0.6, swing: -0.35},
+	)}
 }
 
 // dreadEyes is the color of the dread's eyes.

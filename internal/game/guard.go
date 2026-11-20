@@ -152,5 +152,7 @@ func (f *fauna) guard(i int, player geometry.Vector3, dt float64) {
 		stand(yawOf(to))
 		c.lower = true
 		cry()
+	case b.rears && !c.walking:
+		c.lower = true // it has stopped, and stands up as it does to feed from a tree
 	}
 }

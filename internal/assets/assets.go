@@ -69,6 +69,10 @@ type Set struct {
 	// what it is armed with.
 	Shieldbrow, Thornback, Boulderback *bitmap.Bitmap
 
+	// Snowtusk and Slowclaw are the same for the beasts of the cold steppe, laid out as
+	// those are, with SnowtuskTiles and SlowclawTiles tiles.
+	Snowtusk, Slowclaw *bitmap.Bitmap
+
 	// Cloudgrazer is the same for the cloudgrazer, with CloudgrazerTiles tiles: the last
 	// two are the bands of its neck and the end of its tail.
 	Cloudgrazer *bitmap.Bitmap
@@ -100,6 +104,8 @@ const (
 	BoulderbackTiles = 8
 	CloudgrazerTiles = 8
 	DreadTiles       = 8
+	SnowtuskTiles    = 8
+	SlowclawTiles    = 8
 )
 
 // PersonLooks is how many looks a cave person can have.
@@ -162,6 +168,8 @@ func Load() (*Set, error) {
 		{&set.Boulderback, "img/boulderback.png", BoulderbackTiles},
 		{&set.Cloudgrazer, "img/cloudgrazer.png", CloudgrazerTiles},
 		{&set.Dread, "img/dread.png", DreadTiles},
+		{&set.Snowtusk, "img/snowtusk.png", SnowtuskTiles},
+		{&set.Slowclaw, "img/slowclaw.png", SlowclawTiles},
 	} {
 		if *giant.into, err = creature(giant.file, giant.tiles); err != nil {
 			return nil, err
