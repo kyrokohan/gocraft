@@ -62,6 +62,7 @@ func TestBlocksTakeTimeToDig(t *testing.T) {
 		info := b.Info()
 		switch {
 		case b == Water || info.Fixed:
+		case b == SkyIronCore && info.Dig == 12: // the hardest there is: four seconds with a flint pick
 		case info.Plant && info.Dig != 0:
 			t.Errorf("%v is a plant and takes %v s to dig", info.Name, info.Dig)
 		case info.Solid && !(info.Dig > 0 && info.Dig <= 5):

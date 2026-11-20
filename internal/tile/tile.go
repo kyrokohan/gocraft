@@ -85,6 +85,8 @@ const (
 	SinterRust
 	SinterGold
 	SinterGreen
+	HotCore
+	SkyIronCore
 
 	// Pictures that are on no block.
 
@@ -144,6 +146,7 @@ const (
 	ObsidianPick
 	ObsidianSpear
 	Striker
+	SkyIron
 
 	// Count is the number of tiles in the strip.
 	Count

@@ -76,6 +76,8 @@ const (
 	ObsidianSpear
 	Striker // a flint and a firestone: it strikes fire at once
 
+	SkyIron // a lump of it, broken out of the core a fallen star left
+
 	itemEnd
 )
 
@@ -207,6 +209,8 @@ var things = [itemEnd - 256]thing{
 
 	// A striker is no tool for digging, but it wears as one does: a use is a fire lit.
 	Striker - 256: {name: "striker", icon: tile.Striker, uses: 30},
+
+	SkyIron - 256: {name: "sky iron", icon: tile.SkyIron},
 }
 
 // obsidianUses is how many uses a tool of obsidian lasts.
@@ -360,7 +364,7 @@ func (b Block) DigWith(hand Item) (seconds float64, yields bool) {
 // itself, and nothing for leaves and grass that crumble away.
 func (b Block) Drop() (Item, int) {
 	switch b {
-	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fronds, FanLeaves, DryBush, Fire:
+	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fronds, FanLeaves, DryBush, Fire, HotCore:
 		return NoItem, 0
 	case PalmCrown:
 		return PalmSeeds, 2
@@ -378,6 +382,8 @@ func (b Block) Drop() (Item, int) {
 		return Obsidian, 1
 	case FirestoneRock:
 		return Firestone, 1
+	case SkyIronCore:
+		return SkyIron, 2
 	case Turf:
 		return Dirt.Item(), 1 // the turf does not come away
 	case Stone:
@@ -412,7 +418,7 @@ func cellChance(x, y, z int) float64 {
 }
 
 // DropAt is Drop for the block in a cell. Leaves now and then hold a fruit, and gravel
-// a flint.
+// a flint, and one core of sky iron holds more lumps than another.
 func (b Block) DropAt(x, y, z int) (Item, int) {
 	chance := cellChance(x, y, z)
 	switch {
@@ -420,6 +426,8 @@ func (b Block) DropAt(x, y, z int) (Item, int) {
 		return Fruit, 1
 	case b == Gravel && chance < flintChance:
 		return Flint, 1
+	case b == SkyIronCore:
+		return SkyIron, 2 + int(3*chance) // two to four lumps
 	}
 	return b.Drop()
 }

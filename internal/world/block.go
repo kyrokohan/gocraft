@@ -76,6 +76,9 @@ const (
 	SinterGold
 	SinterGreen
 
+	HotCore
+	SkyIronCore
+
 	blockCount
 )
 
@@ -212,6 +215,12 @@ var infos = [256]Info{
 	SinterRust:  byPick(cube("rust sinter", tile.SinterRust), 2, 0),
 	SinterGold:  byPick(cube("gold sinter", tile.SinterGold), 2, 0),
 	SinterGreen: byPick(cube("green sinter", tile.SinterGreen), 2, 0),
+
+	// What a fallen star leaves at the bottom of its crater: a core of sky iron. At first
+	// it glows, burns what stands on it, and no hand or tool breaks it. Then it goes
+	// dark, and a flint pick breaks it out, slowly.
+	HotCore:     fixed(glowing(cube("glowing sky iron", tile.HotCore), 12)),
+	SkyIronCore: byPick(cube("sky iron core", tile.SkyIronCore), 12, TierFlint),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for
