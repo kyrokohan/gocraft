@@ -342,6 +342,21 @@ func makeSound(n sound.Name) []float64 {
 			at += 0.11 - 0.006*float64(k)
 		}
 		return peakTo(s, 0.6)
+	case sound.Thud:
+		// The foot of a giant coming down: a deep blow that sinks, with the ground's
+		// own rumble after it.
+		s := thump(64, 26, 0.7, 0.16)
+		rumble := newLowpass(90)
+		for i := range s {
+			s[i] += 0.8 * rumble.at(noise(i, 992)) * swell(float64(i)/rate, 0.01, 0.3)
+		}
+		return peakTo(s, 0.85)
+	case sound.Drone:
+		// A note too low to place, held long, that swells and sinks: a cloudgrazer to
+		// its mate, across a plain.
+		pitch := func(t float64) float64 { return (44 + 7*math.Sin(math.Pi*t/2.6)) * (1 + 0.01*math.Sin(2*math.Pi*3*t)) }
+		loud := func(t float64) float64 { return math.Pow(math.Sin(math.Pi*min(t/2.6, 1)), 0.8) }
+		return peakTo(voiced(2.6, pitch, loud, 180, 420), 0.7)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))

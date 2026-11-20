@@ -14,6 +14,7 @@ var (
 	// giantTiles is the picture of each, by the name of its file.
 	giantTiles = map[string][]painter{
 		"shieldbrow": shieldbrowTiles, "thornback": thornbackTiles, "boulderback": boulderbackTiles,
+		"cloudgrazer": cloudgrazerTiles,
 	}
 )
 
@@ -311,4 +312,92 @@ func boulderTail(x, y int) (rgb, bool) {
 		return grain(boulderBone.scale(0.9), 0.05, x, y, 700), true
 	}
 	return boulderSkin(x, y, 701), true
+}
+
+// The cloudgrazer's picture is laid out as the others are. What it is armed with is
+// nothing: the last two tiles are the bands of its neck and the end of its tail.
+var cloudgrazerTiles = []painter{cloudBack, cloudSide, cloudBelly, cloudHead, cloudFace, cloudLeg, cloudNeck, cloudTail}
+
+var (
+	cloudHide  = rgb{106, 124, 142} // the blue grey of far hills
+	cloudDark  = rgb{66, 80, 98}
+	cloudCream = rgb{212, 208, 184}
+)
+
+// cloudSkin is a cloudgrazer's hide at a pixel: smooth, and dappled pale, darker along
+// the back.
+func cloudSkin(x, y int, down float64, seed int) rgb {
+	c := cloudHide.mix(cloudDark, 0.6*(1-down)).scale(0.9 + 0.2*blotch(x, y, 8, seed))
+	if blotch(x, y, 2, seed+1) > 0.74 {
+		c = c.mix(cloudCream, 0.35) // a dapple
+	}
+	return grain(c, 0.04, x, y, seed+2)
+}
+
+func cloudBack(x, y int) (rgb, bool) { return cloudSkin(x, y, 0, 710), true }
+
+func cloudSide(x, y int) (rgb, bool) {
+	down := float64(y) / float64(size-1)
+	c := cloudSkin(x, y, down, 713)
+	if edge := 10 + int(hash(x, 0, 716)*3); y >= edge {
+		c = c.mix(cloudCream, min(float64(y-edge+1)/4, 1))
+	}
+	return c, true
+}
+
+func cloudBelly(x, y int) (rgb, bool) { return grain(cloudCream, 0.04, x, y, 717), true }
+
+// cloudHead is the side of its small head: an eye, a nostril high on the brow, and a
+// mouth that seems to smile.
+func cloudHead(x, y int) (rgb, bool) {
+	if c, ok := eyeOn(x, y, 6, 5, rgb{232, 214, 150}); ok {
+		return c, true
+	}
+	switch {
+	case x >= 11 && x <= 12 && y == 3:
+		return rgb{40, 48, 60}, true
+	case y == 11 && x >= 7 || y == 10 && x == 6:
+		return rgb{46, 54, 66}, true
+	case y >= 12:
+		return grain(cloudCream, 0.04, x, y, 717), true
+	}
+	return cloudSkin(x, y, float64(y)/float64(size-1), 713), true
+}
+
+func cloudFace(x, y int) (rgb, bool) {
+	switch {
+	case y == 4 && (x == 5 || x == 10):
+		return rgb{40, 48, 60}, true
+	case y == 11 && x >= 3 && x <= 12:
+		return rgb{46, 54, 66}, true
+	case y >= 12:
+		return grain(cloudCream, 0.04, x, y, 717), true
+	}
+	return cloudSkin(x, y, 0.5, 718), true
+}
+
+// cloudLeg is a leg like the trunk of a tree: hide in deep folds at the knee, and a
+// row of nails round the foot.
+func cloudLeg(x, y int) (rgb, bool) {
+	switch {
+	case y >= 14 && x%4 != 3:
+		return grain(rgb{196, 190, 170}, 0.05, x, y, 719), true
+	case y == 7 || y == 8 || y == 13:
+		return grain(cloudDark, 0.05, x, y, 720), true
+	}
+	return cloudSkin(x, y, 0.8, 721), true
+}
+
+// cloudNeck is its neck: the hide of its side, ringed with pale bands.
+func cloudNeck(x, y int) (rgb, bool) {
+	c := cloudSkin(x, y, 0.5, 722)
+	if x%5 == 0 {
+		c = c.mix(cloudCream, 0.5)
+	}
+	return c, true
+}
+
+// cloudTail is the end of its tail: hide that pales to the tip.
+func cloudTail(x, y int) (rgb, bool) {
+	return cloudSkin(x, y, 0.6, 723).mix(cloudCream, 0.25), true
 }
