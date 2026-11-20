@@ -38,8 +38,8 @@ func (g *Game) aimCreature(origin, dir geometry.Vector3, limit float64) (p prey,
 	best := limit
 	for i := range g.fauna.all {
 		c := &g.fauna.all[i]
-		if c.dead {
-			continue // it cannot be hit again as it falls
+		if c.dead || c.ridden {
+			continue // it cannot be hit again as it falls, and the player sits on the one it rides
 		}
 		width, height := render.Size(c.kind, c.young)
 		boxes, n := c.body()

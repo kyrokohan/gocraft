@@ -69,6 +69,10 @@ type missile struct {
 // flew.
 func (g *Game) throw() bool {
 	held := &g.items[g.selected]
+	if g.fauna.mount() != nil && (held.Item.Thrown() || held.Item == world.Sling) {
+		g.tell("get down to throw")
+		return false
+	}
 	m := missile{leaves: g.survival}
 	switch {
 	case held.Item.Thrown():

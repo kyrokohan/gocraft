@@ -32,6 +32,8 @@ const (
 	strike      = 1.1  // and how much farther a swing lifts it
 	crouchSplay = 0.85 // how far a crouched person's legs are set, one ahead and one behind
 	crouchLean  = 0.5  // and how far its body leans forward
+	seatSplay   = 1.05 // how far a seated person's legs are set out to its sides
+	seatAhead   = 0.45 // and forward
 	maxTilt     = 0.7  // how far the head tips up or down
 )
 
@@ -46,6 +48,10 @@ const (
 	personArm
 	personLeg
 )
+
+// SeatHeight is how high a seated cave person's seat is over the point it is drawn at:
+// as high as its hip is when it stands, so that it sees from as high over its seat.
+const SeatHeight = limbLength
 
 // Person is where a cave person is and how it stands: all that drawing it needs.
 type Person struct {
@@ -64,8 +70,9 @@ type Person struct {
 	// to 1, as it digs, hits or eats.
 	Stride, Swing float64
 
-	// Crouched is true while it goes bent low, and Hurt while it shows a hit.
-	Crouched, Hurt bool
+	// Crouched is true while it goes bent low, Seated while it rides, astride what it
+	// sits on, and Hurt while it shows a hit.
+	Crouched, Seated, Hurt bool
 
 	// Light is how bright the light it stands in is, from 0 to 1, as for a Mossback.
 	Light float64
@@ -128,10 +135,11 @@ func (p *People) Draw(c *engine.Canvas, cam mesh.Camera, all []Person, sky *Sky,
 			at.Y += up
 			return at
 		}
-		// put draws a part with its origin there, tipped by pitch: a positive pitch
-		// tips the top of the part back, and so swings a hanging limb forward.
-		put := func(part mesh.Mesh, right, up, front, pitch float64) {
-			part.Transform = mesh.Transform{Position: spot(right, up, front), Yaw: one.Yaw, Pitch: pitch}
+		// put draws a part with its origin there, tipped by pitch and leaned by roll: a
+		// positive pitch tips the top of the part back, and so swings a hanging limb
+		// forward, and a positive roll swings it out to the left.
+		put := func(part mesh.Mesh, right, up, front, pitch, roll float64) {
+			part.Transform = mesh.Transform{Position: spot(right, up, front), Yaw: one.Yaw, Pitch: pitch, Roll: roll}
 			if one.Hurt {
 				part.Material.Texture = p.hurt
 			}
@@ -139,10 +147,15 @@ func (p *People) Draw(c *engine.Canvas, cam mesh.Camera, all []Person, sky *Sky,
 		}
 
 		// A standing person's hip is a leg above the ground and its body upright. A
-		// crouched one sets its legs apart, which lowers the hip, and leans forward.
+		// crouched one sets its legs apart, which lowers the hip, and leans forward. A
+		// seated one has its legs out to its sides and forward, and still.
 		hip, lean, apart := limbLength, 0.0, 0.0
+		forth, out := 0.0, 0.0
 		step := stride * math.Sin(one.Stride)
-		if one.Crouched {
+		switch {
+		case one.Seated:
+			forth, out, step = seatAhead, seatSplay, 0
+		case one.Crouched:
 			hip, lean, apart = limbLength*math.Cos(crouchSplay), crouchLean, crouchSplay
 			step /= 3
 		}
@@ -150,10 +163,10 @@ func (p *People) Draw(c *engine.Canvas, cam mesh.Camera, all []Person, sky *Sky,
 		upOf := func(h float64) float64 { return hip + h*math.Cos(lean) }
 		aheadOf := func(h float64) float64 { return h * math.Sin(lean) }
 
-		put(b.leg, -limbAside, hip, 0, apart+step)
-		put(b.leg, limbAside, hip, 0, -apart-step)
-		put(b.trunk, 0, hip, 0, -lean)
-		put(b.head, 0, upOf(trunkHeight), aheadOf(trunkHeight), min(max(one.Tilt, -maxTilt), maxTilt))
+		put(b.leg, -limbAside, hip, 0, forth+apart+step, out)
+		put(b.leg, limbAside, hip, 0, forth-apart-step, -out)
+		put(b.trunk, 0, hip, 0, -lean, 0)
+		put(b.head, 0, upOf(trunkHeight), aheadOf(trunkHeight), min(max(one.Tilt, -maxTilt), maxTilt), 0)
 
 		// The arms swing against the legs. The right one is held forward when there is
 		// something in its hand, and lifted through a swing.
@@ -161,8 +174,8 @@ func (p *People) Draw(c *engine.Canvas, cam mesh.Camera, all []Person, sky *Sky,
 		if one.Held.Known() || one.Swing > 0 {
 			right = carry + strike*math.Sin(math.Pi*one.Swing)
 		}
-		put(b.arm, -armAside, upOf(shoulder), aheadOf(shoulder), -step)
-		put(b.arm, armAside, upOf(shoulder), aheadOf(shoulder), right)
+		put(b.arm, -armAside, upOf(shoulder), aheadOf(shoulder), -step, 0)
+		put(b.arm, armAside, upOf(shoulder), aheadOf(shoulder), right, 0)
 
 		if one.Held.Known() {
 			// The hand is at the end of the arm, which hangs from the shoulder and has

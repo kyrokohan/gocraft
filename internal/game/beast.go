@@ -163,6 +163,11 @@ type breed struct {
 	nests float64
 	egg   world.Item
 
+	// One that can be ridden: how fast it runs with a rider held on, how high its back
+	// is, how far ahead of its middle the rider sits, and how many blocks high it jumps
+	// when the rider asks.
+	ride, back, seat, clears float64
+
 	// A guard does not run. warns is how near what it guards, its young or itself, a
 	// threat may come before it turns on it and gives its cry. charges is how near
 	// before it runs at the threat, for one that charges, and swings how far from the
@@ -211,7 +216,8 @@ var breeds = [render.Kinds]breed{
 		heavy:  true,
 		temper: herder, group: [2]int{5, 8}, most: 16, young: 0.3, wary: 9,
 		nests: 1.0 / 3, egg: world.BuglerEgg,
-		eats:  []world.Item{world.Berries, world.Fruit, world.Fiber},
+		eats: []world.Item{world.Berries, world.Fruit, world.Fiber},
+		ride: 9, back: 2.2, seat: -0.3, clears: 2,
 		lands: []world.Biome{world.Prairie, world.Highland},
 		call:  sound.Horn, cry: sound.Alarm, callEvery: 70, carries: 3 * sound.Hearing,
 	},
@@ -493,6 +499,12 @@ type beast struct {
 	chew        float64 // how long it still chews its last meal
 	hurry       bool    // it runs this frame: after food, after prey, or to catch the player up
 
+	// One the player rides goes as the keys say, and not as it would: at so many blocks
+	// a second this step, back if less than 0, and with a jump.
+	ridden  bool
+	reined  float64
+	jumping bool
+
 	// A hunter: how long it still keeps after the player, until it can bite again, how
 	// long it still stands over its kill, how long it has stood in the light, and
 	// whether it has turned to go, and for how long.
@@ -698,7 +710,7 @@ func faunaFrom(w *world.World, s world.Meta, round geometry.Vector3) *fauna {
 			health: min(max(b.Health, 1), max(breeds[kind].health, 1)), regrow: b.Regrow,
 			tame: b.Tame, fed: b.Fed,
 			age: b.Age, fedFor: b.FedFor, limping: b.Limping, mendAt: b.MendAt,
-			timer: r.Float64() * 2, rng: r,
+			ridden: b.Ridden, timer: r.Float64() * 2, rng: r,
 			aloft: breeds[kind].moves == gaitSoar && !b.Limping && !(b.Tame && b.Young),
 		})
 		f.herds = max(f.herds, b.Herd)
@@ -741,6 +753,7 @@ func (f *fauna) saved() []world.Beast {
 				Kind: c.kind.String(), Pos: c.Pos, Yaw: c.Yaw, Young: c.young, Herd: c.herd,
 				Health: c.health, Regrow: c.regrow, Tame: c.tame, Fed: c.fed,
 				Age: c.age, FedFor: c.fedFor, Limping: c.limping, MendAt: c.mendAt,
+				Ridden: c.ridden,
 			})
 		}
 	}
@@ -1028,7 +1041,7 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		}
 		// A tame beast keeps by the player: it comes after one that goes, runs to catch
 		// up when it has fallen far behind, and stands by one that stands.
-		if c.tame && !c.dead && c.flee <= 0 && !c.limping {
+		if c.tame && !c.dead && c.flee <= 0 && !c.limping && !c.ridden {
 			if far > followFar {
 				c.walking, c.Yaw, c.hurry = true, yawOf(to), far > followRun
 			} else {
@@ -1081,6 +1094,9 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		// One whose nest a player has come near dives at it, by day, where hunters are.
 		c.diving = c.nested && f.hunted && !c.abed && math.Hypot(player.X-c.nest.X, player.Z-c.nest.Z) < nestGuard
 		c.quarry = player.Add(geometry.Vector3{Y: playerHeight * 0.8})
+		if c.ridden {
+			c.flee, c.hurry, c.timer = 0, false, max(c.timer, rethink) // it has no mind of its own
+		}
 		c.step(w, dt, middle)
 		if c.dived {
 			c.dived = false
@@ -1273,8 +1289,8 @@ func (c *beast) Pose() render.Beast {
 		Kind: c.kind, Pos: c.Pos, Yaw: c.Yaw, Stride: c.Stride,
 		Shorn: c.regrow > 0, Hurt: c.hurt > 0, Young: c.young, Fall: c.fall,
 	}
-	if (c.lower || c.curl > 0) && !c.dead {
-		pose.Lower = 1
+	if (c.lower || c.curl > 0 || c.ridden) && !c.dead {
+		pose.Lower = 1 // a ridden one carries its head low, and its rider sees over it
 	}
 	if pose.Aloft = c.aloft && !c.dead; pose.Aloft {
 		pose.Stride = 0 // its legs trail, and do not walk
@@ -1484,6 +1500,9 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 		c.flee -= dt
 		c.walking, c.timer, speed = true, max(c.timer, rethink), b.run
 	}
+	if c.ridden {
+		speed = c.reined
+	}
 	if c.curl > 0 {
 		// Curled up, it does not move, whatever it would run from.
 		c.curl = max(c.curl-dt, 0)
@@ -1568,6 +1587,10 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 		if wades {
 			hop, blocked = c.wadeAhead(w, ahead)
 		}
+		if c.ridden {
+			// It goes where the rider says, and hops a step only on its way ahead.
+			hop, blocked = hop && speed > 0, false
+		}
 		switch {
 		case hop:
 			c.velY = creatureHop
@@ -1591,6 +1614,9 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	if !c.walking {
 		c.Stride = 0
 	}
+	if c.jumping && c.OnGround && !c.dead {
+		c.velY = math.Sqrt(2 * gravity * (b.clears + 0.2)) // the rider has it jump
+	}
 	move = move.Add(c.push.Scale(dt))
 	c.push = c.push.Scale(max(1-knockDrag*dt, 0))
 	move.Y = c.velY*dt + lift
@@ -1598,12 +1624,18 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	if c.OnGround || afloat {
 		c.peak = c.Pos.Y
 	}
+	if c.ridden {
+		height = max(height, b.back-render.SeatHeight+playerHeight) // and the rider's head
+	}
 	stopped := travelIn(w, &c.Pos, width, height, move, stops)
 	c.OnGround = stopped[1] && move.Y < 0 || lies && move.Y == 0
 	if stopped[1] {
 		c.velY = 0
 	}
-	if c.peak = max(c.peak, c.Pos.Y); c.OnGround {
+	if !c.ridden {
+		c.peak = max(c.peak, c.Pos.Y) // the jump a rider asks for is no fall: it falls from where it left the ground
+	}
+	if c.OnGround {
 		// A heavy beast is hurt by a fall of more than fallSafe blocks: a part of what
 		// health its kind has for each block more, so the bigger it is, the harder it
 		// comes down.
@@ -1615,7 +1647,7 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 		}
 		c.peak = c.Pos.Y
 	}
-	if (stopped[0] || stopped[2]) && c.walking && c.OnGround {
+	if (stopped[0] || stopped[2]) && c.walking && c.OnGround && !c.ridden {
 		c.turnBack() // it walked into something the look ahead did not see: a corner
 	}
 }
@@ -1646,6 +1678,9 @@ func (g *Game) stepBeasts(dt float64) {
 	f.sneaking = g.player.Crouched
 	f.bait = g.survival && held.Item.Food() > 0 // in creative there is nothing to lose
 	f.moving, f.hidden, f.hunted, f.day = g.paced, g.hidden(), g.survival, firstMorning+g.days
+	if m := f.mount(); m != nil {
+		f.moving = m.walking // a rider is seen as its mount goes
+	}
 	// Home, for a beast that limps there: the bed, or with none where a player starts,
 	// which is looked for once, when the first beast needs it.
 	switch limps := slices.ContainsFunc(f.all, func(c beast) bool { return c.limping }); {
@@ -1675,6 +1710,7 @@ func (g *Game) stepBeasts(dt float64) {
 		f.noon = max(math.Sin(2*math.Pi*(timeOfDay(g.days)-render.Sunrise)), 0)
 	}
 	f.step(g.world, g.player.Pos, dt)
+	g.seat()
 	if f.bitten > 0 && g.survival {
 		travel(g.world, &g.player.Pos, playerWidth, playerHeight, f.shove) // a blow throws
 		if g.hurt(f.bitten); g.screen != playing {
