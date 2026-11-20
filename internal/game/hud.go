@@ -189,6 +189,7 @@ var (
 	healthColor = engine.RGB(226, 56, 64)
 	foodColor   = engine.RGB(222, 150, 62)
 	airColor    = engine.RGB(110, 182, 240)
+	warmColor   = engine.RGB(240, 196, 92)
 )
 
 // meterWidth is how many cells a meter of the body takes: a point to a cell for health
@@ -196,7 +197,8 @@ var (
 const meterWidth = 20
 
 // drawBody draws the player's health at the left over the hotbar, the row y, and its
-// food at the right, with its air over the food while it is short of breath.
+// food at the right, with its air over the food while it is short of breath, and its
+// warmth over the health while it has lost any.
 func (g *Game) drawBody(fb *engine.FrameBuffer, x0, y int) {
 	meter := func(x, y int, symbol rune, value float64, color engine.Color) {
 		r, gr, b := color.RGB()
@@ -214,6 +216,9 @@ func (g *Game) drawBody(fb *engine.FrameBuffer, x0, y int) {
 	meter(right, y, '●', g.food/maxFood, foodColor)
 	if g.air < maxAir {
 		meter(right, y-1, '○', g.air/maxAir, airColor)
+	}
+	if g.warmth < maxWarmth {
+		meter(x0, y-1, '☼', g.warmth/maxWarmth, warmColor)
 	}
 }
 

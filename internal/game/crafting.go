@@ -70,6 +70,7 @@ var recipes = func() []recipe {
 		{world.Sling, 1, []need{of(world.Cord, 2), of(world.Hide, 1)}, byHand},
 		{world.Pebble, 4, []need{of(world.Gravel.Item(), 1)}, byHand},
 		{world.FurBed.Item(), 1, []need{of(world.Hide, 3), of(world.Moss, 6)}, byHand},
+		{world.FurCloak, 1, []need{of(world.Hide, 4), of(world.Cord, 2)}, byHand},
 
 		// Fire: a ring of stones to keep it in, a drill to make it with, and torches to
 		// carry it. A pot is shaped of clay and then baked in a hearth.

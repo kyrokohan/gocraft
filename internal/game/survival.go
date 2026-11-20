@@ -70,6 +70,9 @@ func (g *Game) live(dt float64) {
 		}
 	}
 
+	if g.warm(dt); g.screen != playing {
+		return // the player fainted of cold
+	}
 	for g.hunger += dt; g.hunger >= hungerTime; g.hunger -= hungerTime {
 		g.food = max(g.food-1, 0)
 	}
@@ -79,7 +82,7 @@ func (g *Game) live(dt float64) {
 	if g.mend += dt; g.mend >= mendTime {
 		g.mend = 0
 		switch {
-		case g.food >= mendFood:
+		case g.food >= mendFood && g.warmth > 0: // a body with no warmth left does not mend
 			g.health = min(g.health+1, maxHealth)
 		case g.food == 0 && g.health > 1:
 			g.hurt(1) // hunger hurts, and leaves the player one point: it cannot kill
@@ -102,8 +105,8 @@ func (g *Game) hurt(points float64) {
 
 // renew gives the player a whole body again: full health, food and air.
 func (g *Game) renew() {
-	g.health, g.food, g.air = maxHealth, maxFood, maxAir
-	g.hunger, g.mend, g.flash = 0, 0, 0
+	g.health, g.food, g.air, g.warmth = maxHealth, maxFood, maxAir, maxWarmth
+	g.hunger, g.mend, g.flash, g.chill = 0, 0, 0, 0
 	g.peak = g.player.Pos.Y
 }
 

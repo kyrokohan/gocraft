@@ -334,6 +334,7 @@ type fauna struct {
 	// light at a place is. fires are the fires near the player that burn three or more
 	// together, which is a big fire: a hunter that fears one keeps off them.
 	moving, hidden, meaty, hunted bool
+	winter                        bool // it is the Long Winter: herds are thin, and hunters do not mind the day
 	day                           float64
 	bright                        func(at geometry.Vector3) float64
 	fires                         []geometry.Vector3
@@ -503,7 +504,7 @@ func (f *fauna) add(w *world.World, k render.Kind, round geometry.Vector3, near,
 	}
 	// A group is whole or it is not there: there must be room under the most of its
 	// kind for the fewest that go together.
-	room := b.most - f.count(k)
+	room := f.most(k) - f.count(k)
 	if room < b.group[0] {
 		return false
 	}
@@ -707,7 +708,7 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 	})
 	for k := range render.Kinds {
 		switch b := &breeds[k]; {
-		case f.count(k) >= b.most:
+		case f.count(k) >= f.most(k):
 		case b.visits:
 			if f.about(k) && f.wait[k] == 0 {
 				f.add(w, k, player, b.comes[0], b.comes[1]) // near enough to find the player
@@ -1112,7 +1113,14 @@ func (g *Game) stepBeasts(dt float64) {
 	f.moving, f.hidden, f.hunted, f.day = g.paced, g.hidden(), g.survival, firstMorning+g.days
 	g.findFires(dt)
 	f.meaty = slices.ContainsFunc(g.items[:], func(s world.Stack) bool { return s.Item == world.Meat })
-	f.bright = func(at geometry.Vector3) float64 { return g.sky.Brightness(g.lightAt(at)) }
+	f.winter = g.winter()
+	f.bright = func(at geometry.Vector3) float64 {
+		l := g.lightAt(at)
+		if f.winter {
+			l &= world.MaxLight // in the winter the ashen day is no light to a hunter: only a fire's is
+		}
+		return g.sky.Brightness(l)
+	}
 	g.sky.Set(timeOfDay(g.days)) // the light they keep out of is the light of this hour
 	f.step(g.world, g.player.Pos, dt)
 	if f.bitten > 0 && g.survival {
