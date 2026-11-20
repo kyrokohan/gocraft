@@ -231,6 +231,9 @@ func (g *Game) drawNumbers(fb *engine.FrameBuffer, y int) {
 		fmt.Sprintf("seed    %d", g.world.Seed),
 		"time    " + clockText(g.days),
 	}
+	if when, ok := g.nextStar(); ok {
+		lines = append(lines, fmt.Sprintf("star    falls in %.2f days", when-g.days))
+	}
 	if _, far, ok := g.world.Mountain(g.player.Pos.X, g.player.Pos.Z); ok && far < eruptReach {
 		_, next, _ := g.world.Erupted(g.player.Pos.X, g.player.Pos.Z, g.days)
 		lines = append(lines, fmt.Sprintf("erupts  in %.2f days", next-g.days))

@@ -400,6 +400,17 @@ func makeSound(n sound.Name) []float64 {
 			s[i] = (1.6*deep.at(noise(i, 993)) + 0.25*grit.at(noise(i, 994))) * fade * (0.75 + 0.25*math.Sin(2*math.Pi*3*t))
 		}
 		return peakTo(s, 0.85)
+	case sound.Boom:
+		// A star that struck, far off: one deep blow, and the roll of it over the land
+		// after, dying away.
+		s := make([]float64, samples(3))
+		deep, roll := newLowpass(90), newLowpass(220)
+		for i := range s {
+			t := float64(i) / rate
+			blow := math.Exp(-t / 0.12)
+			s[i] = 2.2*deep.at(noise(i, 995))*(blow+0.5*math.Exp(-t/0.9)) + 0.5*roll.at(noise(i, 996))*math.Exp(-t/0.6)*(0.7+0.3*math.Sin(2*math.Pi*5*t))
+		}
+		return peakTo(s, 0.95)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))

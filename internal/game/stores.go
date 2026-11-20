@@ -135,7 +135,7 @@ func isHearth(b world.Block) bool {
 
 // burns reports whether a block is a fire that a torch can be lit at.
 func burns(b world.Block) bool {
-	return b == world.Fire || b == world.HearthLit || b == world.Torch || b == world.Lava
+	return b == world.Fire || b == world.HearthLit || b == world.Torch || b == world.Lava || b == world.HotCore
 }
 
 // light lights the cold hearth at a cell, if it has anything to burn, and reports
