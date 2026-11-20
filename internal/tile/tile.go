@@ -77,6 +77,9 @@ const (
 	CharredTop
 	PitCoverTop
 	PitCoverSide
+	Ash
+	Basalt
+	Lava
 
 	// Pictures that are on no block.
 

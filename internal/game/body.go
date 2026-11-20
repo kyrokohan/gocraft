@@ -37,9 +37,11 @@ func boxOf(pos geometry.Vector3, width, height float64) (lo, hi [3]float64) {
 		[3]float64{pos.X + half, pos.Y + height, pos.Z + half}
 }
 
-// inWater reports whether the feet of a body are in water.
+// inWater reports whether the feet of a body are in water, or in lava, which a body
+// sinks and swims in as it does in water.
 func inWater(w *world.World, pos geometry.Vector3) bool {
-	return w.At(int(math.Floor(pos.X)), int(math.Floor(pos.Y+0.1)), int(math.Floor(pos.Z))) == world.Water
+	b := w.At(int(math.Floor(pos.X)), int(math.Floor(pos.Y+0.1)), int(math.Floor(pos.Z)))
+	return b == world.Water || b == world.Lava
 }
 
 // travel moves a body by move and reports on which axes (0 is x, 1 is y, 2 is z) a

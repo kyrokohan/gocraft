@@ -119,7 +119,7 @@ func (f *fauna) lair(w *world.World, k render.Kind, x, z, feet int) (geometry.Ve
 		}
 		room := true
 		for up := range int(math.Ceil(height)) {
-			if b := w.At(x, y+up, z); b == world.Water || b.Info().Solid {
+			if b := w.At(x, y+up, z); b == world.Water || b == world.Lava || b.Info().Solid {
 				room = false
 			}
 		}

@@ -74,6 +74,38 @@ type Sky struct {
 	shade       [256]color // for each world.Light, the brightness of each channel it gives, out of 256
 	brightness  [256]float64
 	skyChannels [3]float64 // the sky's light in each channel, as a part of the full light of day
+
+	// The smoke of the nearest fire mountain, which stands on the horizon in the way to
+	// it from farther off than the world is drawn: the way to the mountain along the
+	// ground, one long, and how much of the smoke is seen, from 0, none, to 1.
+	toMount geometry.Vector3
+	plume   float64
+	foot    float64 // how high over the horizon the smoke begins: the top of the mountain, as the sine of the angle
+}
+
+// How the smoke of a fire mountain stands on the horizon.
+const (
+	plumeTop  = 0.5  // how high it climbs, as the sine of the angle over the horizon
+	plumeWide = 0.05 // half its width at its foot, in radians, when it is far off
+	plumeLean = 0.12 // how far it drifts to a side by its top
+)
+
+var (
+	smokeDay   = color{74, 70, 72}
+	smokeNight = color{22, 20, 24}
+	lavaGlow   = color{236, 84, 30}
+)
+
+// SetPlume has the smoke of a fire mountain stand in the sky in the way to it, as much
+// of it as near says, from 0, none, to 1, at which it is widest. The way is from the eye
+// to the top of the mountain, of any length: the smoke rises from there, which is on
+// the horizon from far off and high in the sky from the mountain's foot.
+func (s *Sky) SetPlume(to geometry.Vector3, near float64) {
+	s.plume = 0
+	if flat := math.Hypot(to.X, to.Z); flat > 1e-9 && near > 0 {
+		s.toMount, s.plume = geometry.Vector3{X: to.X / flat, Z: to.Z / flat}, min(near, 1)
+		s.foot = max(to.Y/to.Length(), 0)
+	}
 }
 
 // NewSky returns the sky at a time of day.
@@ -194,6 +226,22 @@ func (s *Sky) color(d geometry.Vector3) color {
 		x, y, z := int(math.Floor(a*starGrid)), int(math.Floor(b*starGrid)), int(math.Floor(p*starGrid))
 		if twinkle := puff(x+y*977, z, 91); twinkle < 0.0035 {
 			c = c.mix(starColor, part(s.stars*(0.45+150*twinkle)))
+		}
+	}
+
+	if flat := math.Hypot(d.X, d.Z); s.plume > 0 && climb > s.foot-0.02 && climb < s.foot+plumeTop && flat > 1e-9 {
+		// The smoke: a column that widens and drifts as it climbs, dark by day, and at
+		// night all but lost in the dark, with the red of the fire under it at its foot.
+		ahead := (d.X*s.toMount.X + d.Z*s.toMount.Z) / flat
+		aside := (d.X*s.toMount.Z - d.Z*s.toMount.X) / flat
+		up := max(climb-s.foot, 0) / plumeTop
+		wide := plumeWide * (1 + 2.5*s.plume*s.plume) * (0.5 + 1.6*up)
+		if edge := math.Abs(aside-plumeLean*up*up) / wide; ahead > 0 && edge < 1 {
+			thick := s.plume * (1 - edge*edge) * (1 - 0.8*up*up)
+			c = c.mix(smokeDay.mix(smokeNight, part(1-s.day)), part(0.85*thick))
+			if glow := (1 - s.day) * (1 - 1.6*up); glow > 0 {
+				c = c.mix(lavaGlow, part(0.9*thick*glow))
+			}
 		}
 	}
 

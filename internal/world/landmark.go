@@ -82,7 +82,7 @@ func struckIn(gx, gz int, seed uint32) (struck, bool) {
 	}
 	l := landAt(s.x, s.z, seed)
 	s.y = l.top
-	return s, l.biome != Sea && l.biome != Shore && lattice(gx, gz, seed+9011) < struckChance
+	return s, l.biome != Sea && l.biome != Shore && l.biome != Ashlands && lattice(gx, gz, seed+9011) < struckChance
 }
 
 // fires returns the cells of the two fires of a struck tree, the one on its top first,

@@ -34,6 +34,7 @@ const (
 	Tundra                // snow, with pines
 	Crags                 // bare stone, high up, with snow higher still
 	Highland              // high country of umbrella pines, fan-leaf trees and redwoods
+	Ashlands              // ash and dark rock round a fire mountain, where nothing grows
 
 	biomeCount
 )
@@ -110,6 +111,11 @@ type land struct {
 	top   int // the layer of the top block of the ground
 	biome Biome
 	cold  bool // cold enough for ice to lie on water
+
+	// cone is true on the cone of a fire mountain, and lava is the layer the lava of
+	// its lake stands to, in its crater: 0 anywhere else.
+	cone bool
+	lava int
 }
 
 // landAt returns the land of the column at x, z.
@@ -139,11 +145,24 @@ func landAt(x, z int, seed uint32) land {
 		mesa := smooth(fx/36, fz/36, seed+8)
 		h += inside * (9*ramp(0.58, 0.62, mesa) + 7*ramp(0.72, 0.75, mesa))
 	}
+	// A fire mountain stands on whatever land it is in.
+	m, far, ashen := mountainNear(x, z, seed)
+	if ashen {
+		h = m.shape(h, far)
+	}
 	l := land{top: min(max(int(math.Floor(h)), 2), maxTop), cold: warm < 0.38}
+	if ashen {
+		l.cold, l.cone = false, far < mountFoot
+		if far < craterWide && l.top < m.lava() {
+			l.lava = m.lava()
+		}
+	}
 
 	switch {
 	case l.top < SeaLevel:
 		l.biome = Sea
+	case ashen && (l.cone || l.top > SeaLevel+1):
+		l.biome = Ashlands // to the top of its cone, however high
 	case l.top <= SeaLevel+1:
 		l.biome = Shore
 	case dry:
@@ -251,13 +270,20 @@ func (t terrain) column(x, z int, l land) {
 		if l.top >= snowLine {
 			surface = Snow
 		}
+	case Ashlands:
+		// Ash lies on the flat ground and in drifts on the cone, whose rock is bare
+		// where it is steep.
+		surface, under, deep = Ash, Basalt, 5
+		if l.cone && smooth(float64(x)/7, float64(z)/7, t.seed+33) < 0.62 {
+			surface = Basalt
+		}
 	}
 
 	lx, lz := x-t.cx*ChunkSize, z-t.cz*ChunkSize
 	t.put(x, 0, z, Deepstone, false)
 	for y := 1; y <= l.top; y++ {
-		if t.below.hole(lx, y, lz, l) {
-			continue // a cave
+		if l.lava == 0 && t.below.hole(lx, y, lz, l) {
+			continue // a cave: but there is none under the lake of a crater
 		}
 		b := Stone
 		switch {
@@ -275,6 +301,9 @@ func (t terrain) column(x, z int, l land) {
 
 	for y := l.top + 1; y <= SeaLevel; y++ {
 		t.put(x, y, z, Water, false)
+	}
+	for y := l.top + 1; y <= l.lava; y++ {
+		t.put(x, y, z, Lava, false)
 	}
 	if l.cold && l.top < SeaLevel {
 		t.put(x, SeaLevel, z, Ice, false)
@@ -337,6 +366,12 @@ func (t terrain) grow(x, z int, l land) {
 	case Tundra:
 		if chance < 0.008 {
 			b = DryBush
+		}
+	case Ashlands:
+		// What is left of the trees that stood here: a charred trunk, now and then, on
+		// the flat ground round the cone.
+		if chance < 0.012 && !l.cone {
+			b, tall = CharredLog, 1+int(chance*1000)%3
 		}
 	case Shore:
 		// Horsetails stand at the water's edge: on sand a step above the water, beside

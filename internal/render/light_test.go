@@ -246,3 +246,46 @@ func TestHowBrightLightLooks(t *testing.T) {
 		}
 	}
 }
+
+// The smoke of a fire mountain stands in the sky toward it: dark by day and red at its
+// foot by night, and nowhere else.
+func TestTheSmokeOfAMountainStandsOnTheHorizonTowardIt(t *testing.T) {
+	bright := func(c color) uint32 { return c.r + c.g + c.b }
+	toward := geometry.Vector3{X: 0.6, Z: 0.8} // the way to the mountain
+	low := toward.Add(geometry.Vector3{Y: 0.12}).Normalize()
+	away := geometry.Vector3{X: -0.6, Y: 0.12, Z: -0.8}.Normalize()
+	high := geometry.Vector3{X: 0.2, Y: 0.9, Z: 0.3}.Normalize()
+
+	day := NewSky(Noon)
+	clear, clearAway, clearHigh := day.color(low), day.color(away), day.color(high)
+	day.SetPlume(toward.Scale(600), 0.8)
+	if smoke := day.color(low); bright(smoke) >= bright(clear)*3/4 {
+		t.Errorf("by day the sky toward the mountain is %v with its smoke and %v without: wanted it a good deal darker", smoke, clear)
+	}
+	if day.color(away) != clearAway || day.color(high) != clearHigh {
+		t.Error("the smoke shows away from the mountain, or high overhead")
+	}
+
+	night := NewSky(Midnight)
+	dark := night.color(low)
+	night.SetPlume(toward, 0.8)
+	if glow := night.color(low); glow.r < dark.r+40 || glow.r < 2*glow.b {
+		t.Errorf("by night the sky at the foot of the smoke is %v, and %v without: wanted the red of the fire in it", glow, dark)
+	}
+
+	// From too far off there is none, and it is fainter from far than from near.
+	day.SetPlume(toward, 0)
+	if day.color(low) != clear {
+		t.Error("smoke of no strength darkens the sky")
+	}
+	day.SetPlume(toward, 0.2)
+	faint := day.color(low)
+	day.SetPlume(toward, 1)
+	if strong := day.color(low); bright(strong) >= bright(faint) || bright(faint) >= bright(clear) {
+		t.Errorf("the smoke is %v from near and %v from far, against %v of clear sky: wanted darker the nearer", strong, faint, clear)
+	}
+	day.SetPlume(geometry.Vector3{}, 1)
+	if day.color(low) != clear {
+		t.Error("smoke with no way to it shows")
+	}
+}

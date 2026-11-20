@@ -22,6 +22,7 @@ const (
 	mendFood   = 18.0 // food at or above which the player heals
 	hurtFlash  = 0.3  // seconds the view shows red when the player is hurt
 	fireHurt   = 2.0  // points a second, standing in a fire
+	lavaHurt   = 6.0  // and in lava
 )
 
 // live runs the player's body in survival for dt seconds, after the player has moved:
@@ -51,8 +52,17 @@ func (g *Game) live(dt float64) {
 	}
 
 	x, y, z := int(math.Floor(p.Pos.X)), int(math.Floor(p.Pos.Y)), int(math.Floor(p.Pos.Z))
-	if g.world.At(x, y, z) == world.Fire || g.world.At(x, y+1, z) == world.Fire {
-		if g.hurt(fireHurt * dt); g.screen != playing {
+	burn := 0.0
+	for _, in := range [2]world.Block{g.world.At(x, y, z), g.world.At(x, y+1, z)} {
+		switch in {
+		case world.Fire:
+			burn = max(burn, fireHurt)
+		case world.Lava:
+			burn = max(burn, lavaHurt)
+		}
+	}
+	if burn > 0 {
+		if g.hurt(burn * dt); g.screen != playing {
 			return // the player fainted
 		}
 	}

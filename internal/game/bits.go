@@ -25,6 +25,9 @@ const (
 	smokeReach = 96.0 // how far from the player a fire still smokes, in blocks
 	smokeRise  = 1.5  // how fast a puff rises, in blocks a second
 	smokeLife  = 6.0  // seconds a puff of a great fire lasts: so its smoke stands nine blocks high
+
+	craterPuffs = 2   // how many puffs a fire mountain lets go at a time
+	craterSmoke = 5.0 // how far from the middle of its crater they rise, in blocks
 )
 
 // bit is a piece of a broken block, flying and then lying where it fell, till it is gone,
@@ -98,6 +101,15 @@ func (g *Game) smoke(dt float64) {
 	for c, k := range g.hearths {
 		if mid := cellMid(c.X, c.Y+1, c.Z); k.Burn > 0 && mid.Distance(p) < smokeReach {
 			g.puff(mid, 0.2, smokeLife/2)
+		}
+	}
+	// A fire mountain smokes from its crater: great puffs, from all over its lake.
+	if crater, far, ok := g.world.Mountain(p.X, p.Z); ok && far < smokeReach {
+		for range craterPuffs {
+			at := cellMid(crater.X, crater.Y, crater.Z).Add(geometry.Vector3{
+				X: craterSmoke * (2*g.scatter.Float64() - 1), Z: craterSmoke * (2*g.scatter.Float64() - 1),
+			})
+			g.puff(at, 1.1, 1.5*smokeLife)
 		}
 	}
 }
