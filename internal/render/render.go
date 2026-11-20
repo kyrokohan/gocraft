@@ -116,18 +116,44 @@ type Renderer struct {
 	glow     [256]world.Light // the light each kind of block gives off
 	shuts    [256]bool        // the kinds of block that cast the soft shadows where blocks meet
 
-	wet []wetPixel // the pixels of the last Draw that show ground through water, for Wash
+	wet []wetPixel // the pixels of the last Draw that show water, for Wash
 }
 
-// wetPixel is a pixel in which Draw saw the ground through water: how deep the top of the
-// water is there, the color of that water as it is lit and faded, and what Draw left in
-// the pixel.
+// sunkPart is how much of the water's color lies over what an eye under water sees
+// through so many blocks of it, out of 256.
+func sunkPart(blocks float64) uint32 {
+	thick := part(0.3+0.05*blocks) * 235 >> 8
+	if blocks > underClear {
+		thick += uint32((256 - 235) * min((blocks-underClear)/(underMurk-underClear), 1))
+	}
+	return thick
+}
+
+// wetPixel is a pixel in which Draw saw water: how deep the top of the water is there,
+// the color of that water as it is lit and faded, and what Draw left in the pixel. From
+// an eye that is under water every pixel is one, and its top is under 0: the water
+// begins at the eye.
 type wetPixel struct {
 	x, y  int
 	top   float64
 	water color
 	drew  engine.Color
 }
+
+// Water is seen into, and not through: what lies under it shows less the more water a
+// ray went through to reach it, least at clearTo blocks of it, and from there the water
+// thickens until, at murk blocks, it is all there is. A ray goes no farther into it, so
+// a view over deep sea costs no more than one over a pond.
+//
+// An eye under water sees farther in it, as one that looks along the water and not down
+// into it: all that the water round it lets through at underClear blocks, and nothing
+// at underMurk.
+const (
+	clearTo    = (1 - 0.45) / 0.12
+	murk       = 10.0
+	underClear = (1 - 0.3) / 0.05
+	underMurk  = 20.0
+)
 
 // washPart is how much of the water's color lies over what Wash finds under the water,
 // out of 256: more than over the floor of a pool one deep, so that what lies in a pool
@@ -337,6 +363,10 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 	eye := v.eye
 	ex, ey, ez := int(math.Floor(eye.X)), int(math.Floor(eye.Y)), int(math.Floor(eye.Z))
 	underwater := w.At(ex, ey, ez) == world.Water
+	over := ey // the highest block of the water the eye is in
+	for underwater && w.At(ex, over+1, ez) == world.Water {
+		over++
+	}
 	deep := deepWater.times(sky.shade[w.LightAt(ex, ey, ez)]) // the water round the eye, as lit there
 	far := cam.Far
 	if far == 0 {
@@ -381,6 +411,11 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 			if d.Y > 0 {
 				reach = min(reach, (top-eye.Y)/d.Y)
 			}
+			// From under water a ray that does not come up out of it soon ends in it.
+			sunk := underwater && (d.Y <= 0 || (float64(over+1)-eye.Y)/d.Y > underMurk*unit)
+			if sunk {
+				reach = min(reach, underMurk*unit)
+			}
 
 			ray := world.NewRay(eye, d)
 			var surface world.Hit
@@ -398,6 +433,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 					// water there is none: the view is tinted as a whole.
 					if !wet && !underwater {
 						surface, wet = hit, true
+						reach = min(reach, hit.T+murk*unit) // past that the water hides everything
 					}
 					continue
 				}
@@ -443,10 +479,22 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 			}
 
 			if !found && !wet {
-				if underwater {
-					above = above.mix(deep, 230)
+				switch {
+				case sunk:
+					// The water is all there is, and hides what is deeper in it.
+					above = deep
+					c.SetDepth(px, py, underMurk*unit, above.engine())
+				case underwater:
+					// The sky, through the water over the eye: as much of it as that
+					// much water lets through, so that it meets the murk with no seam.
+					above = above.mix(deep, sunkPart((float64(over+1)-eye.Y)/d.Y/unit))
+					c.Set(px, py, above.engine())
+				default:
+					c.Set(px, py, above.engine())
 				}
-				c.Set(px, py, above.engine())
+				if underwater {
+					r.wet = append(r.wet, wetPixel{x: px, y: py, top: -1, water: deep, drew: above.engine()})
+				}
 				continue
 			}
 
@@ -473,10 +521,16 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 				}
 				ripple = ripple.times(r.lightOn(w, sky, surface))
 				water = ripple
-				col = col.mix(ripple, part(0.45+0.12*through)*230>>8)
+				thick := part(0.45+0.12*through) * 230 >> 8
+				if through > clearTo {
+					thick += uint32((256 - 230) * min((through-clearTo)/(murk-clearTo), 1))
+				}
+				col = col.mix(ripple, thick)
 				seen = surface.T
 				if !found {
-					depth = surface.T // nothing under it in reach: the water is all there is
+					// Nothing under it in reach: the water is all there is, and what is
+					// drawn deeper in it than a ray sees is hidden.
+					depth = surface.T + murk*unit
 				}
 			}
 
@@ -487,10 +541,11 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 			if underwater {
 				red, green, blue := out.RGB()
 				tinted := color{uint32(red), uint32(green), uint32(blue)}
-				out = tinted.mix(deep, part(0.3+0.05*seen/unit)*235>>8).engine()
+				out = tinted.mix(deep, sunkPart(seen/unit)).engine()
+				r.wet = append(r.wet, wetPixel{x: px, y: py, top: -1, water: deep, drew: out})
 			}
 			c.SetDepth(px, py, depth, out)
-			if wet && found {
+			if wet {
 				if fog != nil && seen > fog.Start {
 					red, green, blue := fog.Apply(water.engine(), seen).RGB()
 					water = color{uint32(red), uint32(green), uint32(blue)}
@@ -503,18 +558,28 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 
 // Wash draws the water over what has been drawn under its top since Draw: a beast that
 // lies in a pool is seen through the water, as the floor of the pool is. What is over the
-// water, or in front of it, stays as it is. Call it after the solid things that may be in
-// water, and before anything that is seen through.
+// water, or in front of it, stays as it is. From an eye that is under water all that has
+// been drawn is in the water, or seen through it. Call it after the solid things that
+// may be in water, and before anything that is seen through.
 func (r *Renderer) Wash(c *engine.Canvas) {
-	for _, p := range r.wet {
+	for i := range r.wet {
+		p := &r.wet[i]
 		now := c.At(p.x, p.y)
 		if now == p.drew {
 			continue // nothing has been drawn here
 		}
 		red, green, blue := now.RGB()
-		under := color{uint32(red), uint32(green), uint32(blue)}
-		// The top of the water is nearer than what is under it, and than nothing else:
-		// the depth says which this is, and then keeps a second wash off it.
-		c.SetDepth(p.x, p.y, p.top, under.mix(p.water, washPart).engine())
+		washed := color{uint32(red), uint32(green), uint32(blue)}.mix(p.water, washPart).engine()
+		switch {
+		case p.top < 0:
+			c.Set(p.x, p.y, washed)
+			p.drew = washed
+		case c.SetDepth(p.x, p.y, p.top, washed):
+			// The top of the water is nearer than what is under it, and than nothing
+			// else: the depth says which this is.
+			p.drew = washed
+		default:
+			p.drew = now // it is over the water, or in front of it
+		}
 	}
 }
