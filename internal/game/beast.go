@@ -211,6 +211,7 @@ var breeds = [render.Kinds]breed{
 		heavy:  true,
 		temper: herder, group: [2]int{5, 8}, most: 16, young: 0.3, wary: 9,
 		nests: 1.0 / 3, egg: world.BuglerEgg,
+		eats:  []world.Item{world.Berries, world.Fruit, world.Fiber},
 		lands: []world.Biome{world.Prairie, world.Highland},
 		call:  sound.Horn, cry: sound.Alarm, callEvery: 70, carries: 3 * sound.Hearing,
 	},
@@ -238,6 +239,7 @@ var breeds = [render.Kinds]breed{
 		temper: guard, group: [2]int{3, 4}, grown: 2, most: 4,
 		warns: 10, charges: 6, blow: 6, steps: 2,
 		nests: 0.5, egg: world.ShieldbrowEgg,
+		eats:  []world.Item{world.Berries, world.Fruit, world.Fiber},
 		lands: []world.Biome{world.Prairie},
 		call:  sound.Grunt, cry: sound.Bellow, callEvery: 45, carries: 2 * sound.Hearing,
 	},
@@ -410,6 +412,7 @@ var breeds = [render.Kinds]breed{
 		moves: gaitSoar, hover: 14, dips: 25, roosts: true,
 		group: [2]int{1, 2}, most: 3,
 		nests: 1, egg: world.GalewingEgg,
+		eats:  []world.Item{world.Meat},
 		lands: []world.Biome{world.Sea, world.Shore},
 		call:  sound.Skree, cry: sound.Skree, callEvery: 35, carries: 3 * sound.Hearing,
 	},
@@ -478,10 +481,17 @@ type beast struct {
 	fall   float64 // from 0, as it dies, to 1, gone
 	carved bool    // a knife killed it, so it leaves more
 
-	fed   int     // how many meals it has had from the player's hand
-	tame  bool    // it trusts the player, and follows
-	chew  float64 // how long it still chews its last meal
-	hurry bool    // it runs this frame: after food, after prey, or to catch the player up
+	fed int // how many meals it has had from the player's hand
+
+	// One the player raises: how many seconds it has grown, and how many more its last
+	// meal lets it grow. One that is the player's and lost all its health limps home:
+	// whether it does, and the day of the world on which it is whole again.
+	age, fedFor float64
+	limping     bool
+	mendAt      float64
+	tame        bool    // it trusts the player, and follows
+	chew        float64 // how long it still chews its last meal
+	hurry       bool    // it runs this frame: after food, after prey, or to catch the player up
 
 	// A hunter: how long it still keeps after the player, until it can bite again, how
 	// long it still stands over its kill, how long it has stood in the light, and
@@ -544,6 +554,15 @@ type egg struct {
 	warm float64          // the seconds of a fire's warmth it has had
 }
 
+// About raising a beast, and one that is the player's.
+const (
+	hatchTime = dayLength     // how much of a fire's warmth hatches an egg, in seconds
+	growTime  = 2 * dayLength // how long a young one that is fed grows before it is grown
+	limpPace  = 0.5           // how much of its walk a beast that limps home has
+	limpNear  = 3.0           // how near home it stops
+	mendDays  = 1.0           // how many days after it fell it is whole
+)
+
 // About nests, and those who rob them.
 const (
 	thiefTime = 8.0  // how long the grown ones of a herd run at one who took its egg
@@ -565,12 +584,14 @@ type alarm struct {
 // group at a time, up to as many as its breed says, and those left far behind are let go.
 type fauna struct {
 	all   []beast
-	eggs  []egg           // the eggs that lie in the world
-	thief map[int]float64 // for a herd an egg was taken from: how long its grown ones still go for the thief
-	rng   *rand.Rand      // where the next one goes: from the world's seed
-	born  uint64          // how many there have been, to give each a generator of its own
-	herds int             // how many herds there have been, to number the next
-	timer float64         // until the beasts are next looked over
+	eggs  []egg             // the eggs that lie in the world
+	home  geometry.Vector3  // where a beast that is the player's limps to: the bed, or where a player starts
+	start *geometry.Vector3 // where a player starts, once it has been looked for
+	thief map[int]float64   // for a herd an egg was taken from: how long its grown ones still go for the thief
+	rng   *rand.Rand        // where the next one goes: from the world's seed
+	born  uint64            // how many there have been, to give each a generator of its own
+	herds int               // how many herds there have been, to number the next
+	timer float64           // until the beasts are next looked over
 
 	// sneaking is whether the player is crouched, which lets it come nearer a herd, and
 	// bait whether the player holds food out, which brings thieves.
@@ -676,8 +697,9 @@ func faunaFrom(w *world.World, s world.Meta, round geometry.Vector3) *fauna {
 			kind: kind, Pos: b.Pos, Yaw: b.Yaw, young: b.Young, herd: b.Herd,
 			health: min(max(b.Health, 1), max(breeds[kind].health, 1)), regrow: b.Regrow,
 			tame: b.Tame, fed: b.Fed,
+			age: b.Age, fedFor: b.FedFor, limping: b.Limping, mendAt: b.MendAt,
 			timer: r.Float64() * 2, rng: r,
-			aloft: breeds[kind].moves == gaitSoar,
+			aloft: breeds[kind].moves == gaitSoar && !b.Limping && !(b.Tame && b.Young),
 		})
 		f.herds = max(f.herds, b.Herd)
 	}
@@ -718,6 +740,7 @@ func (f *fauna) saved() []world.Beast {
 			out = append(out, world.Beast{
 				Kind: c.kind.String(), Pos: c.Pos, Yaw: c.Yaw, Young: c.young, Herd: c.herd,
 				Health: c.health, Regrow: c.regrow, Tame: c.tame, Fed: c.fed,
+				Age: c.age, FedFor: c.fedFor, Limping: c.limping, MendAt: c.mendAt,
 			})
 		}
 	}
@@ -1005,7 +1028,7 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		}
 		// A tame beast keeps by the player: it comes after one that goes, runs to catch
 		// up when it has fallen far behind, and stands by one that stands.
-		if c.tame && !c.dead && c.flee <= 0 {
+		if c.tame && !c.dead && c.flee <= 0 && !c.limping {
 			if far > followFar {
 				c.walking, c.Yaw, c.hurry = true, yawOf(to), far > followRun
 			} else {
@@ -1013,10 +1036,17 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 			}
 			c.timer = max(c.timer, rethink)
 		}
+		// A young one that is the player's grows while its last meal lasts.
+		if grows := min(dt, c.fedFor); c.tame && c.young && grows > 0 && !c.dead {
+			c.fedFor -= grows
+			if c.age += grows; c.age > growTime-1e-6 { // steps of time do not add up to it exactly
+				c.young, c.health = false, b.health
+			}
+		}
 		if b.temper == hunter && !c.dead {
 			f.hunt(w, i, player, dt)
 		}
-		if b.temper == guard && !c.dead {
+		if b.temper == guard && !c.dead && !c.limping {
 			f.guard(i, player, dt)
 		}
 		var middle *geometry.Vector3
@@ -1030,6 +1060,24 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 			c.pace = coldPace + (1-coldPace)*f.noon
 		}
 		c.abed = b.roosts && f.sun < sunUp
+		if !b.warms {
+			c.pace = 0
+		}
+		if c.limping && !c.dead {
+			// It lost all its health, and is the player's: it goes home at a limp, and
+			// a day after it fell it is whole.
+			if c.mendAt == 0 {
+				c.mendAt = f.day + mendDays
+			}
+			home := geometry.Vector3{X: f.home.X - c.Pos.X, Z: f.home.Z - c.Pos.Z}
+			c.flee, c.hurry, c.pace, c.timer = 0, false, limpPace, max(c.timer, rethink)
+			if c.walking = home.Length() > limpNear; c.walking {
+				c.Yaw = yawOf(home)
+			}
+			if f.day >= c.mendAt {
+				c.limping, c.mendAt, c.health, c.pace = false, 0, b.health, 0
+			}
+		}
 		// One whose nest a player has come near dives at it, by day, where hunters are.
 		c.diving = c.nested && f.hunted && !c.abed && math.Hypot(player.X-c.nest.X, player.Z-c.nest.Z) < nestGuard
 		c.quarry = player.Add(geometry.Vector3{Y: playerHeight * 0.8})
@@ -1268,10 +1316,9 @@ func (c *beast) hit(from geometry.Vector3, points float64) (killed bool) {
 	if b.curls > 0 {
 		c.curl, c.flee, c.push, c.walking = b.curls, 0, geometry.Vector3{}, false // it curls up where it is
 	}
-	if b.health > 0 {
+	if b.health > 0 && !c.limping {
 		if c.health -= points; c.health <= 0 {
-			c.dead, c.walking, c.flee = true, false, 0
-			return true
+			return c.falls()
 		}
 	}
 	return false
@@ -1282,13 +1329,34 @@ func (c *beast) hit(from geometry.Vector3, points float64) (killed bool) {
 // It reports whether it ate, and whether that meal tamed it.
 func (c *beast) feed(food world.Item) (ate, tamed bool) {
 	b := &breeds[c.kind]
-	if c.tame || c.dead || c.chew > 0 || !slices.Contains(b.eats, food) {
+	if c.dead || c.limping || c.chew > 0 || !slices.Contains(b.eats, food) {
 		return false, false
 	}
-	c.fed, c.chew = c.fed+1, chewTime
-	c.flee = 0 // what feeds it is nothing to run from
-	c.tame = c.fed >= b.meals
-	return true, c.tame
+	switch {
+	case c.tame && c.young && c.fedFor <= 0:
+		// A young one that is the player's: a meal is a day of growing, and it takes
+		// no other while that lasts.
+		c.fedFor, c.chew = dayLength, chewTime
+		return true, false
+	case !c.tame && b.meals > 0:
+		c.fed, c.chew = c.fed+1, chewTime
+		c.flee = 0 // what feeds it is nothing to run from
+		c.tame = c.fed >= b.meals
+		return true, c.tame
+	}
+	return false, false
+}
+
+// falls is a beast with no health left. A wild one dies. One that is the player's does
+// not: it limps home, and nothing hurts it until it is whole. It reports whether it died.
+func (c *beast) falls() (died bool) {
+	c.walking, c.flee, c.leap = false, 0, 0
+	if c.tame {
+		c.limping, c.health, c.aloft = true, 1, false
+		return false
+	}
+	c.dead = true
+	return true
 }
 
 // shear takes a mossback's moss, if it has any, and reports whether it had.
@@ -1376,8 +1444,8 @@ func (c *beast) wayAhead(w *world.World, ahead geometry.Vector3, afloat bool, so
 			return false, true // water under a bank: it keeps out of that too
 		case below == world.Tar:
 			// Tar looks like ground, and a beast walks onto it: but one that nothing
-			// kills knows it, and keeps out.
-			return false, breeds[c.kind].health == 0
+			// kills knows it, and keeps out, and so does one that is the player's.
+			return false, breeds[c.kind].health == 0 || c.tame
 		case solid(w, x, y-down, z):
 			return false, false // ground to step onto or down to
 		}
@@ -1429,7 +1497,7 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 		c.swim(w, speed, dt, middle)
 		return
 	}
-	if b.moves == gaitSoar && !c.dead {
+	if b.moves == gaitSoar && !c.dead && !c.limping && !(c.tame && c.young) {
 		if c.aloft || !c.abed {
 			c.soar(w, speed, dt)
 			return
@@ -1453,8 +1521,8 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 		// Tar holds it for good: it goes nowhere, and dies there in time.
 		c.flee, c.leap, c.walking, c.timer = 0, 0, false, max(c.timer, rethink)
 		if b.health > 0 {
-			if c.health -= b.health / tarDeath * dt; c.health <= 0 {
-				c.dead = true
+			if c.health -= b.health / tarDeath * dt; c.health <= 0 && !c.limping {
+				c.falls()
 			}
 		}
 	}
@@ -1542,7 +1610,7 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 		if drop := c.peak - c.Pos.Y; b.heavy && b.health > 0 && drop > fallSafe && !c.dead {
 			c.hurt = hurtShow
 			if c.health -= b.health * fallPart * (drop - fallSafe); c.health <= 0 {
-				c.dead, c.walking, c.flee = true, false, 0
+				c.falls()
 			}
 		}
 		c.peak = c.Pos.Y
@@ -1578,6 +1646,18 @@ func (g *Game) stepBeasts(dt float64) {
 	f.sneaking = g.player.Crouched
 	f.bait = g.survival && held.Item.Food() > 0 // in creative there is nothing to lose
 	f.moving, f.hidden, f.hunted, f.day = g.paced, g.hidden(), g.survival, firstMorning+g.days
+	// Home, for a beast that limps there: the bed, or with none where a player starts,
+	// which is looked for once, when the first beast needs it.
+	switch limps := slices.ContainsFunc(f.all, func(c beast) bool { return c.limping }); {
+	case g.bed != nil:
+		f.home = cellMid(g.bed.X, g.bed.Y, g.bed.Z)
+	case limps && f.start == nil:
+		at := g.world.Spawn()
+		f.start = &at
+		fallthrough
+	case limps:
+		f.home = *f.start
+	}
 	g.findFires(dt)
 	f.meaty = slices.ContainsFunc(g.items[:], func(s world.Stack) bool { return s.Item == world.Meat })
 	f.winter, f.fireside = g.winter(), g.byFire()

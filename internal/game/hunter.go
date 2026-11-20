@@ -152,8 +152,8 @@ func (f *fauna) prey(c *beast) *beast {
 	best := breeds[c.kind].stalks
 	for i := range f.all {
 		p := &f.all[i]
-		if p.dead || breeds[p.kind].health == 0 || breeds[p.kind].temper == hunter {
-			continue
+		if p.dead || p.limping || breeds[p.kind].health == 0 || breeds[p.kind].temper == hunter {
+			continue // what limps home is let be
 		}
 		if (breeds[p.kind].moves == gaitSwim) != (breeds[c.kind].moves == gaitSwim) {
 			continue // the sea's hunter hunts the sea's beasts, and the land's the land's

@@ -55,7 +55,9 @@ func (f *fauna) threat(i int, player geometry.Vector3) (at geometry.Vector3, nea
 			}
 		}
 	}
-	weigh(player)
+	if !c.tame {
+		weigh(player) // one that is the player's has nothing to fear from it
+	}
 	for j := range f.all {
 		if h := &f.all[j]; breeds[h.kind].temper == hunter && !h.dead {
 			weigh(h.Pos)
@@ -100,6 +102,9 @@ func (f *fauna) guard(i int, player geometry.Vector3, dt float64) {
 	}
 
 	foe, near := f.threat(i, player)
+	if c.tame {
+		c.angry = false // it does not turn on the player, whatever the player did
+	}
 	if c.angry {
 		// It was hurt, or its young were: it turns on where that came from, however far.
 		c.angry, foe, near = false, c.foe, 0

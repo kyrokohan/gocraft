@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"math/rand/v2"
 	"slices"
 
 	"glonk.dev/geometry"
@@ -171,12 +172,66 @@ func (g *Game) feed(p prey) bool {
 	if g.survival {
 		g.items.takeOne(g.selected)
 	}
-	if tamed {
+	switch {
+	case tamed:
 		g.tell("the " + c.kind.String() + " trusts you: it will follow you")
-	} else {
+	case c.tame:
+		g.tell("the young " + c.kind.String() + " eats: it will grow for a day")
+	default:
 		g.tell("the " + c.kind.String() + " eats from your hand")
 	}
 	return true
+}
+
+// eggKind returns the kind of beast a thing is the egg of, if it is one.
+func eggKind(item world.Item) (render.Kind, bool) {
+	for k := range render.Kinds {
+		if breeds[k].egg == item && item != 0 {
+			return k, true
+		}
+	}
+	return 0, false
+}
+
+// warmAt reports whether a fire warms a place: one that burns near the player, or a
+// hearth that burns, wherever the player is.
+func (g *Game) warmAt(at geometry.Vector3) bool {
+	for _, fire := range g.burning {
+		if fire.Distance(at) <= warmReach {
+			return true
+		}
+	}
+	for c, k := range g.hearths {
+		if k.Burn > 0 && cellMid(c.X, c.Y, c.Z).Distance(at) <= warmReach {
+			return true
+		}
+	}
+	return false
+}
+
+// hatch warms the eggs the player put down for dt seconds, each that lies by a fire, and
+// hatches one that has had a day of it: what comes out is young, and the player's.
+func (g *Game) hatch(dt float64) {
+	f := g.fauna
+	for i := 0; i < len(f.eggs); i++ {
+		e := &f.eggs[i]
+		if e.wild || !g.warmAt(e.Pos) {
+			continue
+		}
+		if e.warm += dt; e.warm < hatchTime {
+			continue
+		}
+		f.born++
+		own := rand.New(rand.NewPCG(uint64(g.world.Seed), f.born))
+		f.all = append(f.all, beast{
+			kind: e.kind, Pos: e.Pos, young: true, tame: true, health: breeds[e.kind].health,
+			Yaw: own.Float64()*2*math.Pi - math.Pi, timer: own.Float64() * 2, rng: own,
+		})
+		g.ears.Play(sound.Pickup, e.Pos, 1)
+		g.tell("the egg hatches: a young " + e.kind.String() + ", and it is yours")
+		f.eggs = slices.Delete(f.eggs, i, i+1)
+		i--
+	}
 }
 
 // shear takes the moss of the mossback aimed at, in survival, if it has grown, and puts

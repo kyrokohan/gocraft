@@ -107,13 +107,13 @@ func TestAnEggIsStolenWithAHandAndCarried(t *testing.T) {
 		if len(g.fauna.eggs) != 0 || carried(g, world.BuglerEgg) != 1 {
 			t.Fatalf("with %c on an egg three blocks off, %d eggs lie there and the player has %d", key, len(g.fauna.eggs), carried(g, world.BuglerEgg))
 		}
-		// It is not eaten, and it does not go.
+		// It is not eaten, and it does not go: E puts it down again.
 		g.selected = 0
 		g.items[0] = world.Stack{Item: world.BuglerEgg, Count: 1}
 		g.food = maxFood / 2
 		hold(t, g, seconds(3), 'e')
-		if carried(g, world.BuglerEgg) != 1 || g.food > maxFood/2 {
-			t.Errorf("three seconds of E with an egg in hand left %d eggs and food at %v of %v", carried(g, world.BuglerEgg), g.food, maxFood/2)
+		if n := carried(g, world.BuglerEgg) + len(g.fauna.eggs); n != 1 || g.food > maxFood/2 {
+			t.Errorf("three seconds of E with an egg in hand left %d eggs, carried or lying, and food at %v of %v", n, g.food, maxFood/2)
 		}
 	}
 	// One out of reach is not taken.

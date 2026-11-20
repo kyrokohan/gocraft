@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"glonk.dev/engine"
+	"glonk.dev/geometry"
 
 	"github.com/kyrokohan/skyspear/internal/sound"
 	"github.com/kyrokohan/skyspear/internal/world"
@@ -319,6 +320,19 @@ func (g *Game) build(in *engine.Input, dt float64) {
 			g.leave(t.X, y, t.Z, above)
 		}
 	case places:
+		if kind, ok := eggKind(g.items[g.selected].Item); ok {
+			// An egg is put down on top of what is aimed at, where there is room.
+			if t.Face != world.FaceYPos || !t.Block.Info().Solid || g.world.At(t.X, t.Y+1, t.Z) != world.Air {
+				return
+			}
+			g.fauna.eggs = append(g.fauna.eggs, egg{kind: kind, Pos: geometry.Vector3{X: float64(t.X) + 0.5, Y: float64(t.Y + 1), Z: float64(t.Z) + 0.5}})
+			g.ears.Play(sound.Place(sound.Plant), cellMid(t.X, t.Y+1, t.Z), 0.7)
+			g.swing = swingTime
+			if g.survival {
+				g.items.takeOne(g.selected)
+			}
+			break
+		}
 		b, ok := g.items[g.selected].Item.Block()
 		if !ok {
 			return // an empty slot, or a thing that is not a block
