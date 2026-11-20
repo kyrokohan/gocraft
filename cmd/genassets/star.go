@@ -62,3 +62,23 @@ func skyIronSpear(x, y int) (rgb, bool) {
 	}
 	return c, ok
 }
+
+// furCloak is a cloak of hides: wide at the shoulders, with a collar of thicker fur and a
+// cord at the throat, and the hair of the hides in strokes down it.
+func furCloak(x, y int) (rgb, bool) {
+	fx, fy := float64(x)-7.5, float64(y)
+	wide := 3.2 + 0.36*fy // it widens as it hangs
+	if fy < 1 || fy > 14.5 || math.Abs(fx) > wide || fy > 13 && int(math.Abs(fx)+0.5)%3 == 0 {
+		return rgb{}, false // the ragged hem
+	}
+	c := rgb{124, 86, 52}.scale(0.82 + 0.36*hash(x, y/3, 820))
+	switch {
+	case fy < 4:
+		c = rgb{196, 176, 140}.scale(0.85 + 0.3*hash(x, y, 821)) // the collar
+	case math.Abs(fx) < 0.6 && fy < 7:
+		c = rgb{214, 190, 130} // the cord that ties it
+	case math.Abs(fx) > wide-1:
+		c = c.scale(0.7) // its edges, in shadow
+	}
+	return grain(c, 0.06, x, y, 822), true
+}

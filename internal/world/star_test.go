@@ -133,3 +133,32 @@ func TestToolsOfSkyIronAreTheStrongestAndLastLongest(t *testing.T) {
 		t.Errorf("the numbers moved: sky iron spear %d, hot core %d, sky iron core %d", SkyIronSpear, HotCore, SkyIronCore)
 	}
 }
+
+func TestTheTundraAndTheCragsAreColdAndNoOtherLandIs(t *testing.T) {
+	w := Generate(7)
+	seed := uint32(7)
+	cold, warm := 0, 0
+	for z := -3000; z < 3000; z += 41 {
+		for x := -3000; x < 3000; x += 41 {
+			l := landAt(x, z, seed)
+			want := l.biome == Tundra || l.biome == Crags
+			if got := w.Cold(float64(x)+0.5, float64(z)+0.5); got != want {
+				t.Fatalf("the land at %d, %d is of kind %d and cold: %v", x, z, l.biome, got)
+			}
+			if want {
+				cold++
+			} else {
+				warm++
+			}
+		}
+	}
+	if cold < 100 || warm < 100 {
+		t.Errorf("%d cold places and %d warm ones were looked at: wanted many of each", cold, warm)
+	}
+	if New().Cold(0, 0) {
+		t.Error("a world that is not made from a seed is cold")
+	}
+	if FurCloak.Name() != "fur cloak" || !FurCloak.Known() || FurCloak.Food() != 0 || FurCloak != SkyIronSpear+1 {
+		t.Errorf("a fur cloak is %q, number %d", FurCloak.Name(), FurCloak)
+	}
+}

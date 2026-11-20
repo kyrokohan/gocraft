@@ -193,6 +193,7 @@ var painters = [tile.Count]painter{
 	tile.SkyIronCore:   skyIronCore,
 	tile.SkyIron:       skyIronLump,
 	tile.SkyIronSpear:  skyIronSpear,
+	tile.FurCloak:      furCloak,
 	tile.Obsidian:      obsidianShard,
 	tile.Firestone:     firestonePiece,
 	tile.ObsidianKnife: blade(obsidianGlass.scale(1.5)),
