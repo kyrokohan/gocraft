@@ -72,6 +72,10 @@ const (
 	ObsidianRock
 	FirestoneRock
 
+	SinterRust
+	SinterGold
+	SinterGreen
+
 	blockCount
 )
 
@@ -202,6 +206,12 @@ var infos = [256]Info{
 	// strikes fire from a flint: it breaks by hand, as a flint seam does.
 	ObsidianRock:  byPick(cube("obsidian", tile.ObsidianRock), 4, TierFlint),
 	FirestoneRock: byPick(cube("firestone", tile.FirestoneRock), 3, 0),
+
+	// The stone a hot spring leaves round itself, in rings: rust nearest the water,
+	// then gold, then the green of what grows in the warm.
+	SinterRust:  byPick(cube("rust sinter", tile.SinterRust), 2, 0),
+	SinterGold:  byPick(cube("gold sinter", tile.SinterGold), 2, 0),
+	SinterGreen: byPick(cube("green sinter", tile.SinterGreen), 2, 0),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for

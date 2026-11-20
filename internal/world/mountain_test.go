@@ -116,6 +116,9 @@ func TestAMountainIsTheSameWhicheverChunkIsMadeFirstAndHoldsLava(t *testing.T) {
 				if w.At(x+dx, y, z+dz) != Lava {
 					continue
 				}
+				if _, floor := m.tube(seed); y <= floor+4 {
+					continue // the lava of the tube, deep in the cone: its pool, and what hangs in its roof
+				}
 				lake, high = lake+1, max(high, y)
 				if far := math.Hypot(float64(dx), float64(dz)); far >= craterWide {
 					t.Fatalf("there is lava %.1f from the middle, outside the crater", far)
@@ -152,8 +155,17 @@ func TestAshlandsAreAshAndDarkRockWhereNothingGrows(t *testing.T) {
 			ground[top]++
 			switch top {
 			case Ash, Basalt, ObsidianRock, FirestoneRock, Air: // air: the mouth of a cave
+			case Water, SinterRust, SinterGold, SinterGreen: // a hot spring
 			default:
 				t.Fatalf("the ground at %d,%d is %v, wanted ash, dark rock or what lies in it", x+dx, z+dz, top)
+			}
+			if m, _, _ := mountainNear(x, z, seed); slices.ContainsFunc(m.springs(seed), func(s spring) bool {
+				return math.Hypot(float64(x+dx-s.x), float64(z+dz-s.z)) <= springReach
+			}) {
+				continue // a hot spring, whose ground is made level
+			}
+			if way, _ := mountainOf(x, z, seed).tube(seed); math.Abs(float64(dx)*way[1]-float64(dz)*way[0]) < 3 {
+				continue // the mouth of the lava tube, which is cut into the ground
 			}
 			if over := w.At(x+dx, l.top+1, z+dz); over != Air && over != CharredLog {
 				t.Fatalf("on the ashlands at %d,%d there is %v, wanted nothing or a charred trunk", x+dx, z+dz, over)
@@ -193,6 +205,9 @@ func TestObsidianAndFirestoneAreFoundOnAFireMountainAndNowhereElse(t *testing.T)
 						t.Fatalf("obsidian lies %.0f from the middle, off the cone", out)
 					}
 				case FirestoneRock:
+					if _, chamber, _ := w.Tube(float64(x), float64(z)); math.Hypot(float64(x+dx-chamber.X), float64(z+dz-chamber.Z)) < chamberWide+2 {
+						continue // in the wall of the chamber of the lava tube, which is deep in the cone
+					}
 					firestone++
 					far = max(far, math.Abs(out-craterWide))
 					if landAt(x+dx, z+dz, seed).lava != 0 {
@@ -276,5 +291,173 @@ func TestToolsOfObsidianAreTheSharpestAndTheFirstToBreak(t *testing.T) {
 	}
 	if Obsidian != Sling+1 || Striker != Obsidian+5 || ObsidianRock != Lava+1 || FirestoneRock != ObsidianRock+1 {
 		t.Errorf("the numbers moved: obsidian %d, striker %d, obsidian rock %d, firestone rock %d", Obsidian, Striker, ObsidianRock, FirestoneRock)
+	}
+}
+
+func TestHotSpringsLieOnTheAshRoundAMountainTheSameEveryTime(t *testing.T) {
+	geysers := 0
+	for seed := uint32(1); seed <= 12; seed++ {
+		x, z := mountPlace(0, 0, seed)
+		m, _, _ := mountainNear(x, z, seed)
+		all := m.springs(seed)
+		if again := m.springs(seed); !slices.Equal(again, all) {
+			t.Fatalf("seed %d: the seed gave two sets of springs", seed)
+		}
+		if len(all) > 4 {
+			t.Errorf("seed %d: %d springs, wanted four at the most", seed, len(all))
+		}
+		for i, s := range all {
+			far := math.Hypot(float64(s.x-x), float64(s.z-z))
+			if far < springNear-1 || far > springFar+1 || landAt(s.x, s.z, seed).biome != Ashlands || landAt(s.x, s.z, seed).cone {
+				t.Errorf("seed %d: spring %d lies %.0f from the middle, in land %d: wanted it on the ash off the cone", seed, i, far, landAt(s.x, s.z, seed).biome)
+			}
+			if s.geyser {
+				geysers++
+			}
+			if got, ok := springAt(s.x, s.z, seed); !ok || got != s {
+				t.Errorf("seed %d: the middle of spring %d is not in its own water", seed, i)
+			}
+			if _, ok := springAt(s.x+int(s.wide)+2, s.z, seed); ok {
+				t.Errorf("seed %d: a column on the rings of spring %d is in its water", seed, i)
+			}
+		}
+		if len(all) > 0 && !all[0].geyser {
+			t.Errorf("seed %d: the first spring has no geyser", seed)
+		}
+	}
+	if geysers < 12 {
+		t.Errorf("%d geysers in twelve worlds, wanted one or more to a mountain", geysers)
+	}
+	if _, ok := springAt(0, 0, 7); ok {
+		t.Error("where the world begins is in a hot spring")
+	}
+}
+
+func TestAHotSpringIsAPoolInRingsOfColoredStone(t *testing.T) {
+	const seed = 7
+	x, z := mountPlace(0, 0, seed)
+	m, _, _ := mountainNear(x, z, seed)
+	w := newWorld(seed, Terrain(seed), "", float64(x), float64(z))
+	for i, s := range m.springs(seed) {
+		if w.At(s.x, s.y, s.z) != Water || !w.At(s.x, s.y-1, s.z).Info().Solid || w.At(s.x, s.y+1, s.z) != Air {
+			t.Errorf("spring %d: its middle is %v over %v under %v, wanted water one deep, on a floor, under the air", i, w.At(s.x, s.y, s.z), w.At(s.x, s.y-1, s.z), w.At(s.x, s.y+1, s.z))
+		}
+		rings := map[Block]int{}
+		for dz := -springReach; dz <= springReach; dz++ {
+			for dx := -springReach; dx <= springReach; dx++ {
+				b := w.At(s.x+dx, s.y, s.z+dz)
+				rings[b]++
+				if far := math.Hypot(float64(dx), float64(dz)); far <= s.wide+3.4 && w.At(s.x+dx, s.y+1, s.z+dz) != Air {
+					t.Fatalf("spring %d: over its ground at %d,%d there is %v", i, dx, dz, w.At(s.x+dx, s.y+1, s.z+dz))
+				}
+			}
+		}
+		if rings[Water] < 12 || rings[SinterRust] < 8 || rings[SinterGold] < 12 || rings[SinterGreen] < 12 {
+			t.Errorf("spring %d: %d water, %d rust, %d gold, %d green: wanted a pool in three rings", i, rings[Water], rings[SinterRust], rings[SinterGold], rings[SinterGreen])
+		}
+		if !w.Spring(float64(s.x)+0.5, float64(s.z)+0.5) || w.Spring(float64(s.x)+s.wide+2.5, float64(s.z)+0.5) {
+			t.Errorf("spring %d: its middle is in its water %v, and its rings %v", i, w.Spring(float64(s.x)+0.5, float64(s.z)+0.5), w.Spring(float64(s.x)+s.wide+2.5, float64(s.z)+0.5))
+		}
+	}
+	vents := w.Geysers(float64(x), float64(z), 80)
+	if len(vents) == 0 || w.At(vents[0].X, vents[0].Y, vents[0].Z) != Water {
+		t.Errorf("the geysers of the mountain spout from %v", vents)
+	}
+	if far := w.Geysers(float64(x)+300, float64(z), 20); len(far) != 0 {
+		t.Errorf("300 blocks from the mountain there are %d geysers within 20", len(far))
+	}
+	if New().Spring(0, 0) || len(New().Geysers(0, 0, 100)) != 0 {
+		t.Error("a world that is not made from a seed has springs")
+	}
+}
+
+func TestALavaTubeRunsIntoTheConeTwoBlocksWideToAChamber(t *testing.T) {
+	for _, seed := range []int64{7, 11, 2024} {
+		s := uint32(seed)
+		x, z := mountPlace(0, 0, s)
+		m, _, _ := mountainNear(x, z, s)
+		w := newWorld(seed, Terrain(seed), "", float64(x), float64(z))
+		mouth, chamber, ok := w.Tube(float64(x), float64(z))
+		if !ok {
+			t.Fatalf("seed %d: the mountain has no tube", seed)
+		}
+		way, floor := m.tube(s)
+		lit := 0
+
+		// Along it, from the chamber out: three blocks of air over a floor, rock two
+		// blocks to each side, and a roof, with lava in it here and there.
+		for far := tubeFrom + 5.0; far <= tubeTo-8; far += 1 { // from where it opens into the chamber
+			cx, cz := float64(x)+0.5+far*way[0], float64(z)+0.5+far*way[1]
+			at := func(aside float64) (int, int) {
+				return int(math.Floor(cx + aside*way[1])), int(math.Floor(cz - aside*way[0]))
+			}
+			if ax, az := at(0); w.At(ax, floor+1, az) != Air || w.At(ax, floor+3, az) != Air || !w.At(ax, floor, az).Info().Solid {
+				t.Fatalf("seed %d: %.0f along the tube there is %v on %v, wanted air on a floor", seed, far, w.At(ax, floor+1, az), w.At(ax, floor, az))
+			}
+			for _, aside := range []float64{-2.6, 2.6} {
+				if ax, az := at(aside); far > tubeFrom+6 && !w.At(ax, floor+1, az).Info().Solid && !w.At(ax, floor+2, az).Info().Solid {
+					t.Fatalf("seed %d: %.0f along the tube it is open %.1f to the side: wanted it two blocks wide", seed, far, aside)
+				}
+			}
+			if ax, az := at(0); far < tubeTo-12 {
+				switch roof := w.At(ax, floor+4, az); {
+				case roof == Lava:
+					lit++
+				case !roof.Info().Solid:
+					t.Fatalf("seed %d: %.0f along the tube it has no roof", seed, far)
+				}
+			}
+		}
+		if lit < 1 {
+			t.Errorf("seed %d: lava hangs in the roof of the tube in %d places, wanted some to light it", seed, lit)
+		}
+		// The chamber: room, a pool of lava in its floor, and what the mountain keeps in its walls.
+		for far := tubeFrom + 2.0; far < tubeFrom+5; far++ { // and the way from the pool to there is open
+			if ax, az := int(math.Floor(float64(x)+0.5+far*way[0])), int(math.Floor(float64(z)+0.5+far*way[1])); w.At(ax, floor+1, az) != Air || w.At(ax, floor+2, az) != Air {
+				t.Errorf("seed %d: %.0f along, between the chamber and the tube, there is %v under %v", seed, far, w.At(ax, floor+1, az), w.At(ax, floor+2, az))
+			}
+		}
+		if w.At(chamber.X, floor, chamber.Z) != Lava || w.At(chamber.X, floor+2, chamber.Z) != Air {
+			t.Errorf("seed %d: the middle of the chamber is %v under %v, wanted lava under air", seed, w.At(chamber.X, floor, chamber.Z), w.At(chamber.X, floor+2, chamber.Z))
+		}
+		kept := 0
+		for dz := -7; dz <= 7; dz++ {
+			for dx := -7; dx <= 7; dx++ {
+				for y := floor + 1; y <= floor+3; y++ {
+					if b := w.At(chamber.X+dx, y, chamber.Z+dz); b == ObsidianRock || b == FirestoneRock {
+						kept++
+					}
+				}
+			}
+		}
+		if kept < 10 {
+			t.Errorf("seed %d: the walls of the chamber hold %d blocks of obsidian and firestone", seed, kept)
+		}
+		// Its mouth is open to the sky, on the side of the cone.
+		if w.At(mouth.X, mouth.Y, mouth.Z) != Air || w.LightAt(mouth.X, mouth.Y+1, mouth.Z).Sky() < 10 {
+			t.Errorf("seed %d: the mouth of the tube at %+v is %v, with the sky's light at %d", seed, mouth, w.At(mouth.X, mouth.Y, mouth.Z), w.LightAt(mouth.X, mouth.Y+1, mouth.Z).Sky())
+		}
+	}
+}
+
+func TestTheSpringsAndTheTubeAreTheSameWhicheverChunkIsMadeFirst(t *testing.T) {
+	const seed = 7
+	x, z := mountPlace(0, 0, seed)
+	gen := Terrain(seed)
+	var chunks [][2]int
+	for cz := floorDiv(z-mountAsh, ChunkSize); cz <= floorDiv(z+mountAsh, ChunkSize); cz++ {
+		for cx := floorDiv(x-mountAsh, ChunkSize); cx <= floorDiv(x+mountAsh, ChunkSize); cx++ {
+			chunks = append(chunks, [2]int{cx, cz})
+		}
+	}
+	first := map[[2]int][]Block{}
+	for _, c := range chunks {
+		first[c] = made(gen, c[0], c[1])
+	}
+	slices.Reverse(chunks)
+	for _, c := range chunks {
+		if !slices.Equal(made(gen, c[0], c[1]), first[c]) {
+			t.Fatalf("chunk %v came out different when its neighbors were made first", c)
+		}
 	}
 }

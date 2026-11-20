@@ -82,6 +82,9 @@ const (
 	Lava
 	ObsidianRock
 	FirestoneRock
+	SinterRust
+	SinterGold
+	SinterGreen
 
 	// Pictures that are on no block.
 
