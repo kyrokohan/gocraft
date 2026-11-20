@@ -4,7 +4,7 @@
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
 
-**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, cloudgrazers whose steps shake the ground, and the dread, which hunts everything. On the cold steppe go herds of snowtusks, in long hair, and slowclaws, and it has hunters of its own: packs of howlers by night, and the daggercat by day. In the coal swamp a sailjaw lies in a black pool with only its sail out of the water, and sunbacks, slow in the morning, are quick by noon. Out at sea lakenecks carry their heads high over the water, schools of leapfins leap, and the deepmaw hunts where the water is deep. Over the shore galewings soar in circles on wings eight blocks across, and in the badlands stiltwings, as tall as trees, stalk on foot and take to the air when you come near. Some herds keep a nest, and an egg can be stolen from it, if you are quick. A fire mountain smokes on the horizon, with hot springs and geysers at its foot and a lava tube in its side, and every few days it erupts. Stars streak the night sky, and now and then one comes down near you and leaves a crater with sky iron in it. Among the stars stands the Skyspear, a comet that grows each night, and on the twelfth it arrives: the Great Fall, and after it the Long Winter, four days of ash, frost and cold. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
+**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, cloudgrazers whose steps shake the ground, and the dread, which hunts everything. On the cold steppe go herds of snowtusks, in long hair, and slowclaws, and it has hunters of its own: packs of howlers by night, and the daggercat by day. In the coal swamp a sailjaw lies in a black pool with only its sail out of the water, and sunbacks, slow in the morning, are quick by noon. Out at sea lakenecks carry their heads high over the water, schools of leapfins leap, and the deepmaw hunts where the water is deep. Over the shore galewings soar in circles on wings eight blocks across, and in the badlands stiltwings, as tall as trees, stalk on foot and take to the air when you come near. Some herds keep a nest, and an egg can be stolen from it, if you are quick. By a fire it hatches, and what comes out is yours to raise. A fire mountain smokes on the horizon, with hot springs and geysers at its foot and a lava tube in its side, and every few days it erupts. Stars streak the night sky, and now and then one comes down near you and leaves a crater with sky iron in it. Among the stars stands the Skyspear, a comet that grows each night, and on the twelfth it arrives: the Great Fall, and after it the Long Winter, four days of ash, frost and cold. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
 
 ![A cave person with a pick, seen from behind, before the skeleton of a great beast, drawn in terminal cells](docs/shot.png)
 
@@ -37,7 +37,7 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 | C | crouch, and stand again: slow, low and quiet |
 | V | the view: through your eyes, or from behind your shoulder |
 | L | the next of six looks for your body |
-| Q / E | break / place the block aimed at (hold to go on); hit / shear a creature aimed at; either takes an egg aimed at; E with food in hand eats it; E on a clay pot or a hearth opens it, on a fur bed lies down, and on a fire lights the unlit torches in your hand; hold E with a fire drill on a hearth to light it |
+| Q / E | break / place the block aimed at (hold to go on); hit / shear a creature aimed at; either takes an egg aimed at, and E with an egg in hand puts it down; E with food in hand eats it, or feeds a young beast of yours aimed at; E on a clay pot or a hearth opens it, on a fur bed lies down, and on a fire lights the unlit torches in your hand; hold E with a fire drill on a hearth to light it |
 | R | throw the spear in your hand, or with a sling in your hand a pebble (hold to go on) |
 | 1 to 9, Tab | pick a slot of the hotbar; the next one |
 | I | your things: move them between the hotbar and the pack, and make things from them (in creative: every block) |
@@ -191,7 +191,15 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - **Buglers run at a thief.** For eight seconds the grown ones of the herd do not run from you: they run you down, 3 points each time one meets you. Their young keep back. Then they are a herd again.
   - **Shieldbrows guard an egg as they guard their young:** they warn you ten blocks from it and charge you six blocks from it. Take it, and every grown one of the family charges: 6 points.
   - **Galewings dive at you** while you are within twenty blocks of their nest, by day: straight down at your head, 2 points a pass, each no more than once in six seconds.
-  - A nest you leave far behind is gone with its herd. Hatching an egg is the next step.
+  - A nest you leave far behind is gone with its herd.
+- **Raising a beast.** There is no knocking out and no waiting on a bar: an egg, a fire, and two meals.
+  - **E with an egg in hand puts it down** on the ground you aim at. Q or E takes it up again.
+  - **By a fire it hatches.** An egg within six blocks of a fire gathers warmth, and ten minutes of it, one day of the world, hatch it. A hearth that burns warms it wherever you are, so stock the hearth and go: a day is eight logs, or three pieces of peat. Any other fire warms it only while you are within twelve blocks. Away from a fire it keeps the warmth it has.
+  - **What hatches is yours:** half the size of a grown one, and it follows you, as a tame mossback does.
+  - **A meal from your hand is a day of growing.** Berries, fruit or fiber for a bugler and a shieldbrow, raw meat for a galewing. It takes no other meal while that day lasts. After two days of growing it is grown. Unfed it does not grow, and it does not starve.
+  - A young galewing goes on foot until it is grown.
+  - **A beast of yours does not die.** One that loses all its health limps home, at half a walk: to your bed, or with no bed to where you first stood. Nothing hurts it or hunts it on the way, and it takes no food. A day after it fell it is whole.
+  - A shieldbrow of yours does not turn on you, and a beast of yours keeps out of tar.
 - **The steppe** is the cold land: snow, tussocks of dry grass through it, and a few trees no taller than five blocks. It takes your warmth at any time of the world. Its beasts stand on the snow.
   - **Snowtusks** go in herds of three to five: three grown, five blocks tall, in long red hair, with a trunk and two tusks, and their young between them. Come within ten blocks of a young one and the grown ones turn on you, lower their heads and trumpet. Come within six, or hit one of the herd, and they charge, together: 7 points each, and you are thrown. 80 points of health, 10 pieces of meat, 4 hides, which is a fur cloak, and from a grown one two tusks. Tusks have no use yet.
   - **Slowclaws** go alone, slow and shaggy, with long arms that end in claws. One takes no notice of you, however near. When it stops it stands up on its hind legs, three blocks tall, as it does to feed from a tree. Hit it and it stands up and comes at where you were, slowly: 6 points. Step away and it does not follow. 40 points of health, 6 pieces of meat and 3 hides.
@@ -212,6 +220,8 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 ![Two lakenecks at sea: long necks with small heads standing up out of the water, and the dim shapes of their bodies under it](docs/lakenecks.png)
 
 ![A school of leapfins: two in the air over the water, dark above and white under, and the fin of a third cutting the water](docs/leapfins.png)
+
+![A fire on the prairie with two eggs by it, and beside it a young shieldbrow and a young bugler, each half the size of a grown one](docs/hatch.png)
 
 ![A nest on the prairie: a ring of dry grass with two pale eggs in it, and three buglers standing behind it](docs/nest.png)
 
@@ -401,7 +411,7 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - A use for crystal, for tusks and for amber.
 - Snow that falls and lies as blocks, and ice on the sea in the winter.
 - Clothes other than the cloak, and a place to wear them.
-- Hatching an egg: that is the next step. An egg can be carried, and nothing more yet. Riding comes after.
+- Riding: that is the next step. A beast you raised follows you, and nothing more yet.
 - A raft, and fish to eat.
 - A star falls only where the world is loaded, about 100 blocks round you: there are no craters where you were not.
 - Lava that flows.
