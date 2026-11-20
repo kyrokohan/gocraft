@@ -185,6 +185,12 @@ type Game struct {
 	booms  []boom
 	glare  float64
 
+	// The Skyspear itself: how many seconds the sky is still white from its strike, how
+	// many the ground still shakes from its boom, and the fireballs as the sky is given
+	// them, kept between frames.
+	white, shock float64
+	balls        [][2]geometry.Vector3
+
 	digAt   [3]int  // the block being dug, in survival
 	digging float64 // for how long it has been dug
 
@@ -295,7 +301,7 @@ func (g *Game) use(w *world.World, s world.Meta) {
 	g.bits, g.missiles, g.embers = nil, nil, s.Embers
 	g.selected = min(max(s.Slot, 0), hotbarSlots-1)
 	g.days = s.Days
-	g.fallen, g.booms, g.glare = g.days, nil, 0
+	g.fallen, g.booms, g.glare, g.white, g.shock = g.days, nil, 0, 0, 0
 	g.saved = true
 	g.loadStores(s) // before the player, which may wake at its bed
 	g.loadPlayer(s)
@@ -396,7 +402,7 @@ func (g *Game) newWorld(seed int64) {
 	g.fauna = newFauna(g.world, g.player.Pos)
 	g.selected, g.aimed, g.saved, g.days, g.torch = 0, false, false, 0, 0
 	g.drops, g.bits, g.missiles, g.embers = nil, nil, nil, nil
-	g.fallen, g.booms, g.glare = 0, nil, 0
+	g.fallen, g.booms, g.glare, g.white, g.shock = 0, nil, 0, 0, 0
 	g.loadStores(world.Meta{})
 	g.begin(false)
 }
@@ -751,7 +757,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	g.sky.SetStreaks(g.days*dayLength, g.streaks())
 	near, _ := g.comet()
 	g.sky.SetComet(near)
-	g.sky.SetFireball(g.fireball())
+	g.sky.SetFireballs(g.fireballs())
 	g.sky.Set(timeOfDay(g.days))
 	g.plume()
 	g.rend.Crack = render.Crack{}
@@ -794,6 +800,10 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	}
 	if g.flash > 0 {
 		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(200, 20, 20), 0.4*g.flash/hurtFlash)
+	}
+	if g.white > 0 {
+		// The Skyspear has struck: all is white, and it fades.
+		c.BlendRect(0, 0, c.Width(), c.Height(), engine.RGB(255, 250, 235), 0.92*min(1.5*g.white/whiteTime, 1))
 	}
 	switch g.screen {
 	case paused, inBag, settingsScreen:

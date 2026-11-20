@@ -395,7 +395,7 @@ func TestAFireballIsSeenInTheSkyAndLightsTheNight(t *testing.T) {
 
 	dark := NewSky(Midnight)
 	s := NewSky(Midnight)
-	s.SetFireball(head, tail, 1)
+	s.SetFireballs([][2]geometry.Vector3{{head, tail}}, 1)
 	s.Set(Midnight)
 	if ball := s.color(head.Normalize()); bright(ball) < 600 || bright(ball) < bright(dark.color(head.Normalize()))+400 {
 		t.Errorf("the sky where a fireball is is %v, and %v without it: wanted it bright", ball, dark.color(head.Normalize()))
@@ -419,7 +419,7 @@ func TestAFireballIsSeenInTheSkyAndLightsTheNight(t *testing.T) {
 	}
 
 	// A flash: light, and no ball.
-	s.SetFireball(geometry.Vector3{}, geometry.Vector3{}, 0.5)
+	s.SetFireballs(nil, 0.5)
 	s.Set(Midnight)
 	if s.color(head.Normalize()) != dark.color(head.Normalize()) {
 		t.Error("a flash with no way to it shows a ball in the sky")
@@ -427,7 +427,7 @@ func TestAFireballIsSeenInTheSkyAndLightsTheNight(t *testing.T) {
 	if b := s.Brightness(moon); b <= dark.Brightness(moon) || b >= 0.45 {
 		t.Errorf("the light of the night in half a flash is %.2f, wanted between the dark and the full of it", b)
 	}
-	s.SetFireball(head, tail, 0)
+	s.SetFireballs([][2]geometry.Vector3{{head, tail}}, 0)
 	s.Set(Midnight)
 	if s.color(head.Normalize()) != dark.color(head.Normalize()) || s.Brightness(moon) != dark.Brightness(moon) {
 		t.Error("a sky the fireball has left is not as it was")
@@ -509,5 +509,39 @@ func TestTheCometStandsAmongTheStarsAndGrowsAsItNears(t *testing.T) {
 	s.Set(Midnight)
 	if s.cometSeen != 0 || s.color(upright) != clear.color(upright) {
 		t.Error("a sky with no comet shows one")
+	}
+}
+
+// Several fireballs are in the sky at once, each where it is. On the last night of the
+// comet the low sky is red.
+func TestTheSkyOfTheGreatFallHoldsManyFireballsAndIsRed(t *testing.T) {
+	bright := func(c color) uint32 { return c.r + c.g + c.b }
+	dark := NewSky(Midnight)
+	var ways [][2]geometry.Vector3
+	for i := range 6 {
+		head := geometry.Vector3{X: 60 * math.Cos(float64(i)), Y: 40, Z: 60 * math.Sin(float64(i))}
+		ways = append(ways, [2]geometry.Vector3{head, head.Add(geometry.Vector3{X: 5, Y: 9, Z: -4})})
+	}
+	s := NewSky(Midnight)
+	s.SetFireballs(ways, 1)
+	s.Set(Midnight)
+	seen := 0
+	for _, w := range ways {
+		if at := w[0].Normalize(); bright(s.color(at)) > bright(dark.color(at))+400 {
+			seen++
+		}
+	}
+	if seen != maxBalls || maxBalls < 3 {
+		t.Errorf("of six fireballs %d are seen, wanted the %d the sky shows at once", seen, maxBalls)
+	}
+
+	low := geometry.Vector3{X: 0.7, Y: 0.08, Z: -0.7}.Normalize()
+	last, early := NewSky(Sunset+0.05), NewSky(Sunset+0.05)
+	last.SetComet(0.995)
+	last.Set(Sunset + 0.05)
+	early.SetComet(0.9)
+	early.Set(Sunset + 0.05)
+	if red, plain := last.color(low), early.color(low); red.r < plain.r+30 || red.r < 2*red.b {
+		t.Errorf("the low sky of the comet's last evening is %v, and %v some nights before: wanted it red", red, plain)
 	}
 }
