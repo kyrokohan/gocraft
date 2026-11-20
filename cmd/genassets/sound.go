@@ -460,6 +460,14 @@ func makeSound(n sound.Name) []float64 {
 			s[i] = (0.8*high.at(noise(i, 999)) + 0.35*low.at(noise(i, 1001))) * swell
 		}
 		return peakTo(s, 0.6)
+	case sound.Moan:
+		// A hollow note that rises a little and falls a long way: a lakeneck, with its
+		// head up, over still water.
+		pitch := func(t float64) float64 {
+			return (150 + 26*math.Sin(math.Pi*min(t/0.8, 1)) - 22*max(t-0.8, 0)) * (1 + 0.008*math.Sin(2*math.Pi*5*t))
+		}
+		loud := func(t float64) float64 { return math.Pow(math.Sin(math.Pi*min(t/2.2, 1)), 0.7) }
+		return peakTo(voiced(2.2, pitch, loud, 300, 700), 0.6)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))

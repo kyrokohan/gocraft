@@ -1260,7 +1260,8 @@ func drawPreview() *image.NRGBA {
 		enlarge(drawTiles(snowtuskTiles), 12), enlarge(drawTiles(slowclawTiles), 12),
 		enlarge(drawTiles(howlerTiles), 12), enlarge(drawTiles(daggercatTiles), 12),
 		enlarge(drawTiles(rattlewingTiles), 12), enlarge(drawTiles(logcrawlerTiles), 12),
-		enlarge(drawTiles(sunbackTiles), 12), enlarge(drawTiles(sailjawTiles), 12)}
+		enlarge(drawTiles(sunbackTiles), 12), enlarge(drawTiles(sailjawTiles), 12),
+		enlarge(drawTiles(lakeneckTiles), 12), enlarge(drawTiles(leapfinTiles), 12), enlarge(drawTiles(deepmawTiles), 12)}
 	w, h := 0, 0
 	for _, p := range pictures {
 		w, h = max(w, p.Bounds().Dx()), h+p.Bounds().Dy()+12
