@@ -39,6 +39,10 @@ const (
 	Sunback // a low hunter with a sail on its back, slow in the morning and quick at noon
 	Sailjaw // a great hunter that lies in still water with only its sail showing
 
+	Lakeneck // a swimmer with a neck as long as its body, that it carries out of the water
+	Leapfin  // a small quick swimmer that goes in schools, and leaps clear of the water
+	Deepmaw  // the hunter of the deep sea: twelve blocks long, with jaws a quarter of it
+
 	Kinds // how many kinds there are
 )
 
@@ -50,6 +54,7 @@ var kindNames = [Kinds]string{
 	Howler: "howler", Daggercat: "daggercat",
 	Rattlewing: "rattlewing", Logcrawler: "logcrawler",
 	Sunback: "sunback", Sailjaw: "sailjaw",
+	Lakeneck: "lakeneck", Leapfin: "leapfin", Deepmaw: "deepmaw",
 }
 
 // String returns the name of a kind, as a save holds it.
@@ -105,6 +110,11 @@ var sizes = [Kinds][2]float64{
 
 	Sunback: {0.9, 1.0},
 	Sailjaw: {1.2, 1.2},
+
+	// A lakeneck's is as high as it carries its head.
+	Lakeneck: {1.4, 3.4},
+	Leapfin:  {0.5, 0.6},
+	Deepmaw:  {2.4, 2.0},
 }
 
 // spans are how far behind and ahead of the point between its feet the body of a grown
@@ -122,6 +132,9 @@ var spans = [Kinds][2]float64{
 	Logcrawler:  {-1.0, 1.0},
 	Sunback:     {-2.2, 1.6},
 	Sailjaw:     {-3.6, 3.0},
+	Lakeneck:    {-2.4, 2.0},
+	Leapfin:     {-1.5, 1.3},
+	Deepmaw:     {-6.6, 5.4},
 }
 
 // Span returns how far behind and ahead of the point between its feet a beast's body
@@ -244,6 +257,10 @@ func NewBeasts(set *assets.Set) *Beasts {
 
 		Sunback: sunbackShape(set),
 		Sailjaw: sailjawShape(set),
+
+		Lakeneck: lakeneckShape(set),
+		Leapfin:  leapfinShape(set),
+		Deepmaw:  deepmawShape(set),
 	}}
 }
 
@@ -788,6 +805,93 @@ func sailjawShape(set *assets.Set) shape {
 	look := mesh.Material{Color: engine.RGB(84, 104, 100), Texture: set.Sailjaw}
 	const hip = 0.2
 	return shape{stand: hip, hurt: reddened(set.Sailjaw), parts: sailed(look, assets.SailjawTiles, 1.1, 0.8, 3.2, hip, 1.7, 1.3)}
+}
+
+// lakeneckShape is a lakeneck: a broad flat body on four flippers, a short tail, and in
+// front a neck as long as the rest of it, that stands up out of the water with a small
+// head at the top. Its back lies just under the water when its feet are where they go.
+func lakeneckShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(92, 116, 138), Texture: set.Lakeneck}
+	const n = assets.LakeneckTiles
+	hide, head := giantHide()
+	flipper := box(-0.45, -0.07, -0.3, 0.9, 0.14, 0.6, all6(giantLeg), n, look)
+	return shape{
+		stand: 0.5,
+		hurt:  reddened(set.Lakeneck),
+		parts: []limb{
+			{mesh: box(-0.7, 0.1, -1.3, 1.4, 0.9, 2.6, hide, n, look)},
+			{mesh: box(-0.3, -0.25, -1.1, 0.6, 0.5, 1.1, all6(giantArmB), n, look), up: 0.5, front: -1.3, sway: 0.2},
+			// The neck leans a little ahead, and the head sits on the end of it.
+			{mesh: box(-0.2, 0, -0.2, 0.4, 2.3, 0.4, all6(giantArmA), n, look), up: 0.8, front: 1.15, tilt: -0.3},
+			{mesh: box(-0.22, -0.1, -0.2, 0.44, 0.4, 0.9, head, n, look), up: 2.95, front: 1.85},
+			{mesh: flipper, right: -0.95, up: 0.35, front: 0.8, swing: 0.4},
+			{mesh: flipper, right: 0.95, up: 0.35, front: 0.8, swing: -0.4},
+			{mesh: flipper, right: -0.95, up: 0.35, front: -0.8, swing: -0.4},
+			{mesh: flipper, right: 0.95, up: 0.35, front: -0.8, swing: 0.4},
+		},
+	}
+}
+
+// leapPitch is how far a leapfin tips its nose up as it leaves the water, and down as
+// it comes back to it, in radians.
+const leapPitch = 0.9
+
+// leapfinShape is a leapfin: a body like a spindle, a long thin beak, a fin on the back
+// that cuts the water, two flippers, and a tail that ends in a blade set upright. All of
+// it hangs from one point in the middle of it, so that it tips whole as it leaps.
+func leapfinShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(70, 92, 120), Texture: set.Leapfin}
+	const n = assets.LeapfinTiles
+	const mid = 0.3
+	hide, head := giantHide()
+	fin := all6(giantArmA)
+	whole := func(m mesh.Mesh, sway float64) limb {
+		return limb{mesh: m, up: mid, nod: -leapPitch, sway: sway}
+	}
+	return shape{
+		stand: mid,
+		hurt:  reddened(set.Leapfin),
+		parts: []limb{
+			whole(box(-0.25, -0.25, -0.7, 0.5, 0.5, 1.4, hide, n, look), 0),
+			whole(box(-0.08, -0.14, 0.7, 0.16, 0.18, 0.6, head, n, look), 0),
+			whole(box(-0.04, 0.25, -0.25, 0.08, 0.35, 0.45, fin, n, look), 0),
+			whole(box(-0.12, -0.15, -1.2, 0.24, 0.3, 0.5, all6(giantArmB), n, look), 0.2),
+			whole(box(-0.04, -0.4, -1.5, 0.08, 0.8, 0.32, fin, n, look), 0.2),
+			whole(box(-0.55, -0.2, 0.05, 0.3, 0.06, 0.32, all6(giantLeg), n, look), 0),
+			whole(box(0.25, -0.2, 0.05, 0.3, 0.06, 0.32, all6(giantLeg), n, look), 0),
+		},
+	}
+}
+
+// deepmawShape is a deepmaw: a trunk as big as a hut, jaws as long as two people before
+// it, held a little open, a tail in three lengths that ends in a blade, four flippers,
+// and a low ridge along its back, which is what breaks the water.
+func deepmawShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(44, 62, 70), Texture: set.Deepmaw}
+	const n = assets.DeepmawTiles
+	hide, head := giantHide()
+	jaw := [6]int{giantArmB, giantArmB, giantBelly, giantArmB, giantSide, giantFace}
+	fin := all6(giantArmA)
+	flipper := box(-0.7, -0.1, -0.45, 1.4, 0.2, 0.9, all6(giantLeg), n, look)
+	return shape{
+		stand: 1.0,
+		hurt:  reddened(set.Deepmaw),
+		parts: []limb{
+			{mesh: box(-1.1, 0.1, -2.4, 2.2, 1.9, 4.8, hide, n, look)},
+			{mesh: box(-0.06, 2.0, -1.9, 0.12, 0.45, 3.6, fin, n, look)},
+			// The skull above, and the jaw hung open under it.
+			{mesh: box(-0.8, 0.85, 2.4, 1.6, 0.95, 3.0, head, n, look)},
+			{mesh: box(-0.7, -0.2, 0, 1.4, 0.4, 2.8, jaw, n, look), up: 0.6, front: 2.4, tilt: -0.12},
+			// The tail: each length from its root, the last two swaying.
+			{mesh: box(-0.8, -0.7, -2.0, 1.6, 1.4, 2.0, hide, n, look), up: 1.0, front: -2.4},
+			{mesh: box(-0.5, -0.45, -1.6, 1.0, 0.9, 1.6, hide, n, look), up: 1.0, front: -4.4, sway: 0.15},
+			{mesh: box(-0.07, -0.8, -0.7, 0.14, 1.6, 0.7, fin, n, look), up: 1.0, front: -5.9, sway: 0.28},
+			{mesh: flipper, right: -1.7, up: 0.5, front: 1.4, swing: 0.35},
+			{mesh: flipper, right: 1.7, up: 0.5, front: 1.4, swing: -0.35},
+			{mesh: flipper, right: -1.6, up: 0.5, front: -1.7, swing: -0.35},
+			{mesh: flipper, right: 1.6, up: 0.5, front: -1.7, swing: 0.35},
+		},
+	}
 }
 
 // dreadEyes is the color of the dread's eyes.

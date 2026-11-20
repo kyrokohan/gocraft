@@ -73,6 +73,9 @@ func (f *fauna) brightAt(at geometry.Vector3) float64 {
 // carried is smelled, and doubles every distance.
 func (f *fauna) notices(w *world.World, c *beast, player geometry.Vector3) bool {
 	b := &breeds[c.kind]
+	if b.moves == gaitSwim && (!swims(w, player) || deepAt(w, int(math.Floor(player.X)), int(math.Floor(player.Z))) < b.deep) {
+		return false // one that swims hunts what is in water deep enough for it, and nothing else
+	}
 	sees, hears := b.sees, 0.0
 	if f.sneaking {
 		sees *= sneakSight
@@ -151,6 +154,9 @@ func (f *fauna) prey(c *beast) *beast {
 		p := &f.all[i]
 		if p.dead || breeds[p.kind].health == 0 || breeds[p.kind].temper == hunter {
 			continue
+		}
+		if (breeds[p.kind].moves == gaitSwim) != (breeds[c.kind].moves == gaitSwim) {
+			continue // the sea's hunter hunts the sea's beasts, and the land's the land's
 		}
 		if d := p.Pos.Distance(c.Pos); d < best {
 			best, nearest = d, p
@@ -253,15 +259,15 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 			f.sounds = append(f.sounds, said{b.cry, c.kind, c.voice()}) // it has seen its prey
 		}
 		c.keen = keenTime
-	} else {
-		c.keen = max(c.keen-dt, 0)
+	} else if c.keen = max(c.keen-dt, 0); b.moves == gaitSwim {
+		c.keen = 0 // a player who is out of the deep is out of its mind
 	}
 	goal, quarry := player, (*beast)(nil)
-	if c.keen <= 0 {
+	if c.stalking = false; c.keen <= 0 {
 		if quarry = f.prey(c); quarry == nil {
 			return // nothing to hunt: it goes about with its pack
 		}
-		goal = quarry.Pos
+		goal, c.stalking = quarry.Pos, true
 	}
 
 	to := geometry.Vector3{X: goal.X - c.Pos.X, Z: goal.Z - c.Pos.Z}
@@ -302,7 +308,7 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 		f.sounds = append(f.sounds, said{b.cry, c.kind, c.voice()})
 		return
 	}
-	if far < biteReach && math.Abs(goal.Y-c.Pos.Y) < 2 {
+	if far < biteReach+b.jaws && math.Abs(goal.Y-c.Pos.Y) < 2+b.draft {
 		c.walking = false
 		if c.biteIn > 0 {
 			return

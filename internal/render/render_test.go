@@ -539,20 +539,7 @@ func TestWaterIsOverWhatIsDrawnUnderIt(t *testing.T) {
 		}
 		return c
 	}
-	// How many pixels of a are not as they are in b, and how many of those are the marker's.
-	differ := func(a, b *engine.Canvas) (n, marked int) {
-		for y := range a.Height() {
-			for x := range a.Width() {
-				if a.At(x, y) != b.At(x, y) {
-					n++
-					if a.At(x, y) == marker {
-						marked++
-					}
-				}
-			}
-		}
-		return n, marked
-	}
+	differ := func(a, b *engine.Canvas) (n, marked int) { return changed(a, b, marker) }
 
 	bare := view(0, 0)
 	if n, _ := differ(view(0, 1), bare); n != 0 {
@@ -576,5 +563,127 @@ func TestWaterIsOverWhatIsDrawnUnderIt(t *testing.T) {
 	}
 	if n, _ := differ(view(6.5, 2), under); n != 0 {
 		t.Errorf("a second wash changed %d pixels", n)
+	}
+}
+
+// changed returns how many pixels of a are not as they are in b, and how many of those
+// are of a color.
+func changed(a, b *engine.Canvas, of engine.Color) (n, marked int) {
+	for y := range a.Height() {
+		for x := range a.Width() {
+			if a.At(x, y) != b.At(x, y) {
+				n++
+				if a.At(x, y) == of {
+					marked++
+				}
+			}
+		}
+	}
+	return n, marked
+}
+
+// Water is seen into ten blocks, and no farther: what lies deeper in it than that does
+// not show, and a thing drawn that deep in it is hidden.
+func TestWaterHidesWhatLiesDeepInIt(t *testing.T) {
+	rend := newRenderer(t)
+	marker := engine.RGB(255, 0, 255)
+	// Water so many blocks thick from z = 5, with sand behind it at a layer and the
+	// edges of a cube in it at a place, if they are over 0.
+	view := func(thick, sand int, cube float64) *engine.Canvas {
+		w := world.New()
+		for z := 5; z < 5+thick; z++ {
+			wall(w, z, world.Water)
+		}
+		if sand > 0 {
+			wall(w, sand, world.Sand)
+		}
+		c := newCanvas(t, 40, 20)
+		rend.Draw(c, w, facing, noon)
+		if cube > 0 {
+			m := mesh.Cube(1)
+			m.Transform.Position = geometry.Vector3{X: 12.5, Y: 12.5, Z: cube}
+			m.DrawDepthPixels(c, facing, marker)
+			rend.Wash(c)
+		}
+		return c
+	}
+	deep := view(14, 0, 0)
+	if n, _ := changed(view(14, 19, 0), deep, marker); n != 0 {
+		t.Errorf("sand under fourteen blocks of water shows in %d pixels", n)
+	}
+	if n, _ := changed(view(14, 0, 17.5), deep, marker); n != 0 {
+		t.Errorf("a cube twelve blocks deep in water shows in %d pixels", n)
+	}
+	if n, marked := changed(view(14, 0, 9.5), deep, marker); n == 0 || marked != 0 {
+		t.Errorf("a cube four blocks deep in water shows in %d pixels, %d of them not washed: wanted it seen through the water", n, marked)
+	}
+	if n, _ := changed(view(3, 8, 0), view(3, 0, 0), marker); n == 0 {
+		t.Error("sand under three blocks of water does not show")
+	}
+	// The water thickens evenly: sand under nine blocks of it shows a little, and less
+	// than sand under six.
+	far := func(c *engine.Canvas) float64 {
+		r, g, b := c.At(20, 20).RGB()
+		dr, dg, db := deep.At(20, 20).RGB()
+		return math.Abs(float64(r)-float64(dr)) + math.Abs(float64(g)-float64(dg)) + math.Abs(float64(b)-float64(db))
+	}
+	six, nine := far(view(6, 11, 0)), far(view(9, 14, 0))
+	if nine <= 0 || nine >= six {
+		t.Errorf("sand under six blocks of water is %v from the color of deep water, and under nine %v: wanted it to fade as the water deepens, and not be gone", six, nine)
+	}
+}
+
+// An eye under water sees twenty blocks in it and no farther, and what is drawn in the
+// water round it is seen through the water.
+func TestFromUnderWaterTheEyeSeesTwentyBlocksAndWhatIsDrawnIsWashed(t *testing.T) {
+	rend := newRenderer(t)
+	marker := engine.RGB(255, 0, 255)
+	// The view from in water forty blocks thick, with sand in it at a layer and the
+	// edges of a cube at a place, if they are over 0, washed or not.
+	view := func(sand int, cube float64, wash bool) *engine.Canvas {
+		w := world.New()
+		for z := range 40 {
+			wall(w, z, world.Water)
+		}
+		if sand > 0 {
+			wall(w, sand, world.Sand)
+		}
+		c := newCanvas(t, 40, 20)
+		rend.Draw(c, w, facing, noon)
+		if cube > 0 {
+			m := mesh.Cube(1)
+			m.Transform.Position = geometry.Vector3{X: 12.5, Y: 12.5, Z: cube}
+			m.DrawDepthPixels(c, facing, marker)
+		}
+		if wash {
+			rend.Wash(c)
+			rend.Wash(c) // a second changes nothing
+		}
+		return c
+	}
+	open := view(0, 0, false)
+	if n, _ := changed(view(30, 0, false), open, marker); n != 0 {
+		t.Errorf("sand 27 blocks off under water shows in %d pixels", n)
+	}
+	if n, _ := changed(view(10, 0, false), open, marker); n == 0 {
+		t.Error("sand 7 blocks off under water does not show")
+	}
+	if n, _ := changed(view(0, 30, true), open, marker); n != 0 {
+		t.Errorf("a cube 27 blocks off under water shows in %d pixels", n)
+	}
+	drawn, marked := changed(view(0, 8.5, false), open, marker)
+	if drawn == 0 || marked != drawn {
+		t.Fatalf("a cube 6 blocks off under water was drawn in %d pixels, %d of them its own color", drawn, marked)
+	}
+	washed := view(0, 8.5, true)
+	if n, marked := changed(washed, open, marker); n != drawn || marked != 0 {
+		t.Errorf("of the %d pixels of a cube under water, %d show after the wash, and %d are as they were drawn: wanted all seen through the water", drawn, n, marked)
+	}
+	for y := range washed.Height() {
+		for x := range washed.Width() {
+			if red, _, blue := washed.At(x, y).RGB(); washed.At(x, y) != open.At(x, y) && (red > 150 || red < 30 || blue < 100) {
+				t.Fatalf("a pixel of a cube under water is %v: wanted it between its own %v and the water's %v", washed.At(x, y), marker, open.At(x, y))
+			}
+		}
 	}
 }
