@@ -433,3 +433,81 @@ func TestAFireballIsSeenInTheSkyAndLightsTheNight(t *testing.T) {
 		t.Error("a sky the fireball has left is not as it was")
 	}
 }
+
+// The comet stands among the stars and turns with them: a head and a tail that is
+// longer and brighter the nearer it is. It is not seen by day, and when it is near it is
+// seen through the dusk, before the stars are.
+func TestTheCometStandsAmongTheStarsAndGrowsAsItNears(t *testing.T) {
+	bright := func(c color) uint32 { return c.r + c.g + c.b }
+	clear := NewSky(Midnight)
+	// lit says how far behind its head, in radians, the comet of a sky still stands out
+	// from a clear sky, and how bright its head is over one.
+	lit := func(s, clear *Sky) (long float64, head uint32) {
+		at := func(back float64) geometry.Vector3 {
+			return s.cometHead.Scale(math.Cos(back)).Add(s.cometBack.Scale(math.Sin(back)))
+		}
+		for ; long < 2 && bright(s.color(at(long+0.02))) > bright(clear.color(at(long+0.02)))+12; long += 0.02 {
+		}
+		return long, bright(s.color(s.cometHead)) - min(bright(s.color(s.cometHead)), bright(clear.color(s.cometHead)))
+	}
+	var last float64
+	var lastHead uint32
+	for _, near := range []float64{0.06, 0.3, 0.6, 0.95} {
+		s := NewSky(Midnight)
+		s.SetComet(near)
+		s.Set(Midnight)
+		if s.cometHead.Y < 0.5 {
+			t.Fatalf("at midnight the head of the comet stands at a height of %.2f, wanted it high", s.cometHead.Y)
+		}
+		long, head := lit(s, clear)
+		if long <= last || head < lastHead || head < 150 {
+			t.Errorf("a comet %v near has a tail %.2f long and a head %d brighter than the sky: wanted more than the %.2f and %d of one farther off", near, long, head, last, lastHead)
+		}
+		last, lastHead = long, head
+	}
+	if last < 0.9 {
+		t.Errorf("the tail of a comet that is all but here is %.2f long, wanted a third of the sky", last)
+	}
+
+	// It turns with the stars: an hour on it has moved, and at midnight it stands upright.
+	s := NewSky(Midnight)
+	s.SetComet(0.6)
+	s.Set(Midnight)
+	upright := s.cometHead
+	s.Set(Midnight + 1.0/12)
+	if moved := s.cometHead.Sub(upright).Length(); moved < 0.1 || math.Abs(upright.X) > 0.01 {
+		t.Errorf("two hours after midnight the comet has moved %.2f, and at midnight it leans by %.2f", moved, upright.X)
+	}
+
+	// Not by day, whatever its size. In the dusk a near one is seen and a far one is not.
+	for _, near := range []float64{0.3, 0.95} {
+		day, plain := NewSky(Noon), NewSky(Noon)
+		day.SetComet(near)
+		day.Set(Noon)
+		if day.cometSeen != 0 || day.color(day.cometHead) != plain.color(day.cometHead) {
+			t.Errorf("a comet %v near is seen at noon", near)
+		}
+	}
+	dusk := Sunset + 0.004 // the sun is just down, and the stars are not out
+	far, big := NewSky(dusk), NewSky(dusk)
+	far.SetComet(0.2)
+	far.Set(dusk)
+	big.SetComet(0.95)
+	big.Set(dusk)
+	if far.cometSeen > 0.06 || big.cometSeen < 0.3 {
+		t.Errorf("in the dusk a far comet is seen by %.2f and a near one by %.2f: wanted the near one only", far.cometSeen, big.cometSeen)
+	}
+
+	// Ash hides it, and none is no comet.
+	s.SetAsh(1, 0)
+	s.Set(Midnight)
+	if s.cometSeen != 0 {
+		t.Error("the comet is seen through a sky full of ash")
+	}
+	s.SetAsh(0, 0)
+	s.SetComet(0)
+	s.Set(Midnight)
+	if s.cometSeen != 0 || s.color(upright) != clear.color(upright) {
+		t.Error("a sky with no comet shows one")
+	}
+}

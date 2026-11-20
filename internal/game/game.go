@@ -748,7 +748,9 @@ func (g *Game) fogAt(cam mesh.Camera) *mesh.Fog {
 func (g *Game) Draw(fb *engine.FrameBuffer) {
 	c := fb.Canvas()
 	g.sky.SetAsh(g.ash())
-	g.sky.SetStreaks(g.days*dayLength, streaksAMinute)
+	g.sky.SetStreaks(g.days*dayLength, g.streaks())
+	near, _ := g.comet()
+	g.sky.SetComet(near)
 	g.sky.SetFireball(g.fireball())
 	g.sky.Set(timeOfDay(g.days))
 	g.plume()

@@ -15,8 +15,13 @@ import (
 // where it struck is a crater with fires round it and a core of sky iron in it, too hot
 // to touch at first. Times are in seconds and distances in blocks.
 const (
-	streaksAMinute = 5.0 // how many shooting stars streak the sky in a minute of the night
-	starSpan       = 0.3 // the part of a day, round midnight, in which a star may fall
+	streaksAMinute = 5.0  // how many shooting stars streak the sky in a minute of the night
+	streaksMost    = 30.0 // and how many on the night the comet arrives
+	starSpan       = 0.3  // the part of a day, round midnight, in which a star may fall
+
+	cometNight = 12 // the night on which the Skyspear first arrives, counted from 1
+	cometEvery = 24 // how many days it is from one arrival to the next
+	cometFalls = 3  // in so many nights before it arrives a star falls near the player every night
 
 	starNear   = 40.0  // the nearest the player a star is aimed
 	starFar    = 90.0  // and the farthest
@@ -48,11 +53,39 @@ type boom struct {
 	left float64 // seconds until it is heard
 }
 
+// cometAt returns how near the Skyspear is on a day of the world, from 0, when the last
+// has only just gone, to 1 at the midnight it arrives, and how many days it is until
+// then. It grows through the days of the first, which are fewer, as through those of
+// every one after.
+func cometAt(days float64) (near, left float64) {
+	first := cometNight - firstMorning // the midnight of the night it first arrives
+	if days <= first {
+		return days / first, first - days
+	}
+	since := math.Mod(days-first, cometEvery)
+	return since / cometEvery, cometEvery - since
+}
+
+// comet returns how near the Skyspear is now, and how many days it is until it arrives.
+func (g *Game) comet() (near, left float64) {
+	return cometAt(g.days)
+}
+
+// streaks returns how many shooting stars a minute streak the sky tonight: more the
+// nearer the comet is at this night's midnight. It is the same all through one night,
+// as the sky works out which streak is in it from the clock and this number.
+func (g *Game) streaks() float64 {
+	near, _ := cometAt(math.Floor(g.days+firstMorning+0.5) - firstMorning)
+	return streaksAMinute + (streaksMost-streaksAMinute)*near*near
+}
+
 // starFall returns the day of the world on which the star of a night falls, and whether
 // one falls on that night at all. Nights are counted from 1, and a star falls in the
-// dark, round the midnight of its night.
+// dark, round the midnight of its night. One falls about one night in three, and on
+// every one of the last nights before the comet arrives.
 func (g *Game) starFall(night int) (when float64, ok bool) {
-	part, ok := g.world.StarFall(night)
+	to := ((cometNight-night)%cometEvery + cometEvery) % cometEvery // nights until the comet arrives
+	part, ok := g.world.StarFall(night, to >= 1 && to <= cometFalls)
 	return float64(night) - firstMorning + (part-0.5)*starSpan, ok
 }
 

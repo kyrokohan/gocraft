@@ -7,8 +7,8 @@ func TestAStarFallsNearThePlayerAboutOneNightInThreeByTheSeed(t *testing.T) {
 		w := Generate(seed)
 		falls := 0
 		for night := 1; night <= 600; night++ {
-			part, ok := w.StarFall(night)
-			if again, also := w.StarFall(night); again != part || also != ok {
+			part, ok := w.StarFall(night, false)
+			if again, also := w.StarFall(night, false); again != part || also != ok {
 				t.Fatalf("seed %d: night %d was asked twice, and the answers differ", seed, night)
 			}
 			if part < 0 || part >= 1 {
@@ -25,16 +25,23 @@ func TestAStarFallsNearThePlayerAboutOneNightInThreeByTheSeed(t *testing.T) {
 	a, b := Generate(1), Generate(2)
 	same := 0
 	for night := 1; night <= 200; night++ {
-		_, x := a.StarFall(night)
-		if _, y := b.StarFall(night); x == y {
+		_, x := a.StarFall(night, false)
+		if _, y := b.StarFall(night, false); x == y {
 			same++
 		}
 	}
 	if same > 150 {
 		t.Errorf("two seeds agree on %d of 200 nights: wanted each its own", same)
 	}
-	if _, ok := New().StarFall(3); ok {
+	if _, ok := New().StarFall(3, true); ok {
 		t.Error("a star falls in a world that is not made from a seed")
+	}
+	// A night that is sure to have one has it, at the part the seed gives that night.
+	for night := 1; night <= 50; night++ {
+		part, _ := a.StarFall(night, false)
+		if sure, ok := a.StarFall(night, true); !ok || sure != part {
+			t.Fatalf("night %d, sure of a star: it falls: %v, at part %v, and the seed's part is %v", night, ok, sure, part)
+		}
 	}
 }
 

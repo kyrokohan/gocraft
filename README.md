@@ -4,7 +4,7 @@
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
 
-**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, cloudgrazers whose steps shake the ground, and the dread, which hunts everything. A fire mountain smokes on the horizon, with hot springs and geysers at its foot and a lava tube in its side, and every few days it erupts. Stars streak the night sky, and now and then one comes down near you and leaves a crater with sky iron in it. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
+**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, cloudgrazers whose steps shake the ground, and the dread, which hunts everything. A fire mountain smokes on the horizon, with hot springs and geysers at its foot and a lava tube in its side, and every few days it erupts. Stars streak the night sky, and now and then one comes down near you and leaves a crater with sky iron in it. Among the stars stands the Skyspear, a comet that grows each night. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
 
 ![A cave person with a pick, seen from behind, before the skeleton of a great beast, drawn in terminal cells](docs/shot.png)
 
@@ -42,7 +42,7 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 | 1 to 9, Tab | pick a slot of the hotbar; the next one |
 | I | your things: move them between the hotbar and the pack, and make things from them (in creative: every block) |
 | T | move the clock on six hours |
-| F3 | frame numbers: where the time of a frame goes and how much is sent, the seed, the day and the hour, the days until a star next falls near you, and within 300 blocks of a fire mountain the days until it next erupts |
+| F3 | frame numbers: where the time of a frame goes and how much is sent, the seed, the day and the hour, the days until the comet arrives and until a star next falls near you, and within 300 blocks of a fire mountain the days until it next erupts |
 | Esc | pause menu, with these keys on it; on a menu, back |
 
 | Mouse | Action |
@@ -106,7 +106,12 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - **It leaves a crater,** a bowl seven blocks across and three deep. What stood over it is gone. Its floor is burnt to dark rock, and where the ground was sand the bowl and its rim are glass. A beast or a person in it when it strikes loses 12 points.
   - **Five fires burn round it for a day.** This is fire you can find: light a torch at one and carry it home.
   - **Under the middle lies the core, of sky iron.** For two minutes it glows, burns you if you stand on it, 2 points a second, and nothing breaks it. Then it is dark, and a flint pick breaks it out, in four seconds: two to four lumps of sky iron.
+  - **In the three nights before the Skyspear arrives a star falls near you every night,** and shooting stars come thicker each night as it nears: five a minute on the first night, 26 on the eleventh.
   - A star whose moment passes while you sleep does not fall. One whose moment the T key moves the clock past still falls, if it is night.
+- **The Skyspear** is a comet, in the night sky from the first night: a bright head with a tail of light behind it.
+  - **It grows each night.** On the first night it is a speck. By the eleventh its tail crosses a third of the sky.
+  - **It is fixed among the stars and turns with them:** it rises at dusk lying along the horizon, stands upright at midnight, and sets at dawn. A near one shows through the dusk and the dawn, before the stars do. Ash hides it.
+  - **It arrives at the midnight of night 12,** two hours of play, and a new one every 24 days after. What it does when it arrives is the next step: today it is at its biggest that night and then is gone.
 - **Tools of obsidian** are knapped at a knapping stone, as flint is. They hit hardest and dig fastest, and are worn out after 40 uses, where flint on a handle lasts 130.
   - An obsidian knife (an obsidian, a stick and a cord) hits for 5 and carves a kill.
   - An obsidian pick (3 obsidian, 2 sticks and a cord) digs four times as fast as a hand, and is the one tool that breaks out crystal. Crystal shards have no use yet.
@@ -125,6 +130,8 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 ![A fire mountain that erupts under a grey sky, with burning rocks coming down its side and the fire they trail](docs/eruption.png)
 
 ![A falling star over the tops of redwoods at night, a bright head with its tail behind it and a glow round it](docs/star.png)
+
+![The Skyspear early in the night before it arrives: a comet low over the horizon, its bright head and a long tail of light among the stars](docs/comet.png)
 
 - **Giants that stand their ground.** Three armed plant-eaters do not run from you. Each is few, strong and worth a great deal of meat, and each can be killed, with work. A giant is met by a spear or a hand all along its body, climbs a step of two blocks, and is too heavy for a hit to knock back.
   - **Shieldbrows** are horned, with a shield of bone behind the head, and go as a family on the prairie: two grown and one or two young. Come within ten blocks of a young one and a grown one turns on you, lowers its head and bellows. Come within six, or hit one of the family, and it charges at 7 blocks a second: 6 points, and you are thrown. It cannot turn fast, so something solid between you saves you. Then it goes back to its young. It charges a quickclaw the same way. 60 points of health, 8 pieces of meat and 3 hides.
@@ -236,6 +243,8 @@ A fire mountain is far bigger than any landmark, so it is not put down on the la
 
 A falling star is by the seed too: the seed says of each night whether one falls and at what part of the night. It is one more row of the table of thrown things, but the sky draws it and not the land: where the fireball is, and where the end of its tail is, are given to the sky as two ways from the eye, as the smoke of a mountain is. Shooting stars are worked out by the sky from the clock alone. What a save keeps is what burns for a time and then changes, as the fires of an eruption do: each fire of a crater, which goes out, and its core, which goes dark.
 
+The comet is one number, how near it is, which the game works out from the day and gives the sky: so nothing of it is in a save. The sky fixes it among the stars, on the line from the point they turn about to the top of the sky at midnight, and draws its head and its tail from that number. How many shooting stars there are is worked out once for each night, as the sky finds which streak is in it from the clock and that number, and a number that changed through the night would make them jump.
+
 ![A jungle of tree ferns under tall trees, with flowers](docs/jungle.png)
 
 ![Redwoods, umbrella pines and gold fan-leaf trees in the highland](docs/highland.png)
@@ -306,7 +315,7 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - Ash that falls and lies on the ground.
 - A rock of an eruption comes down only where the world is loaded, about 100 blocks round you: what you were too far off to see left nothing.
 - A use for crystal.
-- The Skyspear itself, the comet: that is the next step. Then the Great Fall and the Long Winter.
+- The Great Fall, when the comet arrives: that is the next step. Then the Long Winter.
 - A star falls only where the world is loaded, about 100 blocks round you: there are no craters where you were not.
 - Lava that flows.
 - A beast that digs or climbs out of a pit. The dread in one is let go when its time is up, as anywhere.

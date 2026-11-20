@@ -96,6 +96,13 @@ type Sky struct {
 	ballHead, ballTail geometry.Vector3
 	ball               float64
 	ballSeen           bool
+
+	// The comet: how near it is, from 0, none, to 1; where its head is, one long, and
+	// the way its tail goes from there, one long and square to that; how long the tail
+	// is, in radians; and how much of the comet is seen at this hour, from 0 to 1.
+	comet                float64
+	cometHead, cometBack geometry.Vector3
+	cometLong, cometSeen float64
 }
 
 // How a shooting star and a fireball stand in the sky. Widths are in a direction one
@@ -148,6 +155,25 @@ func (s *Sky) SetFireball(head, tail geometry.Vector3, bright float64) {
 	if s.ball > 0 && head.Length() > 1e-9 && tail.Length() > 1e-9 {
 		s.ballHead, s.ballTail, s.ballSeen = head.Normalize(), tail.Normalize(), true
 	}
+}
+
+// How the comet stands in the sky. It is fixed among the stars, on the line from the
+// point they turn about to the top of the sky at midnight: so it rises at dusk lying
+// along the horizon, stands upright at midnight, and sets at dawn.
+const (
+	cometPole = 0.7   // how far from the point the stars turn about its head is, in radians
+	cometMost = 1.1   // how long its tail is when it is nearest: a third of the sky
+	cometWide = 0.016 // half the width of its tail at its head, when it is far off
+	cometFan  = 3.5   // how many times wider than that the end of its tail is
+	cometGlow = 3.0   // how many times wider than that the glow round its head is
+)
+
+var cometColor = color{206, 228, 255}
+
+// SetComet has the comet stand among the stars, as near as near says, from 0, none, to
+// 1, at which it is biggest. It shows from the next Set.
+func (s *Sky) SetComet(near float64) {
+	s.comet = min(max(near, 0), 1)
 }
 
 // along returns where the point nearest to p lies on the line from a to b, from 0 at a
@@ -261,6 +287,18 @@ func (s *Sky) Set(time float64) {
 	s.Fog = mesh.Fog{Color: fog.engine(), Start: 0.6 * ViewDistance, End: ViewDistance}
 	s.cloudFog = mesh.Fog{Color: fog.engine(), Start: ViewDistance, End: 3 * ViewDistance}
 
+	if s.cometSeen = 0; s.comet > 0 {
+		// Among the stars a place is so far round from the point they turn about, +z.
+		at := func(round float64) geometry.Vector3 {
+			return s.along.Scale(-math.Sin(round)).Add(geometry.Vector3{Z: math.Cos(round)})
+		}
+		s.cometHead, s.cometBack = at(cometPole), at(cometPole+math.Pi/2)
+		s.cometLong = 0.04 + cometMost*s.comet*s.comet
+		// A near one shows before the stars do: through the dusk and the dawn.
+		early := 0.3 * smooth(0.5, 1, s.comet)
+		s.cometSeen = (1 - smooth(-0.25+early, 0.02+early, height)) * (1 - s.ash) * (0.45 + 0.55*s.comet)
+	}
+
 	for c := range s.skyChannels {
 		s.skyChannels[c] = (nightTint[c] + (1-nightTint[c])*s.day) * (1 - (1-duskTint[c])*s.dusk*s.day) * (1 - ashDims*s.ash)
 		s.skyChannels[c] = max(s.skyChannels[c], ballLight[c]*s.ball)
@@ -349,6 +387,24 @@ func (s *Sky) color(d geometry.Vector3) color {
 	if s.streak > 0 && s.stars > 0 && climb > 0 {
 		if t, off := along(d, s.streakTail, s.streakHead); off < streakWide {
 			c = c.mix(starColor, part(s.stars*s.streak*(0.3+0.7*t)))
+		}
+	}
+	if s.cometSeen > 0 && climb > -0.05 {
+		// The comet: how far behind its head the ray is, round the sky, and how far to a
+		// side of its tail. The tail widens and fades as it goes back.
+		ahead, back := d.Dot(s.cometHead), d.Dot(s.cometBack)
+		head := cometWide * (0.5 + s.comet)
+		if side := math.Sqrt(max(1-ahead*ahead-back*back, 0)); side < head*(1+cometFan) {
+			behind := math.Atan2(back, ahead)
+			if far, wide := behind/s.cometLong, head*(1+cometFan*behind/s.cometLong); far >= 0 && far < 1 && side < wide {
+				faint := 1 - far
+				c = c.mix(cometColor, part(s.cometSeen*(1-side/wide)*(0.12+0.88*faint*faint)))
+			}
+			// Its head: a glow, and a bright middle to it.
+			if off := d.Sub(s.cometHead).Length(); off < cometGlow*head {
+				glow := 1 - off/(cometGlow*head)
+				c = c.mix(cometColor, part(s.cometSeen*glow*glow)).mix(starColor, part(s.cometSeen*smooth(0.55, 0.9, glow)))
+			}
 		}
 	}
 	if s.ballSeen {
