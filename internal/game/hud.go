@@ -231,6 +231,8 @@ func (g *Game) drawNumbers(fb *engine.FrameBuffer, y int) {
 		fmt.Sprintf("seed    %d", g.world.Seed),
 		"time    " + clockText(g.days),
 	}
+	_, left := g.comet()
+	lines = append(lines, fmt.Sprintf("comet   in %.2f days", left))
 	if when, ok := g.nextStar(); ok {
 		lines = append(lines, fmt.Sprintf("star    falls in %.2f days", when-g.days))
 	}
