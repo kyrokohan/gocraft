@@ -25,6 +25,9 @@ const (
 	mountEdge = mountAsh + 2
 
 	firestoneRing = 3.0 // how far each side of the rim of the crater firestone is found
+
+	eruptLeast = 4.0 // the fewest days from one eruption of a mountain to its next
+	eruptMost  = 7.0 // and the most
 )
 
 // mountain is one fire mountain: the column at its middle, and how high the rim of its
@@ -106,4 +109,24 @@ func (w *World) Mountain(x, z float64) (crater Cell, far float64, ok bool) {
 		}
 	}
 	return crater, far, true
+}
+
+// Erupted returns the day on which the fire mountain nearest the column at x, z last
+// began to erupt, as of a day of the world, and the day on which it next will: ok is
+// false while it has not erupted yet. A mountain erupts by the seed and the clock alone,
+// every eruptLeast to eruptMost days and each mountain on its own days, so nothing of
+// when is kept in a save.
+func (w *World) Erupted(x, z, day float64) (began, next float64, ok bool) {
+	crater, _, found := w.Mountain(x, z)
+	if !found {
+		return 0, math.Inf(1), false
+	}
+	seed := uint32(w.Seed) ^ uint32(w.Seed>>32)
+	for k := 0; ; k++ {
+		next = began + eruptLeast + (eruptMost-eruptLeast)*lattice(crater.X+k, crater.Z, seed+9301)
+		if next > day {
+			return began, next, k > 0
+		}
+		began = next
+	}
 }

@@ -74,12 +74,23 @@ type Meta struct {
 	// Bed is the bedroll the player last lay on, which it wakes at; nil for none.
 	Bed *Cell `json:"bed,omitempty"`
 
+	// Embers are the fires that the burning rocks of a fire mountain left, which burn
+	// out: they are kept so that one still goes out in a world that is opened again.
+	Embers []Ember `json:"embers,omitempty"`
+
 	// Look is which of the looks the player's body wears, from 0. A save from before
 	// there was a body has none, and wears the first.
 	Look int `json:"look,omitempty"`
 
 	// Torch is how many seconds the torch in the player's hand has burned.
 	Torch float64 `json:"torch,omitempty"`
+}
+
+// Ember is a fire that a burning rock left where it came down, and how many seconds it
+// still burns.
+type Ember struct {
+	At   Cell    `json:"at"`
+	Left float64 `json:"left"`
 }
 
 // Cell is the place of a block in the world.
