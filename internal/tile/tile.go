@@ -87,6 +87,10 @@ const (
 	SinterGreen
 	HotCore
 	SkyIronCore
+	Peat
+	ScaleTrunkTop
+	ScaleTrunkSide
+	ScaleCrown
 
 	// Pictures that are on no block.
 
@@ -150,6 +154,7 @@ const (
 	SkyIronSpear
 	FurCloak
 	Tusk
+	Amber
 
 	// Count is the number of tiles in the strip.
 	Count

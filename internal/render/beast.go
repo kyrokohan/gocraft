@@ -33,6 +33,9 @@ const (
 	Howler    // a grey hunter of the steppe night that goes in packs, and is heard before it comes
 	Daggercat // a great cat of the steppe with two fangs like knives, that springs
 
+	Rattlewing // a dragonfly of the coal swamp as long as an arm: the first thing that flies
+	Logcrawler // a many-legged crawler of the swamp floor in plates, that curls up
+
 	Kinds // how many kinds there are
 )
 
@@ -42,6 +45,7 @@ var kindNames = [Kinds]string{
 	Cloudgrazer: "cloudgrazer", Dread: "dread",
 	Snowtusk: "snowtusk", Slowclaw: "slowclaw",
 	Howler: "howler", Daggercat: "daggercat",
+	Rattlewing: "rattlewing", Logcrawler: "logcrawler",
 }
 
 // String returns the name of a kind, as a save holds it.
@@ -91,6 +95,9 @@ var sizes = [Kinds][2]float64{
 
 	Howler:    {0.6, 1.1},
 	Daggercat: {0.8, 1.4},
+
+	Rattlewing: {0.5, 0.35},
+	Logcrawler: {0.6, 0.4},
 }
 
 // spans are how far behind and ahead of the point between its feet the body of a grown
@@ -105,6 +112,7 @@ var spans = [Kinds][2]float64{
 	Snowtusk:    {-3.0, 2.9},
 	Slowclaw:    {-1.5, 1.6},
 	Daggercat:   {-1.2, 1.4},
+	Logcrawler:  {-1.0, 1.0},
 }
 
 // Span returns how far behind and ahead of the point between its feet a beast's body
@@ -221,6 +229,9 @@ func NewBeasts(set *assets.Set) *Beasts {
 
 		Howler:    howlerShape(set),
 		Daggercat: daggercatShape(set),
+
+		Rattlewing: rattlewingShape(set),
+		Logcrawler: logcrawlerShape(set),
 	}}
 }
 
@@ -661,6 +672,73 @@ func daggercatShape(set *assets.Set) shape {
 	parts = append(parts, eyes(catEyes, n, 0.29, hip+0.6, 1.2)...)
 	leg := box(-0.12, -hip, -0.12, 0.24, hip, 0.24, all6(giantLeg), n, look)
 	return shape{stand: hip, hurt: reddened(set.Daggercat), parts: append(parts, fourLegs(leg, hip, 0.24, 0.6, -0.8, 0.55)...)}
+}
+
+// rattlewingShape is a rattlewing: a head that is nearly all eye, a short thick chest,
+// a tail as thin as a stick and four times as long, and two pairs of wings that beat
+// forward and back too fast to follow. It has no legs to speak of.
+func rattlewingShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(48, 150, 120), Texture: set.Rattlewing}
+	const n = assets.RattlewingTiles
+	const hip = 0.12
+	hide, head := giantHide()
+	wing := [6]int{giantArmA, giantArmA, giantArmA, giantArmA, giantArmA, giantArmA}
+	tail := all6(giantArmB)
+	pair := func(front, beat float64) []limb {
+		left := box(-0.75, 0, -0.09, 0.75, 0.02, 0.18, wing, n, look)
+		right := box(0, 0, -0.09, 0.75, 0.02, 0.18, wing, n, look)
+		return []limb{
+			{mesh: left, right: -0.06, up: hip + 0.16, front: front, sway: beat},
+			{mesh: right, right: 0.06, up: hip + 0.16, front: front, sway: -beat},
+		}
+	}
+	parts := []limb{
+		{mesh: box(-0.08, hip, -0.05, 0.16, 0.16, 0.34, hide, n, look)},      // the chest
+		{mesh: box(-0.09, hip-0.01, 0.29, 0.18, 0.18, 0.16, head, n, look)},  // the head
+		{mesh: box(-0.035, hip+0.05, -0.75, 0.07, 0.07, 0.7, tail, n, look)}, // the tail
+	}
+	parts = append(parts, pair(0.2, 0.5)...)
+	parts = append(parts, pair(0.03, -0.5)...)
+	return shape{stand: hip, hurt: reddened(set.Rattlewing), parts: parts}
+}
+
+// logcrawlerShape is a logcrawler: five lengths of body, each under its own plate, a
+// round head with two feelers, and a pair of legs to each length. Its two front lengths
+// are hung from the middle one and its two hind ones too, so that it curls: both ends
+// come up over its middle.
+func logcrawlerShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(124, 50, 36), Texture: set.Logcrawler}
+	const n = assets.LogcrawlerTiles
+	const hip = 0.1
+	hide, head := giantHide()
+	feeler := all6(giantArmA)
+	const long = 0.4 // one length of its body
+	fore := limb{up: hip, front: long / 2, nod: -0.9}
+	hind := limb{up: hip, front: -long / 2, nod: 0.9}
+	of := func(from limb, m mesh.Mesh) limb {
+		from.mesh = m
+		return from
+	}
+	parts := []limb{
+		{mesh: box(-0.26, hip, -long/2, 0.52, 0.26, long, hide, n, look)},
+		of(fore, box(-0.25, 0, 0, 0.5, 0.25, long, hide, n, look)),
+		of(fore, box(-0.23, 0, long, 0.46, 0.23, long, hide, n, look)),
+		of(fore, box(-0.18, 0.01, 2*long, 0.36, 0.2, 0.22, head, n, look)),
+		of(fore, box(-0.14, 0.12, 2*long+0.2, 0.03, 0.03, 0.3, feeler, n, look)),
+		of(fore, box(0.11, 0.12, 2*long+0.2, 0.03, 0.03, 0.3, feeler, n, look)),
+		of(hind, box(-0.25, 0, -long, 0.5, 0.25, long, hide, n, look)),
+		of(hind, box(-0.21, 0, -2*long, 0.42, 0.21, long, hide, n, look)),
+	}
+	// A pair of legs to each length: each pair steps against the one before it.
+	leg := box(-0.02, -hip, -0.02, 0.04, hip, 0.04, all6(giantLeg), n, look)
+	for i := range 5 {
+		front, swing := long*float64(i-2), 0.7*float64(1-2*(i%2))
+		parts = append(parts,
+			limb{mesh: leg, right: -0.3, up: hip, front: front, swing: swing},
+			limb{mesh: leg, right: 0.3, up: hip, front: front, swing: -swing},
+		)
+	}
+	return shape{stand: hip, hurt: reddened(set.Logcrawler), parts: parts}
 }
 
 // dreadEyes is the color of the dread's eyes.

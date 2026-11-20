@@ -117,6 +117,9 @@ type Renderer struct {
 	shuts    [256]bool        // the kinds of block that cast the soft shadows where blocks meet
 }
 
+// bogWater is the color of water that stands on peat.
+var bogWater = color{24, 22, 20}
+
 // frostWhite is the color of frost, and frostMost how much of a face's own color the most
 // frost hides: the ground still shows through it.
 var frostWhite = color{236, 242, 250}
@@ -333,6 +336,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 		farther[level] = pixelsPerBlock / tile.Size * 1.5 * float64(int(1)<<level)
 	}
 	var frost uint32 // how much of the frost is on the face the ray of this pixel met, out of 256
+	var bog bool     // that face is peat: water over it is black
 	// The face whose corners were last worked out, as the next pixel is likely on it too.
 	var shadedAt world.Hit
 	var shades [4]uint32
@@ -402,7 +406,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 						pixel = r.cracked(pixel, fu, fv, level)
 					}
 					light, depth, found = r.lightOn(w, sky, hit), hit.T, true
-					frost = 0
+					frost, bog = 0, hit.Block == world.Peat
 					if r.Frost > 0 && hit.Face == world.FaceYPos && r.glow[hit.Block] == 0 && w.LightAt(hit.X, hit.Y+1, hit.Z).Sky() == world.MaxLight {
 						frost = part(frostMost * r.Frost)
 					}
@@ -444,7 +448,11 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 					through = (depth - surface.T) / unit
 				}
 				su, sv := onFace(surface, eye.Add(d.Scale(surface.T)))
-				ripple := unpack(r.texel(surface, su, sv, levelAt(surface.T/unit))).times(r.lightOn(w, sky, surface))
+				ripple := unpack(r.texel(surface, su, sv, levelAt(surface.T/unit)))
+				if found && bog {
+					ripple = ripple.mix(bogWater, 190) // the pools of a swamp are black
+				}
+				ripple = ripple.times(r.lightOn(w, sky, surface))
 				col = col.mix(ripple, part(0.45+0.12*through)*230>>8)
 				seen = surface.T
 				if !found {

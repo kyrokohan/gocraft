@@ -43,7 +43,7 @@ func of(item world.Item, n int) need {
 var (
 	logs = []world.Item{
 		world.Log.Item(), world.PineLog.Item(), world.PaleLog.Item(),
-		world.FernTrunk.Item(), world.RedwoodLog.Item(), world.StumpPalm.Item(),
+		world.FernTrunk.Item(), world.RedwoodLog.Item(), world.StumpPalm.Item(), world.ScaleTrunk.Item(),
 	}
 	anyLog = need{name: "log", items: logs, n: 1}
 )

@@ -154,10 +154,10 @@ func counted(w *World, x, z int) map[Block]int {
 func TestTreesAreWholeAcrossChunkEdges(t *testing.T) {
 	// A redwood's needles are told from an umbrella pine's by the trunk they are near.
 	trunksOf := map[Block][]Block{
-		Leaves: {Log}, PineNeedles: {PineLog, RedwoodLog}, FanLeaves: {PaleLog}, Fronds: {FernTrunk},
+		Leaves: {Log}, PineNeedles: {PineLog, RedwoodLog}, FanLeaves: {PaleLog}, Fronds: {FernTrunk}, ScaleCrown: {ScaleTrunk},
 	}
 
-	for _, country := range []Biome{Jungle, Highland, Tundra} {
+	for _, country := range []Biome{Jungle, Highland, Tundra, Swamp} {
 		w, x0, z0 := loadedAt(t, 5, country)
 
 		// Every leaf is within reach of a log of its own tree: a tree cut off at the
@@ -230,6 +230,7 @@ func TestEveryKindOfCountryHasItsOwnGroundAndGrowth(t *testing.T) {
 		{"badlands", Badlands, []Block{Redrock, Sandstone, Sand}, []Block{Log, PineLog, Turf, StumpPalm}},
 		{"tundra", Tundra, []Block{Snow, PineLog, PineNeedles}, []Block{StumpPalm, Redrock}},
 		{"crags", Crags, []Block{Stone}, nil},
+		{"swamp", Swamp, []Block{Peat, Water, ScaleTrunk, ScaleCrown, Horsetail, CoalOre}, []Block{Turf, Snow, PineLog, Redrock}},
 	} {
 		w, x, z := loadedAt(t, 7, tc.country)
 
@@ -294,7 +295,7 @@ func TestHorsetailsStandAtTheWatersEdgeAndIceLiesOnColdWater(t *testing.T) {
 	for dz := -span + 1; dz < span-1; dz++ {
 		for dx := -span + 1; dx < span-1; dx++ {
 			cx, cz := x+dx, z+dz
-			if w.At(cx, SeaLevel+2, cz) == Horsetail {
+			if w.At(cx, SeaLevel+2, cz) == Horsetail && BiomeAt(7, cx, cz) != Swamp { // the swamp has its own, on peat
 				wet := w.At(cx+1, SeaLevel, cz) == Water || w.At(cx-1, SeaLevel, cz) == Water ||
 					w.At(cx, SeaLevel, cz+1) == Water || w.At(cx, SeaLevel, cz-1) == Water
 				if !wet || w.At(cx, SeaLevel+1, cz) != Sand {
@@ -530,9 +531,9 @@ func TestCavesLeaveTheSeaItsBed(t *testing.T) {
 }
 
 func TestNothingGrowsOverAHole(t *testing.T) {
-	trunks := map[Block]bool{Log: true, PaleLog: true, PineLog: true, StumpPalm: true, FernTrunk: true, RedwoodLog: true}
+	trunks := map[Block]bool{Log: true, PaleLog: true, PineLog: true, StumpPalm: true, FernTrunk: true, RedwoodLog: true, ScaleTrunk: true}
 
-	for _, country := range []Biome{Prairie, Jungle, Highland, Tundra} {
+	for _, country := range []Biome{Prairie, Jungle, Highland, Tundra, Swamp} {
 		w, x0, z0 := loadedAt(t, 7, country)
 
 		span := (LoadRadius - 1) * ChunkSize
