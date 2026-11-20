@@ -339,3 +339,97 @@ func TestAshDarkensTheSkyAndTheLightOfDay(t *testing.T) {
 		t.Errorf("by day the foot of the smoke of a mountain that erupts is %v, and %v of one that does not: wanted the red of its fire", fire, smoke)
 	}
 }
+
+// Shooting stars streak the night sky, a few a minute, and are not seen by day.
+func TestShootingStarsStreakTheNightSky(t *testing.T) {
+	bright := func(c color) uint32 { return c.r + c.g + c.b }
+	night, clear, day := NewSky(Midnight), NewSky(Midnight), NewSky(Noon)
+	plain := NewSky(Noon)
+	streaks, seen, lit, was := 0, 0, 0.0, false
+	for clock := 0.0; clock < 600; clock += 0.05 {
+		night.SetStreaks(clock, 5)
+		day.SetStreaks(clock, 5)
+		on := night.streak > 0
+		if on && !was {
+			streaks++
+		}
+		was = on
+		if !on {
+			continue
+		}
+		lit += 0.05
+		mid := night.streakHead.Add(night.streakTail).Normalize()
+		if night.streakHead.Y <= 0 || night.streakTail.Y <= 0 {
+			t.Fatalf("at %v s a star streaks below the horizon: from %+v to %+v", clock, night.streakTail, night.streakHead)
+		}
+		if night.streak > 0.5 && bright(night.color(mid)) > bright(clear.color(mid))+100 {
+			seen++
+		}
+		if day.color(mid) != plain.color(mid) {
+			t.Fatalf("at %v s a shooting star shows by day", clock)
+		}
+	}
+	if streaks < 35 || streaks > 55 {
+		t.Errorf("%d stars streaked in ten minutes at five a minute", streaks)
+	}
+	if each := lit / float64(streaks); each < 0.4 || each > 1.5 {
+		t.Errorf("a streak lasts %.2f s, wanted about a second", each)
+	}
+	if seen < 200 {
+		t.Errorf("a streak at its brightest stood out from the night sky %d times, wanted in most of its moments", seen)
+	}
+	night.SetStreaks(1234.5, 0)
+	if night.streak != 0 {
+		t.Error("a sky told of no streaks has one")
+	}
+}
+
+// A fireball is seen in the sky in the way to it, with its tail behind it, and the night
+// under it is as bright as dusk. A flash lights the land with no ball in the sky.
+func TestAFireballIsSeenInTheSkyAndLightsTheNight(t *testing.T) {
+	bright := func(c color) uint32 { return c.r + c.g + c.b }
+	head := geometry.Vector3{X: 30, Y: 40, Z: 60}
+	tail := head.Add(geometry.Vector3{X: 8, Y: 9, Z: -4})
+	away := geometry.Vector3{X: -0.5, Y: 0.4, Z: -0.6}.Normalize()
+	moon, torch := world.Light(world.MaxLight<<4), world.Light(14)
+
+	dark := NewSky(Midnight)
+	s := NewSky(Midnight)
+	s.SetFireball(head, tail, 1)
+	s.Set(Midnight)
+	if ball := s.color(head.Normalize()); bright(ball) < 600 || bright(ball) < bright(dark.color(head.Normalize()))+400 {
+		t.Errorf("the sky where a fireball is is %v, and %v without it: wanted it bright", ball, dark.color(head.Normalize()))
+	}
+	behind := head.Add(tail.Sub(head).Scale(0.6)).Normalize()
+	if trail := s.color(behind); bright(trail) < bright(dark.color(behind))+150 {
+		t.Errorf("the sky behind a fireball is %v, and %v without it: wanted its tail", trail, dark.color(behind))
+	}
+	ahead := head.Add(head.Sub(tail).Scale(1.5)).Normalize()
+	if s.color(ahead) != dark.color(ahead) && bright(s.color(ahead)) > bright(dark.color(ahead))+150 {
+		t.Errorf("the sky ahead of a fireball is %v: its tail is before it", s.color(ahead))
+	}
+	if s.color(away) != dark.color(away) {
+		t.Errorf("the sky away from a fireball is %v, and %v without it", s.color(away), dark.color(away))
+	}
+	if with, without := s.Brightness(moon), dark.Brightness(moon); with < 0.45 || with < 2*without {
+		t.Errorf("the light of the night is %.2f under a fireball and %.2f without: wanted it as bright as dusk", with, without)
+	}
+	if s.Brightness(torch) != dark.Brightness(torch) {
+		t.Error("a fireball changes the light of a torch")
+	}
+
+	// A flash: light, and no ball.
+	s.SetFireball(geometry.Vector3{}, geometry.Vector3{}, 0.5)
+	s.Set(Midnight)
+	if s.color(head.Normalize()) != dark.color(head.Normalize()) {
+		t.Error("a flash with no way to it shows a ball in the sky")
+	}
+	if b := s.Brightness(moon); b <= dark.Brightness(moon) || b >= 0.45 {
+		t.Errorf("the light of the night in half a flash is %.2f, wanted between the dark and the full of it", b)
+	}
+	s.SetFireball(head, tail, 0)
+	s.Set(Midnight)
+	if s.color(head.Normalize()) != dark.color(head.Normalize()) || s.Brightness(moon) != dark.Brightness(moon) {
+		t.Error("a sky the fireball has left is not as it was")
+	}
+}

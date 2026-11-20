@@ -178,8 +178,9 @@ func (g *Game) land(at geometry.Vector3) {
 	}
 }
 
-// stepEmbers burns the fires that rocks left for dt seconds more, and puts out each
-// whose time is up. One that is out of the window is kept until it is seen again.
+// stepEmbers burns what burns for a time for dt seconds more, and changes each whose
+// time is up into what it turns into: a fire goes out, and the hot core of a star goes
+// dark. One that is out of the window is kept until it is seen again.
 func (g *Game) stepEmbers(dt float64) {
 	kept := g.embers[:0]
 	for _, e := range g.embers {
@@ -187,8 +188,8 @@ func (g *Game) stepEmbers(dt float64) {
 			kept = append(kept, e)
 			continue
 		}
-		if g.world.At(e.At.X, e.At.Y, e.At.Z) == world.Fire {
-			g.world.Set(e.At.X, e.At.Y, e.At.Z, world.Air)
+		if b := g.world.At(e.At.X, e.At.Y, e.At.Z); b == world.Fire || b == world.HotCore {
+			g.world.Set(e.At.X, e.At.Y, e.At.Z, e.Into)
 		}
 	}
 	g.embers = kept

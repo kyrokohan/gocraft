@@ -176,7 +176,14 @@ type Game struct {
 	missiles    []missile
 	thrown      []render.Flying
 
-	embers []world.Ember // the fires that the rocks of a fire mountain left, which burn out
+	embers []world.Ember // what burns or glows for a time and then changes: the fires of rocks and stars, and the hot cores of stars
+
+	// The falling stars: the day up to which their moments have been looked for, the
+	// booms of those that struck, on their way to the player, and how many seconds of
+	// the flash of the last are left.
+	fallen float64
+	booms  []boom
+	glare  float64
 
 	digAt   [3]int  // the block being dug, in survival
 	digging float64 // for how long it has been dug
@@ -288,6 +295,7 @@ func (g *Game) use(w *world.World, s world.Meta) {
 	g.bits, g.missiles, g.embers = nil, nil, s.Embers
 	g.selected = min(max(s.Slot, 0), hotbarSlots-1)
 	g.days = s.Days
+	g.fallen, g.booms, g.glare = g.days, nil, 0
 	g.saved = true
 	g.loadStores(s) // before the player, which may wake at its bed
 	g.loadPlayer(s)
@@ -388,6 +396,7 @@ func (g *Game) newWorld(seed int64) {
 	g.fauna = newFauna(g.world, g.player.Pos)
 	g.selected, g.aimed, g.saved, g.days, g.torch = 0, false, false, 0, 0
 	g.drops, g.bits, g.missiles, g.embers = nil, nil, nil, nil
+	g.fallen, g.booms, g.glare = 0, nil, 0
 	g.loadStores(world.Meta{})
 	g.begin(false)
 }
@@ -503,6 +512,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		g.stepMissiles(dt)
 		g.geysers(dt)
 		g.erupt(dt)
+		g.stars(dt)
 		g.smoke(dt)
 		g.stepBits(dt)
 		g.stepHearths(dt)
@@ -738,6 +748,8 @@ func (g *Game) fogAt(cam mesh.Camera) *mesh.Fog {
 func (g *Game) Draw(fb *engine.FrameBuffer) {
 	c := fb.Canvas()
 	g.sky.SetAsh(g.ash())
+	g.sky.SetStreaks(g.days*dayLength, streaksAMinute)
+	g.sky.SetFireball(g.fireball())
 	g.sky.Set(timeOfDay(g.days))
 	g.plume()
 	g.rend.Crack = render.Crack{}

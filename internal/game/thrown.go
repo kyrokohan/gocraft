@@ -30,7 +30,8 @@ type flier uint8
 const (
 	spearThrown flier = iota
 	pebbleSlung
-	rockFlung // out of a fire mountain that erupts
+	rockFlung  // out of a fire mountain that erupts
+	starFallen // out of the sky
 )
 
 // flight is how a kind of thing flies, and what it does where it comes down.
@@ -42,12 +43,14 @@ type flight struct {
 	size   float64 // how far across its picture in flight is, in blocks
 	sticks bool    // it is long, flies point first, and stays in what it meets
 	burns  bool    // it is a burning rock: nobody threw it, it hurts the player too, and it leaves rock and a fire
+	falls  bool    // it is a falling star: the sky draws it, it goes through leaves and wood, and it leaves a crater
 }
 
 var fliers = [...]flight{
 	spearThrown: {speed: 24, weight: 16, harm: thrownMore, scare: 4, size: 1.1, sticks: true},
 	pebbleSlung: {speed: 38, weight: 14, scare: 8, size: 0.14},
 	rockFlung:   {weight: 16, harm: rockHarm, scare: 12, size: 1.3, burns: true},
+	starFallen:  {falls: true},
 }
 
 // missile is a thing in flight, or a spear that sticks where it came down.
@@ -136,6 +139,14 @@ func (g *Game) fly(m *missile, dt float64) bool {
 		left -= step
 		m.vel.Y -= f.weight * step
 		next := m.pos.Add(m.vel.Scale(step))
+		if f.falls {
+			if next.Y < 1 || !soft(g.world.At(int(math.Floor(next.X)), int(math.Floor(next.Y)), int(math.Floor(next.Z)))) {
+				g.impact(m.pos)
+				return false
+			}
+			m.pos = next
+			continue
+		}
 		if f.burns && g.struck(next) {
 			return false
 		}
@@ -221,6 +232,9 @@ func (g *Game) flying() []render.Flying {
 	g.thrown = g.thrown[:0]
 	for _, m := range g.missiles {
 		f := &fliers[m.kind]
+		if f.falls {
+			continue // the sky draws it, from farther off than things are drawn
+		}
 		light := g.sky.Brightness(g.lightAt(m.pos))
 		if f.burns {
 			light = 1 // it is its own light

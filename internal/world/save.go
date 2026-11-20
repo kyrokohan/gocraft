@@ -86,11 +86,14 @@ type Meta struct {
 	Torch float64 `json:"torch,omitempty"`
 }
 
-// Ember is a fire that a burning rock left where it came down, and how many seconds it
-// still burns.
+// Ember is a block that burns or glows for a time and then changes: a fire that a
+// burning rock or a fallen star left, which goes out, or the hot core of a star, which
+// goes dark. It is where the block is, how many seconds it has left, and what it turns
+// into then: air, for a fire.
 type Ember struct {
 	At   Cell    `json:"at"`
 	Left float64 `json:"left"`
+	Into Block   `json:"into,omitempty"`
 }
 
 // Cell is the place of a block in the world.

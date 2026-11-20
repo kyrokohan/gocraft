@@ -61,6 +61,9 @@ func (g *Game) live(dt float64) {
 			burn = max(burn, lavaHurt)
 		}
 	}
+	if g.world.At(x, y-1, z) == world.HotCore {
+		burn = max(burn, fireHurt) // the core of a star, hot still
+	}
 	if burn > 0 {
 		if g.hurt(burn * dt); g.screen != playing {
 			return // the player fainted
