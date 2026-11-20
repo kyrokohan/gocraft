@@ -79,6 +79,8 @@ const (
 	SkyIron // a lump of it, broken out of the core a fallen star left
 	SkyIronSpear
 
+	FurCloak // hides sewn with cord: carried, it keeps the cold off
+
 	itemEnd
 )
 
@@ -216,6 +218,9 @@ var things = [itemEnd - 256]thing{
 	// spear.
 	SkyIron - 256:      {name: "sky iron", icon: tile.SkyIron},
 	SkyIronSpear - 256: {name: "sky iron spear", icon: tile.SkyIronSpear, tool: Blade, tier: TierIron, reach: 1, thrown: true},
+
+	// A fur cloak is worn by being carried: there is no place to put it on.
+	FurCloak - 256: {name: "fur cloak", icon: tile.FurCloak},
 }
 
 // obsidianUses is how many uses a tool of obsidian lasts, and skyIronUses one of sky

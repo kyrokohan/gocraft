@@ -468,3 +468,48 @@ func TestAPlantHidesWhatIsBehindItsPictureOnly(t *testing.T) {
 		t.Errorf("the thing behind shows in %d pixels of %d, wanted it round the flower and not over it", shown, c.Width()*c.Height())
 	}
 }
+
+// Frost whitens the tops of blocks that are open to the sky, and nothing else: not their
+// sides, and not what a roof is over.
+func TestFrostWhitensTheOpenGroundAndNotSidesOrWhatIsRoofed(t *testing.T) {
+	scene := func(roofed bool, frost float64) *engine.Canvas {
+		w := world.New()
+		for z := range 24 {
+			for x := range 24 {
+				w.Set(x, 10, z, world.Turf)
+				if roofed {
+					w.Set(x, 16, z, world.Stone)
+				}
+			}
+		}
+		wall(w, 20, world.Turf)
+		c := newCanvas(t, 40, 20)
+		cam := facing
+		cam.Position = geometry.Vector3{X: 12.5, Y: 12.5, Z: 9.5}
+		r := newRenderer(t)
+		r.Frost = frost
+		r.Draw(c, w, cam, noon)
+		return c
+	}
+	pale := func(c engine.Color) int {
+		r, g, b := c.RGB()
+		return int(min(r, g, b))
+	}
+	green, white := scene(false, 0), scene(false, 1)
+	if was, is := pale(green.At(20, 38)), pale(white.At(20, 38)); is < was+60 {
+		t.Errorf("the open ground is %v with no frost and %v with all of it: wanted it white", green.At(20, 38), white.At(20, 38))
+	}
+	if green.At(20, 4) != white.At(20, 4) {
+		t.Errorf("the side of a wall is %v with no frost and %v with it: wanted it as it was", green.At(20, 4), white.At(20, 4))
+	}
+	half := scene(false, 0.5)
+	if was, mid, is := pale(green.At(20, 38)), pale(half.At(20, 38)), pale(white.At(20, 38)); mid <= was || mid >= is {
+		t.Errorf("the open ground with half the frost is %v, wanted between %v and %v", half.At(20, 38), green.At(20, 38), white.At(20, 38))
+	}
+	under, frosted := scene(true, 0), scene(true, 1)
+	for y := range 40 {
+		if under.At(20, y) != frosted.At(20, y) {
+			t.Fatalf("under a roof the pixel at row %d is %v with no frost and %v with it", y, under.At(20, y), frosted.At(20, y))
+		}
+	}
+}

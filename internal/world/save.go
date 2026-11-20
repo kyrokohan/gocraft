@@ -74,6 +74,10 @@ type Meta struct {
 	// Bed is the bedroll the player last lay on, which it wakes at; nil for none.
 	Bed *Cell `json:"bed,omitempty"`
 
+	// Cold is how much of its warmth the player's body has lost, in points: none for a
+	// save from before there was warmth, which is then whole.
+	Cold float64 `json:"cold,omitempty"`
+
 	// Embers are the fires that the burning rocks of a fire mountain left, which burn
 	// out: they are kept so that one still goes out in a world that is opened again.
 	Embers []Ember `json:"embers,omitempty"`

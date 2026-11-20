@@ -158,6 +158,7 @@ type Game struct {
 
 	// The player's body, in survival.
 	health, food, air float64
+	warmth, chill     float64 // how warm the body is, and seconds since the cold last took a point of health
 	hunger, mend      float64 // seconds since food last went down, and since the body last mended
 	peak              float64 // the highest the player has been since last on the ground
 	flash             float64 // seconds the view still shows red, for a hurt
@@ -333,6 +334,7 @@ func (g *Game) Save() error {
 		Look:   g.worn,
 		Torch:  g.torch,
 		Embers: g.embers,
+		Cold:   maxWarmth - g.warmth,
 	}
 	for _, d := range g.drops {
 		m.Drops = append(m.Drops, d.Drop)
@@ -359,6 +361,7 @@ func (g *Game) loadPlayer(s world.Meta) {
 		g.items = creativeStart()
 	}
 	g.health, g.food, g.air = min(s.Health, maxHealth), min(max(s.Food, 0), maxFood), min(max(s.Air, 0), maxAir)
+	g.warmth, g.chill = min(max(maxWarmth-s.Cold, 0), maxWarmth), 0
 	g.worn = min(max(s.Look, 0), assets.PersonLooks-1)
 	g.torch = s.Torch
 	g.peak = g.player.Pos.Y
@@ -761,6 +764,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	g.sky.Set(timeOfDay(g.days))
 	g.plume()
 	g.rend.Crack = render.Crack{}
+	g.rend.Frost = g.frost()
 	if g.titleShown() {
 		// The world from a little above where the player will stand, turning slowly.
 		cam := g.eyes()
