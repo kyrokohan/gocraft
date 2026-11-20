@@ -21,6 +21,7 @@ const (
 	creatureAwake = 88.0  // how far from the player they still move: the ground is loaded that far
 	creatureGone  = 104.0 // how far from the player they are let go
 	creatureHop   = 8.0   // the speed a beast leaves the ground at: enough to clear one block
+	floatSpeed    = 1.5   // how fast a beast in water comes up to the top of it
 	lookAhead     = 0.35  // how far past its own front it looks before it steps
 	longDrop      = 3     // blocks: it does not walk off anything deeper
 	rethink       = 0.4   // how long it stands after something turns it back
@@ -135,6 +136,12 @@ type breed struct {
 	moves gait
 	hover float64
 	curls float64
+
+	// warms is true for a beast that the sun warms: it is as quick as its row says only
+	// at noon, and slow in the morning, the evening and the winter. tether is how far
+	// from where it lives one that keeps to a place goes after its prey.
+	warms  bool
+	tether float64
 
 	// A guard does not run. warns is how near what it guards, its young or itself, a
 	// threat may come before it turns on it and gives its cry. charges is how near
@@ -320,6 +327,29 @@ var breeds = [render.Kinds]breed{
 		lands: []world.Biome{world.Swamp}, bare: true,
 		call: sound.Rattle, cry: sound.Rattle, callEvery: 90,
 	},
+
+	// The two with a sail on the back. A sunback hunts the swamp and the badlands by
+	// day, and is only as quick as the sun has made it. A sailjaw lies in still water
+	// and lunges at what comes near, and does not go far from its water.
+	render.Sunback: {
+		walk: 1.3, run: 6.0, gait: 4.0,
+		health: 35, bite: 6, meat: 4, hide: 2,
+		temper: hunter, group: [2]int{1, 1}, most: 2, sees: 22, hears: 12,
+		from: firstHunt, byDay: true, warms: true,
+		stalks: 14, snaps: 1.2, feeds: feedTime,
+		lands: []world.Biome{world.Swamp, world.Badlands}, bare: true,
+		call: sound.Hiss, cry: sound.Hiss, callEvery: 30,
+	},
+	render.Sailjaw: {
+		walk: 1.0, run: 3.2, gait: 2.2,
+		health: 60, bite: 9, meat: 6, hide: 3,
+		heavy:  true,
+		temper: hunter, group: [2]int{1, 1}, most: 1, sees: 7, hears: 6,
+		from: firstHunt, moves: gaitWade, springs: 5, tether: 10,
+		stalks: 6, snaps: 3, feeds: feedTime,
+		lands: []world.Biome{world.Swamp, world.Jungle},
+		call:  sound.Hiss, cry: sound.Hiss, callEvery: 45,
+	},
 }
 
 // gait is how a beast gets about.
@@ -328,6 +358,7 @@ type gait uint8
 const (
 	gaitWalk gait = iota
 	gaitFly       // it keeps a height over what is under it, and goes where it looks
+	gaitWade      // it lies at the top of still water, and leaves the water only after its prey
 )
 
 // slowclawGrudge is how near what it was hit by a slowclaw must be for the slowclaw to
@@ -386,9 +417,15 @@ type beast struct {
 	keen, biteIn, feeding, lit float64
 	leap                       float64 // how long the spring of one that springs still lasts
 	curl                       float64 // how long one that curls up when it is hit stays curled
-	leaving                    bool
-	gone                       float64
-	about                      float64 // how long a hunter that visits has been about
+	pace                       float64 // how much of its speed one that the sun warms has: all of it, if this says nothing
+
+	// den is where one that keeps to a place lives, once it has been seen there, and
+	// homing whether it is on its way back there.
+	den            geometry.Vector3
+	denned, homing bool
+	leaving        bool
+	gone           float64
+	about          float64 // how long a hunter that visits has been about
 
 	// A guard: how long it still charges, until it can charge or strike again, and
 	// until it warns again; whether it was hurt, and where what it turns on is; whether
@@ -436,6 +473,7 @@ type fauna struct {
 	winter                        bool    // it is the Long Winter: herds are thin, and hunters do not mind the day
 	fireside                      bool    // the player is by a fire, which some hunters will not come to
 	sun                           float64 // how bright the day is, from 0 to 1, whatever a hunter makes of it
+	noon                          float64 // how high the sun stands, from 0, on the horizon or under it, to 1: none of it in the winter
 
 	// For a pack that is heard before it comes: how many seconds ago its cry was heard,
 	// none if it has not been, and where it was heard from, which is where it comes.
@@ -564,6 +602,8 @@ func (f *fauna) standing(w *world.World, k render.Kind, young bool, x, z int) (g
 	y := w.Ground(x, z) // under any plant
 	switch on := w.At(x, y, z); {
 	case on == world.Turf:
+	case breeds[k].moves == gaitWade:
+		return f.wading(w, k, x, z)
 	case breeds[k].moves == gaitFly && (on == world.Water || on == world.Peat || on == world.Turf || on == world.Sand):
 		y += int(math.Ceil(breeds[k].hover)) - 1 // it is in the air over it: over open ground or water, and not over a tree
 	case breeds[k].bare && (on == world.Redrock || on == world.Sand || on == world.Sandstone || on == world.Snow || on == world.Peat):
@@ -769,6 +809,9 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		}
 		if m, ok := wards[c.herd]; ok && b.temper == guard && !c.young {
 			middle = &m // a grown guard keeps by its young, and not by the middle of its family
+		}
+		if b.warms {
+			c.pace = coldPace + (1-coldPace)*f.noon
 		}
 		c.step(w, dt, middle)
 		if c.trod != 0 {
@@ -1130,6 +1173,9 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	if c.hurry {
 		speed = b.run
 	}
+	if c.pace > 0 {
+		speed *= c.pace
+	}
 	if c.leap > 0 {
 		speed = springSpeed
 	}
@@ -1161,11 +1207,27 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	}
 
 	afloat := inWater(w, c.Pos)
+	wades := b.moves == gaitWade
+	// One that wades lies at the top of the water: its feet a block under it, in water
+	// of any depth. Deeper than that the water bears it up, by lift this step, and once
+	// it lies there the water is ground to it.
+	borne, lies, lift := false, false, 0.0
+	if wades && afloat && c.velY <= 0 && !c.dead {
+		x, y, z := int(math.Floor(c.Pos.X)), int(math.Floor(c.Pos.Y)), int(math.Floor(c.Pos.Z))
+		for w.At(x, y+1, z) == world.Water {
+			y++
+		}
+		if under := float64(y) - c.Pos.Y; under >= 0 {
+			borne, lies, lift = true, under < 0.01, min(under, floatSpeed*dt)
+		}
+	}
 	switch {
 	case mired:
 		c.velY = -tarSink // it sinks, slowly
-	case afloat:
-		c.velY = 1.5 // it floats up, should it ever fall in
+	case borne:
+		c.velY = 0
+	case afloat && !wades:
+		c.velY = floatSpeed // it floats up, should it ever fall in
 	default:
 		c.velY = max(c.velY-gravity*dt, -fallSpeed)
 	}
@@ -1178,7 +1240,11 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	var move geometry.Vector3
 	if c.walking && !c.dead {
 		ahead := mesh.Camera{Yaw: c.Yaw}.Forward()
-		switch hop, blocked := c.wayAhead(w, ahead, afloat, stops); {
+		hop, blocked := c.wayAhead(w, ahead, afloat, stops)
+		if wades {
+			hop, blocked = c.wadeAhead(w, ahead)
+		}
+		switch {
 		case hop:
 			c.velY = creatureHop
 			if c.climb > 1 {
@@ -1203,13 +1269,13 @@ func (c *beast) step(w *world.World, dt float64, middle *geometry.Vector3) {
 	}
 	move = move.Add(c.push.Scale(dt))
 	c.push = c.push.Scale(max(1-knockDrag*dt, 0))
-	move.Y = c.velY * dt
+	move.Y = c.velY*dt + lift
 
 	if c.OnGround || afloat {
 		c.peak = c.Pos.Y
 	}
 	stopped := travelIn(w, &c.Pos, width, height, move, stops)
-	c.OnGround = stopped[1] && move.Y < 0
+	c.OnGround = stopped[1] && move.Y < 0 || lies && move.Y == 0
 	if stopped[1] {
 		c.velY = 0
 	}
@@ -1268,6 +1334,10 @@ func (g *Game) stepBeasts(dt float64) {
 	}
 	g.sky.Set(timeOfDay(g.days)) // the light they keep out of is the light of this hour
 	f.sun = g.sky.Brightness(world.Light(world.MaxLight << 4))
+	f.noon = 0
+	if !f.winter {
+		f.noon = max(math.Sin(2*math.Pi*(timeOfDay(g.days)-render.Sunrise)), 0)
+	}
 	f.step(g.world, g.player.Pos, dt)
 	if f.bitten > 0 && g.survival {
 		travel(g.world, &g.player.Pos, playerWidth, playerHeight, f.shove) // a blow throws
@@ -1390,4 +1460,83 @@ func (c *beast) fly(w *world.World, speed, dt float64) {
 	}
 	c.OnGround, c.peak = false, c.Pos.Y
 	c.Stride += b.gait * dt
+}
+
+// coldPace is how much of its speed a beast that the sun warms has with no sun on it.
+const coldPace = 0.4
+
+// wadeAhead says what a beast that wades does about what is just ahead of it, as
+// wayAhead does for one that walks. Water is its ground: it goes on through it, climbs
+// out of it only after its prey, and at other times turns back from the bank.
+func (c *beast) wadeAhead(w *world.World, ahead geometry.Vector3) (hop, blocked bool) {
+	width, height := render.Size(c.kind, c.young)
+	front := c.Pos.Add(ahead.Scale(width/2 + lookAhead))
+	x, y, z := int(math.Floor(front.X)), int(math.Floor(c.Pos.Y+0.1)), int(math.Floor(front.Z))
+	hunting := c.keen > 0 || c.leap > 0 || c.homing
+	switch {
+	case solid(w, x, y, z):
+		// The bank, or the floor rising: it climbs a step of it, if it is after
+		// something or the step is under water, and there is room.
+		for up := 1; up < 1+int(math.Ceil(height)); up++ {
+			if solid(w, x, y+up, z) {
+				return false, true
+			}
+		}
+		if !hunting && w.At(x, y+1, z) != world.Water {
+			return false, true // it would leave the water
+		}
+		c.climb = 1
+		return c.OnGround, true
+	case hunting:
+		return false, false
+	}
+	// Open ahead: water, which it keeps to, or a way down into it.
+	for down := 0; down <= 2; down++ {
+		if w.At(x, y-down, z) == world.Water {
+			return false, false
+		}
+		if solid(w, x, y-down, z) {
+			break
+		}
+	}
+	return false, true
+}
+
+// wading returns where a beast that wades could lie in the column at x, z: at the top
+// of still water one or two deep, in one of its lands or at the edge of one, with
+// nothing over it.
+func (f *fauna) wading(w *world.World, k render.Kind, x, z int) (geometry.Vector3, bool) {
+	top := w.Ground(x, z)
+	if w.At(x, top, z) != world.Water {
+		return geometry.Vector3{}, false
+	}
+	floor := top
+	for floor > top-3 && w.At(x, floor, z) == world.Water {
+		floor--
+	}
+	if deep := top - floor; deep > 2 || !solid(w, x, floor, z) || w.At(x, top+1, z) != world.Air || w.At(x, top+2, z) != world.Air {
+		return geometry.Vector3{}, false
+	}
+	// It is wider than a block: the water must be open all round the column, too.
+	_, height := render.Size(k, false)
+	for dz := -1; dz <= 1; dz++ {
+		for dx := -1; dx <= 1; dx++ {
+			for up := 1; up <= int(math.Ceil(height)); up++ {
+				if solid(w, x+dx, floor+up, z+dz) {
+					return geometry.Vector3{}, false
+				}
+			}
+		}
+	}
+	inLand := func(x, z int) bool { return slices.Contains(breeds[k].lands, world.BiomeAt(w.Seed, x, z)) }
+	if !inLand(x, z) && !inLand(x+5, z) && !inLand(x-5, z) && !inLand(x, z+5) && !inLand(x, z-5) {
+		return geometry.Vector3{}, false
+	}
+	pos := geometry.Vector3{X: float64(x) + 0.5, Y: float64(top), Z: float64(z) + 0.5}
+	for i := range f.all {
+		if f.all[i].Pos.Distance(pos) < 6 {
+			return geometry.Vector3{}, false
+		}
+	}
+	return pos, true
 }

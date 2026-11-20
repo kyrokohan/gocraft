@@ -450,6 +450,16 @@ func makeSound(n sound.Name) []float64 {
 			s[i] = dry.at(noise(i, 998)) * beat * swell(t, 0.08, 0.5)
 		}
 		return peakTo(s, 0.7)
+	case sound.Hiss:
+		// Breath let out slowly through a row of teeth: it swells, and stops short.
+		s := make([]float64, samples(0.9))
+		high, low := newHighpass(3000), newBand(900, 1.5)
+		for i := range s {
+			t := float64(i) / rate
+			swell := math.Pow(math.Sin(math.Pi*math.Min(t/0.9, 1)), 0.6) * math.Min(1, (0.9-t)/0.05)
+			s[i] = (0.8*high.at(noise(i, 999)) + 0.35*low.at(noise(i, 1001))) * swell
+		}
+		return peakTo(s, 0.6)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))

@@ -200,6 +200,22 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 		c.leap = 0
 		return
 	}
+	if b.tether > 0 {
+		// One that keeps to a place: where it was first seen in its water is its den.
+		// Far from it, it gives up what it was after and goes home.
+		if !c.denned && inWater(w, c.Pos) {
+			c.den, c.denned = c.Pos, true
+		}
+		home := geometry.Vector3{X: c.den.X - c.Pos.X, Z: c.den.Z - c.Pos.Z}
+		if far := home.Length(); c.denned && far > 1 && (far > b.tether || c.keen <= 0 && c.leap == 0 && !inWater(w, c.Pos)) {
+			c.keen, c.leap = 0, 0
+			c.walking, c.hurry, c.timer = true, false, max(c.timer, rethink)
+			c.Yaw = yawOf(home)
+			c.homing = true
+			return
+		}
+		c.homing = false
+	}
 	if b.byDay && f.sun < sunUp {
 		// A hunter of the day lies still through the dark.
 		c.keen, c.leap = 0, 0

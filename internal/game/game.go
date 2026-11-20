@@ -697,6 +697,7 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera, body bool) {
 		})
 	}
 	g.look.Draw(c, cam, g.lying, g.sky)
+	g.rend.Wash(c) // what lies in water is seen through it
 	g.look.DrawFlying(c, cam, g.flying(), g.sky)
 	g.look.DrawBits(c, cam, g.drawnBits(), g.sky)
 

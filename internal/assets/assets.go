@@ -81,6 +81,10 @@ type Set struct {
 	// RattlewingTiles and LogcrawlerTiles tiles.
 	Rattlewing, Logcrawler *bitmap.Bitmap
 
+	// Sunback and Sailjaw are the same for the two beasts with a sail on the back, with
+	// SunbackTiles and SailjawTiles tiles: the last two are the sail and the tail.
+	Sunback, Sailjaw *bitmap.Bitmap
+
 	// Cloudgrazer is the same for the cloudgrazer, with CloudgrazerTiles tiles: the last
 	// two are the bands of its neck and the end of its tail.
 	Cloudgrazer *bitmap.Bitmap
@@ -118,6 +122,8 @@ const (
 	DaggercatTiles   = 8
 	RattlewingTiles  = 8
 	LogcrawlerTiles  = 8
+	SunbackTiles     = 8
+	SailjawTiles     = 8
 )
 
 // PersonLooks is how many looks a cave person can have.
@@ -186,6 +192,8 @@ func Load() (*Set, error) {
 		{&set.Daggercat, "img/daggercat.png", DaggercatTiles},
 		{&set.Rattlewing, "img/rattlewing.png", RattlewingTiles},
 		{&set.Logcrawler, "img/logcrawler.png", LogcrawlerTiles},
+		{&set.Sunback, "img/sunback.png", SunbackTiles},
+		{&set.Sailjaw, "img/sailjaw.png", SailjawTiles},
 	} {
 		if *giant.into, err = creature(giant.file, giant.tiles); err != nil {
 			return nil, err

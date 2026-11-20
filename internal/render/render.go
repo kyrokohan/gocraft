@@ -115,7 +115,24 @@ type Renderer struct {
 	mat      [256]bool        // the kinds of block that are mats: one picture lying flat
 	glow     [256]world.Light // the light each kind of block gives off
 	shuts    [256]bool        // the kinds of block that cast the soft shadows where blocks meet
+
+	wet []wetPixel // the pixels of the last Draw that show ground through water, for Wash
 }
+
+// wetPixel is a pixel in which Draw saw the ground through water: how deep the top of the
+// water is there, the color of that water as it is lit and faded, and what Draw left in
+// the pixel.
+type wetPixel struct {
+	x, y  int
+	top   float64
+	water color
+	drew  engine.Color
+}
+
+// washPart is how much of the water's color lies over what Wash finds under the water,
+// out of 256: more than over the floor of a pool one deep, so that what lies in a pool
+// is a dim shape in it.
+const washPart = 180
 
 // bogWater is the color of water that stands on peat.
 var bogWater = color{24, 22, 20}
@@ -312,6 +329,7 @@ func blend(c [4]uint32, u, v float64) uint32 {
 // by the camera's Fog, if it has one: the game's camera has the sky's. The sky is the
 // one at the time of day, which also says how bright the light of each cell looks.
 func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *Sky) {
+	r.wet = r.wet[:0]
 	v, ok := newRays(cam, c)
 	if !ok {
 		return
@@ -440,6 +458,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 			if found {
 				col = unpack(pixel).mix(frostWhite, frost).times(light)
 			}
+			var water color // the water the ray went through, as it is lit
 			if wet {
 				// Water is drawn over what lies under it, more strongly the more of it
 				// the ray went through.
@@ -453,6 +472,7 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 					ripple = ripple.mix(bogWater, 190) // the pools of a swamp are black
 				}
 				ripple = ripple.times(r.lightOn(w, sky, surface))
+				water = ripple
 				col = col.mix(ripple, part(0.45+0.12*through)*230>>8)
 				seen = surface.T
 				if !found {
@@ -470,6 +490,31 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 				out = tinted.mix(deep, part(0.3+0.05*seen/unit)*235>>8).engine()
 			}
 			c.SetDepth(px, py, depth, out)
+			if wet && found {
+				if fog != nil && seen > fog.Start {
+					red, green, blue := fog.Apply(water.engine(), seen).RGB()
+					water = color{uint32(red), uint32(green), uint32(blue)}
+				}
+				r.wet = append(r.wet, wetPixel{x: px, y: py, top: surface.T, water: water, drew: out})
+			}
 		}
+	}
+}
+
+// Wash draws the water over what has been drawn under its top since Draw: a beast that
+// lies in a pool is seen through the water, as the floor of the pool is. What is over the
+// water, or in front of it, stays as it is. Call it after the solid things that may be in
+// water, and before anything that is seen through.
+func (r *Renderer) Wash(c *engine.Canvas) {
+	for _, p := range r.wet {
+		now := c.At(p.x, p.y)
+		if now == p.drew {
+			continue // nothing has been drawn here
+		}
+		red, green, blue := now.RGB()
+		under := color{uint32(red), uint32(green), uint32(blue)}
+		// The top of the water is nearer than what is under it, and than nothing else:
+		// the depth says which this is, and then keeps a second wash off it.
+		c.SetDepth(p.x, p.y, p.top, under.mix(p.water, washPart).engine())
 	}
 }
