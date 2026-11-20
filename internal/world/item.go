@@ -80,6 +80,7 @@ const (
 	SkyIronSpear
 
 	FurCloak // hides sewn with cord: carried, it keeps the cold off
+	Tusk     // of a snowtusk
 
 	itemEnd
 )
@@ -221,6 +222,9 @@ var things = [itemEnd - 256]thing{
 
 	// A fur cloak is worn by being carried: there is no place to put it on.
 	FurCloak - 256: {name: "fur cloak", icon: tile.FurCloak},
+
+	// A tusk has no use yet.
+	Tusk - 256: {name: "tusk", icon: tile.Tusk},
 }
 
 // obsidianUses is how many uses a tool of obsidian lasts, and skyIronUses one of sky

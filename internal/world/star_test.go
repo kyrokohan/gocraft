@@ -162,3 +162,47 @@ func TestTheTundraAndTheCragsAreColdAndNoOtherLandIs(t *testing.T) {
 		t.Errorf("a fur cloak is %q, number %d", FurCloak.Name(), FurCloak)
 	}
 }
+
+func TestTheSteppeIsSnowWithTussocksAndDwarfTrees(t *testing.T) {
+	w, x0, z0 := loadedAt(t, 7, Tundra)
+	span := (LoadRadius - 1) * ChunkSize
+	columns, tussocks, trees, tallest := 0, 0, 0, 0
+	for z := z0 - span; z < z0+span; z++ {
+		for x := x0 - span; x < x0+span; x++ {
+			if BiomeAt(7, x, z) != Tundra {
+				continue
+			}
+			columns++
+			trunk := 0
+			for y := SeaLevel; y < Height; y++ {
+				switch w.At(x, y, z) {
+				case DryBush:
+					tussocks++
+					if under := w.At(x, y-1, z); under != Snow {
+						t.Fatalf("a tussock at %d,%d,%d stands on %s", x, y, z, under.Info().Name)
+					}
+				case PineLog:
+					trunk++
+				case Fern, TallFern, Horsetail, Bush, StumpPalm, RedwoodLog, PaleLog, Log, FernTrunk:
+					t.Fatalf("the steppe holds a %s at %d,%d,%d", w.At(x, y, z).Info().Name, x, y, z)
+				}
+			}
+			if trunk > 0 {
+				trees++
+			}
+			tallest = max(tallest, trunk)
+		}
+	}
+	if columns < 2000 {
+		t.Fatalf("only %d columns of steppe were looked at", columns)
+	}
+	if part := float64(tussocks) / float64(columns); part < 0.03 || part > 0.12 {
+		t.Errorf("%.1f%% of the steppe has a tussock on it, wanted some on every screen", 100*part)
+	}
+	if part := float64(trees) / float64(columns); trees == 0 || part > 0.01 || tallest > 4 {
+		t.Errorf("%d trees stand on %d columns of steppe, the tallest with a trunk of %d: wanted few, and none over 4", trees, columns, tallest)
+	}
+	if Tusk.Name() != "tusk" || !Tusk.Known() || Tusk != FurCloak+1 {
+		t.Errorf("a tusk is %q, number %d", Tusk.Name(), Tusk)
+	}
+}

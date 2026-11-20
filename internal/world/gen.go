@@ -378,8 +378,8 @@ func (t terrain) grow(x, z int, l land) {
 			b = DryBush
 		}
 	case Tundra:
-		if chance < 0.008 {
-			b = DryBush
+		if chance < 0.07 {
+			b = DryBush // a tussock of dry grass, through the snow
 		}
 	case Ashlands:
 		// What is left of the trees that stood here: a charred trunk, now and then, on
@@ -447,8 +447,9 @@ func (t terrain) plant(x, z int, l land, chance, kind float64) {
 			t.fanTree(x, y, z, 5+int(kind*3))
 		}
 	case Tundra:
-		if chance < 0.32 {
-			t.pine(x, y, z, 6+int(kind*4))
+		// The trees of the steppe are few and small: the wind keeps them so.
+		if chance < 0.14 {
+			t.pine(x, y, z, 3+int(kind*2))
 		}
 	}
 }
