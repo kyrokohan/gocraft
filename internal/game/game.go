@@ -528,6 +528,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		g.smoke(dt)
 		g.stepBits(dt)
 		g.stepHearths(dt)
+		g.hatch(dt)
 		g.noticeLeft = max(g.noticeLeft-dt, 0)
 		g.build(in, dt)
 		g.carry(dt)

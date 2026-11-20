@@ -198,6 +198,14 @@ type Beast struct {
 	// had enough of them to trust the player.
 	Fed  int  `json:"fed,omitempty"`
 	Tame bool `json:"tame,omitempty"`
+
+	// For one the player raises: Age is how many seconds it has grown, and FedFor how
+	// many more its last meal lets it grow. Limping is true for one that lost all its
+	// health and goes home, and MendAt the day of the world on which it is whole.
+	Age     float64 `json:"age,omitempty"`
+	FedFor  float64 `json:"fedFor,omitempty"`
+	Limping bool    `json:"limping,omitempty"`
+	MendAt  float64 `json:"mendAt,omitempty"`
 }
 
 // Mossback is a mossback as a save from before there were other beasts holds it.
