@@ -389,6 +389,17 @@ func makeSound(n sound.Name) []float64 {
 			s[i] = (0.7*hiss.at(noise(i, 989)) + 1.4*deep.at(noise(i, 990))) * swell * (0.85 + 0.15*math.Sin(2*math.Pi*7*t))
 		}
 		return peakTo(s, 0.8)
+	case sound.Tremor:
+		// The ground under a fire mountain that is about to break: very low, with a slow
+		// roll in it, and even enough that one can follow another.
+		s := make([]float64, samples(2.4))
+		deep, grit := newLowpass(70), newBand(180, 0.9)
+		for i := range s {
+			t := float64(i) / rate
+			fade := math.Min(1, t/0.5) * math.Min(1, (2.4-t)/0.5)
+			s[i] = (1.6*deep.at(noise(i, 993)) + 0.25*grit.at(noise(i, 994))) * fade * (0.75 + 0.25*math.Sin(2*math.Pi*3*t))
+		}
+		return peakTo(s, 0.85)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))
