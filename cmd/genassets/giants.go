@@ -14,7 +14,7 @@ var (
 	// giantTiles is the picture of each, by the name of its file.
 	giantTiles = map[string][]painter{
 		"shieldbrow": shieldbrowTiles, "thornback": thornbackTiles, "boulderback": boulderbackTiles,
-		"cloudgrazer": cloudgrazerTiles,
+		"cloudgrazer": cloudgrazerTiles, "dread": dreadTiles,
 	}
 )
 
@@ -400,4 +400,104 @@ func cloudNeck(x, y int) (rgb, bool) {
 // cloudTail is the end of its tail: hide that pales to the tip.
 func cloudTail(x, y int) (rgb, bool) {
 	return cloudSkin(x, y, 0.6, 723).mix(cloudCream, 0.25), true
+}
+
+// The dread's picture is laid out as the others are. The last two tiles are its small
+// arm and the inside of its mouth.
+var dreadTiles = []painter{dreadBack, dreadSide, dreadBelly, dreadHead, dreadFace, dreadLeg, dreadArm, dreadMouth}
+
+var (
+	dreadHide  = rgb{66, 58, 56} // the color of a burnt tree
+	dreadBand  = rgb{150, 62, 40}
+	dreadCream = rgb{196, 176, 142}
+	dreadTooth = rgb{238, 232, 212}
+)
+
+// dreadSkin is the dread's hide at a pixel: dark and rough, with ragged bands the color
+// of dried blood down from its back.
+func dreadSkin(x, y int, down float64, seed int) rgb {
+	c := dreadHide.scale(0.82 + 0.36*blotch(x, y, 4, seed))
+	if math.Sin(float64(x)*math.Pi/4+2*blotch(x, y, 8, seed+1)) > 0.5+0.9*down {
+		c = dreadBand.scale(0.8 + 0.3*hash(x, y, seed+2))
+	}
+	return grain(c, 0.07, x, y, seed+3)
+}
+
+func dreadBack(x, y int) (rgb, bool) { return dreadSkin(x, y, 0, 730), true }
+
+func dreadSide(x, y int) (rgb, bool) {
+	down := float64(y) / float64(size-1)
+	c := dreadSkin(x, y, down, 734)
+	if edge := 11 + int(hash(x, 0, 738)*3); y >= edge {
+		c = c.mix(dreadCream, min(float64(y-edge+1)/3, 1))
+	}
+	return c, true
+}
+
+func dreadBelly(x, y int) (rgb, bool) { return grain(dreadCream, 0.05, x, y, 739), true }
+
+// dreadHead is the side of its head, with its front at the right of the tile: a ridge
+// of bone over where its eye is, which is a light of its own, and a mouth the length of
+// the head, full of teeth.
+func dreadHead(x, y int) (rgb, bool) {
+	switch {
+	case y >= 3 && y <= 4 && x >= 2 && x <= 7:
+		return grain(dreadBand.scale(0.7), 0.06, x, y, 740), true // the brow
+	case y == 9 && x >= 3:
+		return rgb{20, 14, 14}, true // the line of the mouth
+	case (y == 10 && x >= 4 && x%2 == 0) || (y == 8 && x >= 5 && x%2 == 1):
+		return dreadTooth, true
+	case y >= 13:
+		return grain(dreadCream, 0.05, x, y, 739), true
+	}
+	return dreadSkin(x, y, float64(y)/float64(size-1), 734), true
+}
+
+// dreadFace is its face from in front: two nostrils, and the teeth of both jaws.
+func dreadFace(x, y int) (rgb, bool) {
+	switch {
+	case y == 4 && (x == 5 || x == 10):
+		return rgb{20, 14, 14}, true
+	case y == 9:
+		return rgb{20, 14, 14}, true
+	case (y == 8 || y == 10) && x >= 2 && x <= 13 && x%2 == 0:
+		return dreadTooth, true
+	case y >= 13:
+		return grain(dreadCream, 0.05, x, y, 739), true
+	}
+	return dreadSkin(x, y, 0.5, 741), true
+}
+
+// dreadLeg is a leg: hide over great muscle to the knee, then scales, and three claws.
+func dreadLeg(x, y int) (rgb, bool) {
+	switch {
+	case y >= 14:
+		if x%5 == 2 {
+			return rgb{226, 216, 190}, true // a claw
+		}
+		return grain(rgb{92, 78, 62}, 0.06, x, y, 742), true
+	case y >= 9:
+		return grain(rgb{108, 92, 70}.scale(0.88+0.24*hash(0, y, 743)), 0.05, x, y, 744), true
+	}
+	return dreadSkin(x, y, 0.6, 745), true
+}
+
+// dreadArm is one of its small arms: hide, and two claws.
+func dreadArm(x, y int) (rgb, bool) {
+	if y >= 13 && (x < 6 || x > 9) {
+		return rgb{226, 216, 190}, true
+	}
+	return dreadSkin(x, y, 0.7, 746), true
+}
+
+// dreadMouth is the inside of its mouth: red, and dark at the throat.
+func dreadMouth(x, y int) (rgb, bool) {
+	dx, dy := float64(x)-7.5, float64(y)-7.5
+	c := rgb{168, 44, 40}.scale(0.5 + 0.06*math.Sqrt(dx*dx+dy*dy))
+	if y == 0 || y == size-1 {
+		if x%2 == 0 {
+			return dreadTooth, true
+		}
+	}
+	return grain(c, 0.08, x, y, 747), true
 }

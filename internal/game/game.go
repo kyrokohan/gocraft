@@ -151,6 +151,11 @@ type Game struct {
 	// view trembles by.
 	quake, shook float64
 
+	// The fires that burn near the player, as they were last looked for, and how long
+	// until they are looked for again.
+	burning  []geometry.Vector3
+	fireWait float64
+
 	// The player's body, in survival.
 	health, food, air float64
 	hunger, mend      float64 // seconds since food last went down, and since the body last mended

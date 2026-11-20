@@ -72,11 +72,30 @@ type breed struct {
 	// points a hunter's bite takes from what it has caught.
 	bump, bite float64
 
-	// night is true for a beast that comes only in the dark, where hunters are about,
-	// and is not kept with the world. sees and hears are how far a hunter notices a
-	// player who stands, and one who moves.
-	night       bool
+	// visits is true for a hunter that comes and goes, and is not kept with the world.
+	// sees and hears are how far a hunter notices a player who stands, and one who
+	// moves.
+	visits      bool
 	sees, hears float64
+
+	// How a hunter that visits comes and goes. from is the day of the world, counted
+	// from its first midnight, before which none comes or takes notice of the player.
+	// comes is how far from the player it comes out, at the least and the most. bears is
+	// the brightest light it steps into and comes out in: 0 for one that light does not
+	// hold. fears is how near a big fire it comes: 0 for one that keeps out of all light
+	// anyway. stays is how many seconds it is about before it goes: 0 for one that goes
+	// with the light. every is how many days after one has gone the next comes, at the
+	// least and the most: none, for one that comes whenever there is room for it.
+	from         float64
+	comes, every [2]float64
+	bears, fears float64
+	stays        float64
+
+	// stalks is how far a hunter sees a beast to hunt, snaps how long it waits between
+	// two bites, and feeds how long it stands over a kill. cows is true for one that
+	// lesser hunters run from.
+	stalks, snaps, feeds float64
+	cows                 bool
 
 	temper temper
 	group  [2]int  // the fewest and the most that are found together
@@ -153,7 +172,9 @@ var breeds = [render.Kinds]breed{
 	render.Quickclaw: {
 		walk: 2.0, run: 4.8, gait: 4.2,
 		health: 10, bite: 3, meat: 1, hide: 1,
-		temper: hunter, group: [2]int{2, 3}, most: 3, night: true, sees: 20, hears: 14,
+		temper: hunter, group: [2]int{2, 3}, most: 3, sees: 20, hears: 14,
+		visits: true, from: firstHunt, comes: [2]float64{hunterNear, hunterFar}, bears: hunterLit,
+		stalks: preySight, snaps: biteWait, feeds: feedTime,
 		call: sound.Growl, cry: sound.Screech, callEvery: 9,
 	},
 
@@ -191,6 +212,19 @@ var breeds = [render.Kinds]breed{
 		stamp: 8, foot: [2]float64{1.0, 2.3}, quake: 40,
 		lands: []world.Biome{world.Prairie, world.Shore}, bare: true,
 		call: sound.Drone, cry: sound.Drone, callEvery: 80, carries: 90,
+	},
+
+	// The top hunter. It comes rarely, by day or night, and one at a time; it is felt
+	// before it is seen; light does not hold it, and only a big fire does; and it is
+	// too strong to kill in the open.
+	render.Dread: {
+		walk: 2.2, run: 6.0, gait: 1.25,
+		health: 200, bite: 8, meat: 12, hide: 4,
+		temper: hunter, group: [2]int{1, 1}, most: 1, sees: 40, hears: 28,
+		visits: true, from: dreadFrom, comes: [2]float64{70, 86}, fears: 7, stays: 300, every: [2]float64{1, 2},
+		stalks: 32, snaps: 1.5, feeds: 20, cows: true,
+		steps: 2, quake: 60,
+		call: sound.Rumble, cry: sound.Roar, callEvery: 14, carries: 90,
 	},
 }
 
@@ -244,6 +278,7 @@ type beast struct {
 	keen, biteIn, feeding, lit float64
 	leaving                    bool
 	gone                       float64
+	about                      float64 // how long a hunter that visits has been about
 
 	// A guard: how long it still charges, until it can charge or strike again, and
 	// until it warns again; whether it was hurt, and where what it turns on is; whether
@@ -283,10 +318,18 @@ type fauna struct {
 
 	// What a hunter can know of the player: whether it moves, whether it is hidden
 	// among tall plants, and whether it carries raw meat. hunted is whether hunters are
-	// about at all, which they are not in creative, and bright how bright the light at
-	// a place is.
+	// about at all, which they are not in creative, day the day of the world, counted
+	// from its first midnight, which says which of them are, and bright how bright the
+	// light at a place is. fires are the fires near the player that burn three or more
+	// together, which is a big fire: a hunter that fears one keeps off them.
 	moving, hidden, meaty, hunted bool
+	day                           float64
 	bright                        func(at geometry.Vector3) float64
+	fires                         []geometry.Vector3
+
+	// wait is how many seconds are left before the next of a kind that comes only now
+	// and then may come.
+	wait [render.Kinds]float64
 
 	// shove is the way the blows of the guards and the feet of the giants threw the
 	// player in the last step, and how far. treads are the steps of the giants in it:
@@ -316,8 +359,8 @@ func emptyFauna(w *world.World) *fauna {
 func newFauna(w *world.World, round geometry.Vector3) *fauna {
 	f := emptyFauna(w)
 	for k := range render.Kinds {
-		if breeds[k].night {
-			continue // those come with the dark
+		if breeds[k].visits {
+			continue // those come in their own time
 		}
 		for try := 0; f.count(k) < breeds[k].most && try < 60*breeds[k].most; try++ {
 			f.add(w, k, round, 4, creatureRange)
@@ -333,6 +376,13 @@ func faunaFrom(w *world.World, s world.Meta, round geometry.Vector3) *fauna {
 		return newFauna(w, round)
 	}
 	f := emptyFauna(w)
+	// A world that is opened again is given a while before the next of a kind that
+	// comes only now and then: it does not come the moment the player is back.
+	for k := range f.wait {
+		if breeds[k].every[1] > 0 {
+			f.wait[k] = dayLength * (0.2 + 0.6*f.rng.Float64())
+		}
+	}
 	own := func() *rand.Rand {
 		f.born++
 		return rand.New(rand.NewPCG(uint64(w.Seed), f.born))
@@ -343,8 +393,8 @@ func faunaFrom(w *world.World, s world.Meta, round geometry.Vector3) *fauna {
 	}
 	for _, b := range s.Beasts {
 		kind, ok := render.KindNamed(b.Kind)
-		if !ok {
-			continue // a kind of a later version of the game
+		if !ok || breeds[kind].visits {
+			continue // a kind of a later version of the game, or one that is not kept
 		}
 		r := own()
 		f.all = append(f.all, beast{
@@ -362,7 +412,7 @@ func faunaFrom(w *world.World, s world.Meta, round geometry.Vector3) *fauna {
 func (f *fauna) saved() []world.Beast {
 	out := make([]world.Beast, 0, len(f.all))
 	for _, c := range f.all {
-		if !c.dead && !breeds[c.kind].night {
+		if !c.dead && !breeds[c.kind].visits {
 			out = append(out, world.Beast{
 				Kind: c.kind.String(), Pos: c.Pos, Yaw: c.Yaw, Young: c.young, Herd: c.herd,
 				Health: c.health, Regrow: c.regrow, Tame: c.tame, Fed: c.fed,
@@ -387,7 +437,7 @@ func (f *fauna) count(k render.Kind) (n int) {
 // earth, in a land of its breed, with room over it for its body, and not on top of
 // another beast.
 func (f *fauna) standing(w *world.World, k render.Kind, young bool, x, z int) (geometry.Vector3, bool) {
-	if breeds[k].night {
+	if breeds[k].visits {
 		return f.lair(w, k, x, z, f.feet)
 	}
 	y := w.Ground(x, z) // under any plant
@@ -605,25 +655,44 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 	f.all = slices.DeleteFunc(f.all, func(c beast) bool {
 		if c.dead && c.fall >= 1 {
 			f.fallen = append(f.fallen, c)
+			f.went(c.kind)
 			return true
 		}
-		// A hunter that went with the dark is let go once it is out of the way.
-		return c.leaving && (c.gone > leaveAfter || c.Pos.Distance(player) > leaveAt)
+		// A hunter that has turned to go is let go once it is out of the way: far
+		// enough not to be seen to vanish, for one that is about by day.
+		far, long := leaveAt, leaveAfter
+		if b := &breeds[c.kind]; b.stays > 0 {
+			far, long = b.comes[0], 3*leaveAfter
+		}
+		if c.leaving && (c.gone > long || c.Pos.Distance(player) > far) {
+			f.went(c.kind)
+			return true
+		}
+		return false
 	})
+	for k := range f.wait {
+		f.wait[k] = max(f.wait[k]-dt, 0)
+	}
 
 	if f.timer -= dt; f.timer > 0 {
 		return
 	}
 	f.timer = 1
 	f.all = slices.DeleteFunc(f.all, func(c beast) bool {
-		return !c.tame && c.Pos.Distance(player) > creatureGone
+		if !c.tame && c.Pos.Distance(player) > creatureGone {
+			f.went(c.kind)
+			return true
+		}
+		return false
 	})
 	for k := range render.Kinds {
 		switch b := &breeds[k]; {
 		case f.count(k) >= b.most:
-		case b.night && f.hunted:
-			f.add(w, k, player, hunterNear, hunterFar) // near enough to find the player
-		case !b.night:
+		case b.visits:
+			if f.about(k) && f.wait[k] == 0 {
+				f.add(w, k, player, b.comes[0], b.comes[1]) // near enough to find the player
+			}
+		case !b.visits:
 			f.add(w, k, player, creatureRange/2, creatureAwake-8) // out of the way, where it will be met
 		}
 	}
@@ -667,6 +736,20 @@ func (f *fauna) tread(i int, player geometry.Vector3) {
 			f.bitten += b.stamp
 			f.shove = f.shove.Add(awayFrom(player, foot, c.Yaw+math.Pi/2).Scale(blowShove * b.stamp))
 		}
+	}
+}
+
+// about reports whether the hunters of a kind are about: hunters are, and the world is
+// old enough for that kind.
+func (f *fauna) about(k render.Kind) bool {
+	return f.hunted && f.day >= breeds[k].from
+}
+
+// went notes that a beast of a kind is gone, for a kind that comes only now and then:
+// the next of it comes a day or two on.
+func (f *fauna) went(k render.Kind) {
+	if e := breeds[k].every; e[1] > 0 {
+		f.wait[k] = dayLength * (e[0] + f.rng.Float64()*(e[1]-e[0]))
 	}
 }
 
@@ -932,7 +1015,8 @@ func (g *Game) stepBeasts(dt float64) {
 	held := g.items[g.selected]
 	f.sneaking = g.player.Crouched
 	f.bait = g.survival && held.Item.Food() > 0 // in creative there is nothing to lose
-	f.moving, f.hidden, f.hunted = g.paced, g.hidden(), g.survival && firstMorning+g.days >= firstHunt
+	f.moving, f.hidden, f.hunted, f.day = g.paced, g.hidden(), g.survival, firstMorning+g.days
+	g.findFires(dt)
 	f.meaty = slices.ContainsFunc(g.items[:], func(s world.Stack) bool { return s.Item == world.Meat })
 	f.bright = func(at geometry.Vector3) float64 { return g.sky.Brightness(g.lightAt(at)) }
 	g.sky.Set(timeOfDay(g.days)) // the light they keep out of is the light of this hour

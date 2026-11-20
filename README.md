@@ -4,7 +4,7 @@
 
 A block-building game that runs in the terminal, built on [glonk](https://glonk.dev).
 
-**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, and cloudgrazers whose steps shake the ground. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
+**Skyspear is turning into a prehistoric lost world:** cave people among dinosaurs, fire mountains and falling stars. [The design](docs/design.md) says where it is going. This page says what is in the game today: so far the land has turned old, you are a cave person in it, and the first beasts live in it: herds of buglers, flocks of nippers, mossbacks you can tame, quickclaws that hunt by night, and the giants: shieldbrows that guard their young, thornbacks, boulderbacks, cloudgrazers whose steps shake the ground, and the dread, which hunts everything. Your tools are of flint and wood, a spear is thrown and a sling throws pebbles, and fire is found, carried and made: a struck tree burns, a torch lights your way, and a hearth cooks. Until now it was called gocraft, and the game as it was then is tagged `v0.1.0`.
 
 ![A cave person with a pick, seen from behind, before the skeleton of a great beast, drawn in terminal cells](docs/shot.png)
 
@@ -110,6 +110,16 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - Quickclaws are not saved, and they lose you when you faint or sleep.
 ![A cave person by a torch at night, with two pairs of shining eyes in the dark beyond its light](docs/night.png)
 
+- **The dread** is the top hunter: five blocks tall and nine long, with jaws as long as you are. It is in survival only.
+  - **It comes rarely, and you feel it first.** None comes before the morning of the third day. Then one comes at a time, by day or night, 70 to 86 blocks off, and the next comes a day or two after the last has gone. Its steps are heard from 90 blocks and shake your view from 60, and it roars when it has noticed you.
+  - **You cannot outrun it or fight it in the open.** It runs at 6 blocks a second against your 4.3, a bite takes 8 of your 20 points, once every second and a half, and it has 200 points of health, which is 34 thrown hardened spears. It sees you from 40 blocks and hears you move from 28.
+  - **You hide, or go where it cannot.** Crouched among tall ferns or horsetails it sees you only from 3 blocks, as a quickclaw does. Its body is over two blocks wide, so it cannot follow through a gap of two blocks or into a narrow cave.
+  - **Only a big fire holds it.** It walks through the light of a torch or a hearth. Three or more fires burning within four blocks of each other, hearths, standing torches or a struck tree's fire, are a big fire, and it will not come within seven blocks of one.
+  - **It hunts the herds.** With no player noticed it goes for the nearest beast within 32 blocks, giants too, and stands over a kill for 20 seconds. Quickclaws within 16 blocks of it run.
+  - It is about for half a day, and then goes. It is not saved, and it loses you when you faint or sleep.
+
+![The dread at dusk among a herd by the shore, its eye shining, with the neck of a cloudgrazer against the sky](docs/dread.png)
+
 - **Hiding.** A quickclaw sees you from 20 blocks, from 10 if you crouch, and from 3 if you crouch among tall ferns or horsetails, and never through a wall. It hears you move from 14 blocks, and from 3 if you crouch. Raw meat anywhere on you doubles all of these. The line at the top of the screen says `hidden` when you are, and one that has lost you keeps looking for six seconds.
 - **Fainting.** At no health you faint, and wake at your fur bed or where a new player starts, whole again and with everything you carried.
 - **Creative.** Every block on the I screen, as many as you want, broken at once and dropping nothing. Nothing hurts and you can fly.
@@ -188,7 +198,7 @@ glonk also runs the loop and the terminal, reads the keys, the mouse and what is
 
 ## Sound
 
-Every sound is heard from where it is made: quieter the farther it is, gone at 24 blocks, and louder in the ear on its side. A bugler's voice carries three times as far, so you hear a herd before you see it. Your steps sound as the ground you walk on, and digging, breaking and placing as the block, in seven kinds: earth, stone, sand, wood, plants, glass and snow. You hear water you fall into, what you pick up or make, being hurt and eating; mossbacks to themselves and when hit, the long horn of a bugler and the two blasts of its alarm, the chirp of a nipper, the low growl of a quickclaw and the screech it gives when it has seen you, the grunt of a giant at its feed, the bellow of a shieldbrow and the rattle of a thornback's plates, the long low drone of a cloudgrazer and the thud of its step, the fire of a hearth or of a struck tree, and water dripping in caves. Under all of it the wind blows as much as the sky reaches you, and fades into the low air of a cave where it does not.
+Every sound is heard from where it is made: quieter the farther it is, gone at 24 blocks, and louder in the ear on its side. A bugler's voice carries three times as far, so you hear a herd before you see it. Your steps sound as the ground you walk on, and digging, breaking and placing as the block, in seven kinds: earth, stone, sand, wood, plants, glass and snow. You hear water you fall into, what you pick up or make, being hurt and eating; mossbacks to themselves and when hit, the long horn of a bugler and the two blasts of its alarm, the chirp of a nipper, the low growl of a quickclaw and the screech it gives when it has seen you, the grunt of a giant at its feed, the bellow of a shieldbrow and the rattle of a thornback's plates, the long low drone of a cloudgrazer and the thud of a giant's step, the rumble of the dread's breath and its roar, the fire of a hearth or of a struck tree, and water dripping in caves. Under all of it the wind blows as much as the sky reaches you, and fades into the low air of a cave where it does not.
 
 A small mixer of the game's own plays up to 16 sounds at once, each a little higher or lower at random so that steps do not sound the same, bends the loudest moments so that many at once do not crack, and brings the wind and the cave air up and down slowly. [oto](https://github.com/ebitengine/oto) v3.5.1 plays what it makes, with no C compiler needed on macOS, Linux or Windows. With no sound device the game plays on in silence and the title says why. On Linux oto plays through PulseAudio, which PipeWire also serves.
 
@@ -237,7 +247,7 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - Soft shadows from leaves and glass: only blocks that let no light through cast them.
 - Torches on walls: a torch stands on the ground, as a plant does.
 - Anything a tame mossback does for you but follow: carrying comes later.
-- The dread: that is the next step. Then pit traps and stampedes.
+- Pit traps and stampedes: that is the next step, and how the dread is killed.
 - A giant's tail has no reach past its length: a thornback or a boulderback can be speared from beyond it at no risk.
 - A thrown thing that hits you, or that a beast throws: only the player throws.
 - Fire that spreads, a torch that goes out in water, and beasts that fear a fire as such: quickclaws keep out of its light.

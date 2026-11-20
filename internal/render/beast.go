@@ -25,6 +25,7 @@ const (
 	Thornback   // a giant with plates along its back and spikes on its tail
 	Boulderback // a low giant in armor, with a club at the end of its tail
 	Cloudgrazer // a giant among giants: a long neck that feeds from the tops of trees
+	Dread       // the top hunter: jaws as long as a person, on two legs like trees
 
 	Kinds // how many kinds there are
 )
@@ -32,7 +33,7 @@ const (
 var kindNames = [Kinds]string{
 	Mossback: "mossback", Bugler: "bugler", Nipper: "nipper", Quickclaw: "quickclaw",
 	Shieldbrow: "shieldbrow", Thornback: "thornback", Boulderback: "boulderback",
-	Cloudgrazer: "cloudgrazer",
+	Cloudgrazer: "cloudgrazer", Dread: "dread",
 }
 
 // String returns the name of a kind, as a save holds it.
@@ -73,6 +74,9 @@ var sizes = [Kinds][2]float64{
 
 	// A cloudgrazer's is its legs and its trunk: its neck goes higher still.
 	Cloudgrazer: {2.6, 7.3},
+
+	// The dread is too wide for a gap of two blocks.
+	Dread: {2.2, 4.6},
 }
 
 // spans are how far behind and ahead of the point between its feet the body of a grown
@@ -83,6 +87,7 @@ var spans = [Kinds][2]float64{
 	Thornback:   {-3.9, 2.4},
 	Boulderback: {-3.3, 2.2},
 	Cloudgrazer: {-11.5, 8.5},
+	Dread:       {-5.4, 3.7},
 }
 
 // Span returns how far behind and ahead of the point between its feet a beast's body
@@ -192,6 +197,7 @@ func NewBeasts(set *assets.Set) *Beasts {
 		Thornback:   thornbackShape(set),
 		Boulderback: boulderbackShape(set),
 		Cloudgrazer: cloudgrazerShape(set),
+		Dread:       dreadShape(set),
 	}}
 }
 
@@ -494,6 +500,49 @@ func cloudgrazerShape(set *assets.Set) shape {
 	}
 	leg := box(-0.45, -hip, -0.45, 0.9, hip, 0.9, all6(giantLeg), n, look)
 	return shape{stand: hip, hurt: reddened(set.Cloudgrazer), parts: append(parts, fourLegs(leg, hip, 1.0, 2.3, -2.3, 0.28)...)}
+}
+
+// dreadEyes is the color of the dread's eyes.
+var dreadEyes = engine.RGB(255, 96, 40)
+
+// dreadShape is the dread: a body as big as a hut carried level on two legs like trees,
+// a tail as heavy as the rest of it behind, and in front a head as long as a person with
+// a mouth it holds a little open. Its arms are small. Its eyes shine.
+func dreadShape(set *assets.Set) shape {
+	look := mesh.Material{Color: engine.RGB(66, 58, 56), Texture: set.Dread}
+	const n = assets.DreadTiles
+	const hip = 2.7
+	hide, head := giantHide()
+	jaw := [6]int{giantHead, giantHead, giantBelly, giantArmB, giantSide, giantFace}
+
+	leg := box(-0.4, -hip, -0.45, 0.8, hip, 0.9, all6(giantLeg), n, look)
+	arm := box(-0.1, -0.7, -0.12, 0.2, 0.7, 0.24, all6(giantArmA), n, look)
+	bright := mesh.Material{Color: dreadEyes}
+	eye := box(-0.03, -0.09, -0.12, 0.06, 0.18, 0.24, all6(0), n, bright)
+	front := box(-0.1, -0.09, -0.02, 0.2, 0.18, 0.04, all6(0), n, bright)
+	return shape{
+		stand: hip,
+		hurt:  reddened(set.Dread),
+		parts: []limb{
+			{mesh: box(-0.95, hip-0.3, -1.6, 1.9, 1.9, 3.3, hide, n, look)},
+			// The tail is three lengths, each from its root: the last two sway.
+			{mesh: box(-0.6, -0.6, -1.5, 1.2, 1.2, 1.5, hide, n, look), up: hip + 0.85, front: -1.6},
+			{mesh: box(-0.4, -0.4, -1.4, 0.8, 0.8, 1.4, hide, n, look), up: hip + 0.8, front: -3.0, sway: 0.15},
+			{mesh: box(-0.22, -0.22, -1.2, 0.44, 0.44, 1.2, hide, n, look), up: hip + 0.75, front: -4.3, sway: 0.28},
+			// The neck, then the head: the skull above, and the jaw hung open under it.
+			{mesh: box(-0.6, hip+0.9, 1.4, 1.2, 1.3, 0.9, hide, n, look)},
+			{mesh: box(-0.65, hip+1.35, 1.9, 1.3, 0.85, 1.8, head, n, look)},
+			{mesh: box(-0.55, -0.4, 0, 1.1, 0.4, 1.55, jaw, n, look), up: hip + 1.3, front: 1.95, tilt: -0.22},
+			{mesh: eye, right: -0.67, up: hip + 1.9, front: 2.5, eye: true},
+			{mesh: eye, right: 0.67, up: hip + 1.9, front: 2.5, eye: true},
+			{mesh: front, right: -0.38, up: hip + 1.9, front: 3.71, eye: true},
+			{mesh: front, right: 0.38, up: hip + 1.9, front: 3.71, eye: true},
+			{mesh: leg, right: -0.62, up: hip, front: -0.1, swing: 0.5},
+			{mesh: leg, right: 0.62, up: hip, front: -0.1, swing: -0.5},
+			{mesh: arm, right: -0.8, up: hip + 0.5, front: 1.35, tilt: 0.5, swing: -0.15},
+			{mesh: arm, right: 0.8, up: hip + 0.5, front: 1.35, tilt: 0.5, swing: 0.15},
+		},
+	}
 }
 
 // shining is the light an eye that shines is drawn in: all of it, from every side.

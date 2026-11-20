@@ -16,6 +16,11 @@ import (
 const (
 	hunterLit  = 0.315 // the light it will not step into: a torch three blocks away, or the day
 	firstHunt  = 1.5   // the days since the world's first midnight before any hunts the player: the first night is quiet
+	dreadFrom  = 2.3   // and before the dread comes: the morning of the third day
+	cowReach   = 16.0  // how near the dread a lesser hunter runs from it
+	fireCount  = 3     // how many fires burning together are a big fire
+	fireNear   = 4.0   // how near each other they burn to be together
+	fireSearch = 12    // how far round the player fires are looked for, in blocks, and a third of that up and down
 	hunterNear = 16.0  // the least distance from the player it comes out at
 	hunterFar  = 36.0  // and the most
 	lairSearch = 8     // blocks above and below the player's feet that a place is looked for in
@@ -122,8 +127,10 @@ func (f *fauna) lair(w *world.World, k render.Kind, x, z, feet int) (geometry.Ve
 			continue
 		}
 		pos := geometry.Vector3{X: float64(x) + 0.5, Y: float64(y), Z: float64(z) + 0.5}
-		// The floor nearest the player's height there is the one: if it is lit, none.
-		return pos, f.brightAt(pos.Add(geometry.Vector3{Y: 1})) <= hunterLit
+		// The floor nearest the player's height there is the one: if it is too bright
+		// for a hunter that light holds, none.
+		bears := breeds[k].bears
+		return pos, bears == 0 || f.brightAt(pos.Add(geometry.Vector3{Y: 1})) <= bears
 	}
 	return geometry.Vector3{}, false
 }
@@ -131,7 +138,7 @@ func (f *fauna) lair(w *world.World, k render.Kind, x, z, feet int) (geometry.Ve
 // prey returns the nearest beast a hunter could kill that it sees, or nil.
 func (f *fauna) prey(c *beast) *beast {
 	var nearest *beast
-	best := preySight
+	best := breeds[c.kind].stalks
 	for i := range f.all {
 		p := &f.all[i]
 		if p.dead || breeds[p.kind].health == 0 || breeds[p.kind].temper == hunter {
@@ -163,14 +170,16 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 	b := &breeds[c.kind]
 	c.biteIn = max(c.biteIn-dt, 0)
 
-	// It does not bear the light: after a little of it, by day or beside a fire, it
-	// turns from the player and goes.
-	if f.brightAt(c.Pos.Add(geometry.Vector3{Y: 1})) > hunterLit {
+	// One that light holds does not bear it: after a little of it, by day or beside a
+	// fire, it turns from the player and goes. One that comes for a time goes when
+	// that time is up.
+	c.about += dt
+	if b.bears > 0 && f.brightAt(c.Pos.Add(geometry.Vector3{Y: 1})) > b.bears {
 		c.lit += dt
 	} else {
 		c.lit = 0
 	}
-	if c.lit > litTime && !c.leaving {
+	if (c.lit > litTime || b.stays > 0 && c.about > b.stays) && !c.leaving {
 		c.leaving, c.keen, c.feeding = true, 0, 0
 		c.Yaw = yawOf(awayFrom(c.Pos, player, c.Yaw))
 	}
@@ -182,6 +191,24 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 	if c.flee > 0 {
 		return
 	}
+	// A lesser hunter runs from the dread.
+	if !b.cows {
+		for j := range f.all {
+			if boss := &f.all[j]; breeds[boss.kind].cows && !boss.dead && boss.Pos.Distance(c.Pos) < cowReach {
+				c.flee, c.keen, c.walking = routTime, 0, true
+				c.Yaw = yawOf(awayFrom(c.Pos, boss.Pos, c.Yaw))
+				return
+			}
+		}
+	}
+	// One that fears a big fire keeps off it: it backs out of the ring round one.
+	for _, fire := range f.fires {
+		if b.fears > 0 && math.Hypot(fire.X-c.Pos.X, fire.Z-c.Pos.Z) < b.fears-0.5 {
+			c.Yaw = yawOf(awayFrom(c.Pos, fire, c.Yaw))
+			c.walking, c.timer = true, max(c.timer, rethink)
+			return
+		}
+	}
 	if c.feeding > 0 {
 		c.feeding -= dt
 		c.walking, c.timer = false, max(c.timer, rethink)
@@ -190,7 +217,7 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 
 	// It goes for a player it notices, and keeps after one it has lost for a while.
 	// With no player to go for, it goes for a beast it can kill.
-	if f.hunted && f.notices(w, c, player) {
+	if f.about(c.kind) && f.notices(w, c, player) {
 		if c.keen <= 0 {
 			f.sounds = append(f.sounds, said{b.cry, c.kind, c.voice()}) // it has seen its prey
 		}
@@ -217,7 +244,7 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 		if c.biteIn > 0 {
 			return
 		}
-		c.biteIn = biteWait
+		c.biteIn = b.snaps
 		if quarry == nil {
 			f.bitten += b.bite
 			return
@@ -226,23 +253,74 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 			f.sounds = append(f.sounds, said{breeds[quarry.kind].cry, quarry.kind, quarry.voice()})
 		}
 		if quarry.hit(c.Pos, b.bite) {
-			c.feeding = feedTime
+			c.feeding = b.feeds
 		}
 		return
 	}
-	// It will not step into the light: it stands at the edge of it, and waits.
+	// It will not step into light it does not bear, or within reach of a big fire it
+	// fears: it stands at the edge, and waits.
 	width, _ := render.Size(c.kind, c.young)
-	if far > 1e-6 && f.brightAt(c.Pos.Add(to.Scale((width/2+0.8)/far)).Add(geometry.Vector3{Y: 1})) > hunterLit {
-		c.walking = false
-		return
+	if far > 1e-6 {
+		next := c.Pos.Add(to.Scale((width/2 + 0.8) / far))
+		if b.bears > 0 && f.brightAt(next.Add(geometry.Vector3{Y: 1})) > b.bears {
+			c.walking = false
+			return
+		}
+		for _, fire := range f.fires {
+			if b.fears > 0 && math.Hypot(fire.X-next.X, fire.Z-next.Z) < b.fears {
+				c.walking = false
+				return
+			}
+		}
 	}
 	c.walking, c.hurry = true, true
 }
 
-// dismiss lets go of every beast that comes only in the dark: the night is over, or
-// the player is somewhere else.
+// dismiss lets go of every hunter that comes and goes: the night is over, or the player
+// is somewhere else.
 func (f *fauna) dismiss() {
-	f.all = slices.DeleteFunc(f.all, func(c beast) bool { return breeds[c.kind].night })
+	f.all = slices.DeleteFunc(f.all, func(c beast) bool {
+		if breeds[c.kind].visits {
+			f.went(c.kind)
+			return true
+		}
+		return false
+	})
+}
+
+// findFires looks, once a second, for the fires that burn near the player three or more
+// together: fire, hearths that burn and torches that stand. It leaves the place of each
+// for the hunters that fear a big fire.
+func (g *Game) findFires(dt float64) {
+	if g.fireWait -= dt; g.fireWait > 0 {
+		return
+	}
+	g.fireWait = 1
+	p := g.player.Pos
+	x0, y0, z0 := int(math.Floor(p.X)), int(math.Floor(p.Y)), int(math.Floor(p.Z))
+	g.burning = g.burning[:0]
+	for y := y0 - fireSearch/3; y <= y0+fireSearch/3; y++ {
+		for z := z0 - fireSearch; z <= z0+fireSearch; z++ {
+			for x := x0 - fireSearch; x <= x0+fireSearch; x++ {
+				if burns(g.world.At(x, y, z)) {
+					g.burning = append(g.burning, cellMid(x, y, z))
+				}
+			}
+		}
+	}
+	f := g.fauna
+	f.fires = f.fires[:0]
+	for _, fire := range g.burning {
+		together := 0
+		for _, other := range g.burning {
+			if other.Distance(fire) <= fireNear {
+				together++ // itself among them
+			}
+		}
+		if together >= fireCount {
+			f.fires = append(f.fires, fire)
+		}
+	}
 }
 
 // hunterWithin reports whether a living hunter is within a distance of the player.
