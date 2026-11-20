@@ -378,6 +378,17 @@ func makeSound(n sound.Name) []float64 {
 			return math.Sin(math.Pi*min(t/1.4, 1)) * (0.6 + 0.4*math.Sin(2*math.Pi*11*t))
 		}
 		return peakTo(voiced(1.4, pitch, loud, 200, 520), 0.65)
+	case sound.Geyser:
+		// A rush that comes up out of the ground and roars for as long as it spouts,
+		// then falls back: steam, with the weight of water under it.
+		s := make([]float64, samples(3.2))
+		hiss, deep := newBand(2600, 0.8), newLowpass(140)
+		for i := range s {
+			t := float64(i) / rate
+			swell := math.Min(1, t/0.25) * math.Min(1, (3.2-t)/0.7)
+			s[i] = (0.7*hiss.at(noise(i, 989)) + 1.4*deep.at(noise(i, 990))) * swell * (0.85 + 0.15*math.Sin(2*math.Pi*7*t))
+		}
+		return peakTo(s, 0.8)
 	case sound.Crackle:
 		// A low roar, even all through so that it can follow itself, with pops in it.
 		s := make([]float64, samples(1))

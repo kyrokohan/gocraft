@@ -67,11 +67,17 @@ func (g *Game) shatter(x, y, z int, b world.Block) {
 // puff lets a puff of smoke go from a place: size across to begin with, to last about
 // life seconds.
 func (g *Game) puff(at geometry.Vector3, size, life float64) {
+	g.puffOf(smokeItem, at, size, life, smokeRise)
+}
+
+// puffOf lets a puff of something that rises go from a place, drawn as a piece of an
+// item: smoke, or the steam of a geyser. It rises at a speed, in blocks a second.
+func (g *Game) puffOf(item world.Item, at geometry.Vector3, size, life, rise float64) {
 	r := g.scatter
 	g.bits = append(g.bits, bit{
 		pos:   at.Add(geometry.Vector3{X: 0.3 * (r.Float64() - 0.5), Z: 0.3 * (r.Float64() - 0.5)}),
-		vel:   geometry.Vector3{X: 0.3 * (r.Float64() - 0.5), Y: smokeRise * (0.8 + 0.4*r.Float64()), Z: 0.3 * (r.Float64() - 0.5)},
-		item:  smokeItem,
+		vel:   geometry.Vector3{X: 0.3 * (r.Float64() - 0.5), Y: rise * (0.8 + 0.4*r.Float64()), Z: 0.3 * (r.Float64() - 0.5)},
+		item:  item,
 		life:  life * (0.7 + 0.3*r.Float64()),
 		spin:  r.Float64() - 0.5,
 		smoke: true,

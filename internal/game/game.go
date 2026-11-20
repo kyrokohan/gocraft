@@ -498,6 +498,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		}
 		g.stepDrops(dt)
 		g.stepMissiles(dt)
+		g.geysers(dt)
 		g.smoke(dt)
 		g.stepBits(dt)
 		g.stepHearths(dt)
