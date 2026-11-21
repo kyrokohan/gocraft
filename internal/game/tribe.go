@@ -27,7 +27,7 @@ const (
 var asking = saying{item: world.Fire.Item()}
 
 // homeFire returns the player's fire: the hearth nearest the bed it last lay on, within
-// homeReach of it. With no bed, or none near it, there is none.
+// homeReach of it, cold or burning. With no bed, or none near it, there is none.
 func (g *Game) homeFire() *world.Cell {
 	b := g.bed
 	if b == nil || g.world.At(b.X, b.Y, b.Z) != world.FurBed {
@@ -39,7 +39,7 @@ func (g *Game) homeFire() *world.Cell {
 		for z := b.Z - homeReach; z <= b.Z+homeReach; z++ {
 			for x := b.X - homeReach; x <= b.X+homeReach; x++ {
 				far := math.Sqrt(float64((x-b.X)*(x-b.X) + (y-b.Y)*(y-b.Y) + (z-b.Z)*(z-b.Z)))
-				if far < near && g.world.At(x, y, z) == world.Hearth {
+				if far < near && isHearth(g.world.At(x, y, z)) {
 					best, near = &world.Cell{X: x, Y: y, Z: z}, far
 				}
 			}

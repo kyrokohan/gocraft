@@ -275,3 +275,13 @@ func TestANewWorldHasNoneOfTheTribeOfTheLast(t *testing.T) {
 		t.Errorf("a new world begins with %d people and the fire %v of the last", len(g.people), g.home)
 	}
 }
+
+func TestALitHearthIsYourFireToo(t *testing.T) {
+	g := inSurvival(t)
+	g.world.Set(floorBed.X, floorBed.Y, floorBed.Z, world.FurBed)
+	g.world.Set(floorHearth.X, floorHearth.Y, floorHearth.Z, world.HearthLit)
+	g.bed = &floorBed
+	if home := g.homeFire(); home == nil || *home != floorHearth {
+		t.Errorf("with a lit hearth by the bed, the player's fire is %v", home)
+	}
+}
