@@ -138,7 +138,7 @@ func TestAHatchlingFollowsAndGrowsInTwoFedDays(t *testing.T) {
 	} {
 		for _, food := range []world.Item{world.Berries, world.Fruit, world.Fiber, world.Meat, world.Stick} {
 			young := raised(kind, 0.5, 3.5, true)
-			ate, _ := young.feed(food)
+			ate, _ := young.feed(food, 0)
 			if want := containsItem(foods, food); ate != want {
 				t.Errorf("a young %s given %v ate: %v, wanted %v", kind, food, ate, want)
 			}

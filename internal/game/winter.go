@@ -67,9 +67,12 @@ func (g *Game) byFire() bool {
 // the cold takes a point of health every chillTime, and it can make the player faint.
 func (g *Game) warm(dt float64) {
 	p := g.player.Pos
+	m := g.fauna.mount()
 	switch {
 	case g.byFire() || inWater(g.world, p) && g.world.Spring(p.X, p.Z):
 		g.warmth = min(g.warmth+maxWarmth/warmTime*dt, maxWarmth)
+	case g.cold() && m != nil && breeds[m.kind].hairy:
+		// On the back of a beast in long hair the cold does not reach the rider.
 	case g.cold():
 		loss := maxWarmth / coldTime
 		if g.items.count([]world.Item{world.FurCloak}) > 0 {

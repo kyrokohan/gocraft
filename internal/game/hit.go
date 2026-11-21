@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"slices"
@@ -163,7 +164,12 @@ func (g *Game) wound(i int, points, knock float64, carves bool) {
 // reports whether it did.
 func (g *Game) feed(p prey) bool {
 	c := &g.fauna.all[p.i]
-	ate, tamed := c.feed(g.items[g.selected].Item)
+	food, day := g.items[g.selected].Item, firstMorning+g.days
+	if c.sated(day) && slices.Contains(breeds[c.kind].eats, food) {
+		g.tell("the young " + c.kind.String() + " has eaten all it will today")
+		return true
+	}
+	ate, tamed := c.feed(food, day)
 	if !ate {
 		return false
 	}
@@ -177,6 +183,8 @@ func (g *Game) feed(p prey) bool {
 		g.tell("the " + c.kind.String() + " trusts you: it will follow you")
 	case c.tame:
 		g.tell("the young " + c.kind.String() + " eats: it will grow for a day")
+	case c.young:
+		g.tell(fmt.Sprintf("the young %s eats from your hand: %d meals of %d", c.kind, c.fed, breeds[c.kind].meals))
 	default:
 		g.tell("the " + c.kind.String() + " eats from your hand")
 	}
