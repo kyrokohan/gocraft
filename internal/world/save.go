@@ -209,6 +209,11 @@ type Beast struct {
 
 	// Ridden is true for the one the player rides.
 	Ridden bool `json:"ridden,omitempty"`
+
+	// For one that takes only so many meals a day: the day it last ate, and how many
+	// meals it had on that day.
+	MealDay    int `json:"mealDay,omitempty"`
+	MealsToday int `json:"mealsToday,omitempty"`
 }
 
 // Mossback is a mossback as a save from before there were other beasts holds it.

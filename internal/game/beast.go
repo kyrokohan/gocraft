@@ -115,9 +115,10 @@ type breed struct {
 	wary, lure float64
 
 	// eats is what it takes from the player's hand, and meals how many of them make it
-	// trust the player: a beast with none cannot be tamed.
-	eats  []world.Item
-	meals int
+	// trust the player: a beast with none cannot be tamed. daily is how many of them it
+	// takes in a day, for one that takes no more. Of a guard only the young are won so.
+	eats         []world.Item
+	meals, daily int
 
 	// lands are the lands it is found in. A beast with none is found wherever there is
 	// mossy earth.
@@ -165,8 +166,10 @@ type breed struct {
 
 	// One that can be ridden: how fast it runs with a rider held on, how high its back
 	// is, and how far ahead of its middle the rider sits. What Space does: how many blocks
-	// high it jumps, or the points its charge takes.
+	// high it jumps, or the points its charge takes. One that is hairy keeps its rider
+	// warm, and one that crushes runs down the hunters in its way as it is ridden.
 	ride, back, seat, clears, rams float64
+	hairy, crushes                 bool
 
 	// A guard does not run. warns is how near what it guards, its young or itself, a
 	// threat may come before it turns on it and gives its cry. charges is how near
@@ -302,7 +305,9 @@ var breeds = [render.Kinds]breed{
 		health: 80, meat: 10, hide: 4, tusks: 2,
 		heavy:  true,
 		temper: guard, group: [2]int{3, 5}, grown: 3, most: 5,
-		warns: 10, charges: 6, blow: 7, steps: 2,
+		warns: 10, charges: 6, blow: 7, steps: 2, wades: true,
+		eats: []world.Item{world.Fiber, world.Berries, world.Fruit}, meals: 5, daily: 3,
+		ride: 2.5, back: 4.4, seat: -0.6, hairy: true, crushes: true,
 		lands: []world.Biome{world.Tundra}, bare: true,
 		call: sound.Grunt, cry: sound.Trumpet, callEvery: 50, carries: 2 * sound.Hearing,
 	},
@@ -490,6 +495,10 @@ type beast struct {
 
 	fed int // how many meals it has had from the player's hand
 
+	// For one that takes only so many meals a day: the day it last ate, and how many
+	// meals it has had on that day.
+	mealDay, mealsToday int
+
 	// One the player raises: how many seconds it has grown, and how many more its last
 	// meal lets it grow. One that is the player's and lost all its health limps home:
 	// whether it does, and the day of the world on which it is whole again.
@@ -607,8 +616,10 @@ type fauna struct {
 	timer float64           // until the beasts are next looked over
 
 	// sneaking is whether the player is crouched, which lets it come nearer a herd, and
-	// bait whether the player holds food out, which brings thieves.
+	// bait whether the player holds food out, which brings thieves. held is what the
+	// player has in hand.
 	sneaking, bait bool
+	held           world.Item
 
 	// What a hunter can know of the player: whether it moves, whether it is hidden
 	// among tall plants, and whether it carries raw meat. hunted is whether hunters are
@@ -711,7 +722,8 @@ func faunaFrom(w *world.World, s world.Meta, round geometry.Vector3) *fauna {
 			health: min(max(b.Health, 1), max(breeds[kind].health, 1)), regrow: b.Regrow,
 			tame: b.Tame, fed: b.Fed,
 			age: b.Age, fedFor: b.FedFor, limping: b.Limping, mendAt: b.MendAt,
-			ridden: b.Ridden, timer: r.Float64() * 2, rng: r,
+			ridden: b.Ridden, mealDay: b.MealDay, mealsToday: b.MealsToday,
+			timer: r.Float64() * 2, rng: r,
 			aloft: breeds[kind].moves == gaitSoar && !b.Limping && !(b.Tame && b.Young),
 		})
 		f.herds = max(f.herds, b.Herd)
@@ -754,7 +766,7 @@ func (f *fauna) saved() []world.Beast {
 				Kind: c.kind.String(), Pos: c.Pos, Yaw: c.Yaw, Young: c.young, Herd: c.herd,
 				Health: c.health, Regrow: c.regrow, Tame: c.tame, Fed: c.fed,
 				Age: c.age, FedFor: c.fedFor, Limping: c.limping, MendAt: c.mendAt,
-				Ridden: c.ridden,
+				Ridden: c.ridden, MealDay: c.mealDay, MealsToday: c.mealsToday,
 			})
 		}
 	}
@@ -1066,6 +1078,9 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		if c.ridden && b.rams > 0 && !c.dead {
 			f.ram(i, player, dt)
 		}
+		if c.ridden && b.crushes && c.reined > 0 && c.bumped == 0 && !c.dead && f.butt(i, b.blow, player) {
+			c.bumped = bumpWait // it ran a hunter down, and goes on
+		}
 		var middle *geometry.Vector3
 		if m, ok := middles[c.herd]; ok && b.temper != loner {
 			middle = &m
@@ -1347,7 +1362,7 @@ func (c *beast) hit(from geometry.Vector3, points float64) (killed bool) {
 // feed gives the beast a meal from the player's hand, if it is one that can be tamed, is
 // not tame yet, takes that food and is not still chewing. Enough meals make it tame.
 // It reports whether it ate, and whether that meal tamed it.
-func (c *beast) feed(food world.Item) (ate, tamed bool) {
+func (c *beast) feed(food world.Item, day float64) (ate, tamed bool) {
 	b := &breeds[c.kind]
 	if c.dead || c.limping || c.chew > 0 || !slices.Contains(b.eats, food) {
 		return false, false
@@ -1358,13 +1373,25 @@ func (c *beast) feed(food world.Item) (ate, tamed bool) {
 		// no other while that lasts.
 		c.fedFor, c.chew = dayLength, chewTime
 		return true, false
-	case !c.tame && b.meals > 0:
-		c.fed, c.chew = c.fed+1, chewTime
+	case !c.tame && b.meals > 0 && (b.temper != guard || c.young) && !c.sated(day):
+		if today := int(math.Floor(day)); today != c.mealDay {
+			c.mealDay, c.mealsToday = today, 0
+		}
+		c.fed, c.mealsToday, c.chew = c.fed+1, c.mealsToday+1, chewTime
 		c.flee = 0 // what feeds it is nothing to run from
-		c.tame = c.fed >= b.meals
+		if c.tame = c.fed >= b.meals; c.tame && c.young {
+			c.herd = 0 // it leaves its family for the player
+		}
 		return true, c.tame
 	}
 	return false, false
+}
+
+// sated reports whether a wild beast that takes only so many meals a day has had them
+// on the day given.
+func (c *beast) sated(day float64) bool {
+	daily := breeds[c.kind].daily
+	return !c.tame && daily > 0 && c.mealDay == int(math.Floor(day)) && c.mealsToday >= daily
 }
 
 // falls is a beast with no health left. A wild one dies. One that is the player's does
@@ -1679,7 +1706,7 @@ const meatSpread = 0.6
 func (g *Game) stepBeasts(dt float64) {
 	f := g.fauna
 	held := g.items[g.selected]
-	f.sneaking = g.player.Crouched
+	f.sneaking, f.held = g.player.Crouched, held.Item
 	f.bait = g.survival && held.Item.Food() > 0 // in creative there is nothing to lose
 	f.moving, f.hidden, f.hunted, f.day = g.paced, g.hidden(), g.survival, firstMorning+g.days
 	if m := f.mount(); m != nil {

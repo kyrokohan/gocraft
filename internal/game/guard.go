@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"slices"
 
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
@@ -55,8 +56,11 @@ func (f *fauna) threat(i int, player geometry.Vector3) (at geometry.Vector3, nea
 			}
 		}
 	}
-	if !c.tame {
-		weigh(player) // one that is the player's has nothing to fear from it
+	// One that is the player's has nothing to fear from it, and one whose young are won
+	// with food lets a player come who comes low, with that food in hand.
+	b := &breeds[c.kind]
+	if offered := b.meals > 0 && f.sneaking && slices.Contains(b.eats, f.held); !c.tame && !offered {
+		weigh(player)
 	}
 	for j := range f.all {
 		if h := &f.all[j]; breeds[h.kind].temper == hunter && !h.dead {
@@ -179,11 +183,17 @@ func (f *fauna) ram(i int, player geometry.Vector3, dt float64) {
 		return
 	}
 	c.reined, c.walking = ramSpeed, true
+	if c.ire -= dt; f.butt(i, b.rams, player) || c.ire <= 0 {
+		c.ire, c.rest = 0, ramRest
+	}
+}
+
+// butt has the head of a ridden beast hit what it meets ahead of it, for so many points,
+// as a guard's charge does. It reports whether it hit anything.
+func (f *fauna) butt(i int, points float64, player geometry.Vector3) bool {
+	c := &f.all[i]
 	width, _ := render.Size(c.kind, false)
 	_, front := render.Span(c.kind, false)
 	ahead := mesh.Camera{Yaw: c.Yaw}.Forward()
-	head := c.Pos.Add(ahead.Scale(front - width/2))
-	if c.ire -= dt; f.strike(i, head, width/2+blowReach, b.rams, ahead, player) || c.ire <= 0 {
-		c.ire, c.rest = 0, ramRest
-	}
+	return f.strike(i, c.Pos.Add(ahead.Scale(front-width/2)), width/2+blowReach, points, ahead, player)
 }
