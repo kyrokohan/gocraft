@@ -29,12 +29,12 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 
 | Keys | Action |
 |---|---|
-| W A S D | walk, strafe |
+| W A S D | walk, strafe; in a galewing's glide, W dives and A and D turn |
 | Arrows | look |
 | Space | jump; swim up; rise when flying; on a beast you ride, jump or charge |
 | X | sink when flying |
 | F | flying on and off, in creative |
-| C | crouch, and stand again: slow, low and quiet; on a beast you ride, get down |
+| C | crouch, and stand again: slow, low and quiet; on a beast you ride, get down; in a glide, let go |
 | V | the view: through your eyes, or from behind your shoulder |
 | L | the next of six looks for your body |
 | Q / E | break / place the block aimed at (hold to go on); hit / shear a creature aimed at; either takes an egg aimed at, and E with an egg in hand puts it down; E with food in hand eats it, or feeds a young beast of yours, or a snowtusk calf, aimed at; E on a grown bugler, shieldbrow or snowtusk of yours gets on it; E on a clay pot or a hearth opens it, on a fur bed lies down, and on a fire lights the unlit torches in your hand; hold E with a fire drill on a hearth to light it |
@@ -215,6 +215,11 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - **Then it leaves its family** and follows you, and its family lets it go. It grows as a young beast you hatched does: a meal a day, two days of growing.
   - **Ride it grown,** with E. It is the slowest of your mounts and the hardest to stop: it walks at 2.5 blocks a second, W held or not, and pushes through leaves. A hunter in its way is run down: 7 points, and thrown aside. It does not run down the dread.
   - **On its back you keep warm.** The cold of the steppe and of the Long Winter takes none of your warmth while you ride it.
+- **A galewing's glide.** A galewing you raised is not ridden: it carries you down from high places.
+  - **Grown, it keeps over you** by day: it circles where you are, and comes straight back when you leave it twenty blocks behind. At night it sleeps on high ground near your bed, where there is any.
+  - **Step off a height with it near and it takes you.** Six blocks or more must be under you, with open sky over you, and the galewing in the air within 32 blocks. It holds you by the head and you glide: 9 blocks a second ahead, and a block down for every five. From a mountain you cross a valley.
+  - **A and D turn you, W dives,** a block down for every two, and **C lets go:** you fall from there, and it does not take you again until you are down. It cannot climb: a glide starts high and ends low.
+  - **It sets you down unhurt,** on the ground or in water, and takes to the air again. A wall does not end a glide: you go down along it.
 - **The steppe** is the cold land: snow, tussocks of dry grass through it, and a few trees no taller than five blocks. It takes your warmth at any time of the world. Its beasts stand on the snow.
   - **Snowtusks** go in herds of three to five: three grown, five blocks tall, in long red hair, with a trunk and two tusks, and their young between them. Come within ten blocks of a young one and the grown ones turn on you, lower their heads and trumpet. Come within six, or hit one of the herd, and they charge, together: 7 points each, and you are thrown. 80 points of health, 10 pieces of meat, 4 hides, which is a fur cloak, and from a grown one two tusks. Tusks have no use yet.
   - **Slowclaws** go alone, slow and shaggy, with long arms that end in claws. One takes no notice of you, however near. When it stops it stands up on its hind legs, three blocks tall, as it does to feed from a tree. Hit it and it stands up and comes at where you were, slowly: 6 points. Step away and it does not follow. 40 points of health, 6 pieces of meat and 3 hides.
@@ -243,6 +248,8 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 ![On the snow of the steppe, seen low from where a cave person crouches with berries in hand: two grown snowtusks, and their calf between them](docs/calf.png)
 
 ![A cave person riding a snowtusk on the snow, small on the top of its back over its shoulders, by its trunk and tusks](docs/ride-snowtusk.png)
+
+![A cave person in a glide high over the snow, seen from ahead, held by the head by a galewing with its long wings spread](docs/glide.png)
 
 ![A fire on the prairie with two eggs by it, and beside it a young shieldbrow and a young bugler, each half the size of a grown one](docs/hatch.png)
 
@@ -434,7 +441,7 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - A use for crystal, for tusks and for amber.
 - Snow that falls and lies as blocks, and ice on the sea in the winter.
 - Clothes other than the cloak, and a place to wear them.
-- A galewing's glide: that is the next step. Of the beasts you raise a bugler, a shieldbrow and a snowtusk are ridden.
+- Riding a mossback, a cloudgrazer or the dread, a saddle, packs on a mount, telling a beast to stay, and tame beasts that breed. A galewing that climbs with you, or takes you from flat ground.
 - A raft, and fish to eat.
 - A star falls only where the world is loaded, about 100 blocks round you: there are no craters where you were not.
 - Lava that flows.
