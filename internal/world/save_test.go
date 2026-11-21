@@ -51,6 +51,8 @@ func played(t *testing.T) (*World, Meta) {
 		Paintings: []Painting{{Side: Side{Cell: Cell{X: 705, Y: 101, Z: 3}, Face: FaceZNeg}, Picture: Spiral, Paint: RedPaint}},
 		Met:       []string{"comet", "daggercat"},
 		Camps:     []Camp{{Fire: Cell{X: -120, Y: 70, Z: 44}, Trust: 6}},
+		Home:      &Cell{X: 706, Y: 104, Z: 3},
+		Tribe:     []Member{{Camp: Cell{X: -120, Y: 70, Z: 44}, Look: 11, Pos: geometry.Vector3{X: 708.5, Y: 102, Z: 5.5}, Yaw: 0.75, Follows: true, Away: 3.25}},
 	}
 }
 
@@ -223,6 +225,10 @@ func TestABrokenWorldFileIsAnErrorAndNeverAPanic(t *testing.T) {
 		"no such picture":    strings.Replace(text, `"picture": 1`, `"picture": 99`, 1),
 		"less than no trust": strings.Replace(text, `"trust": 6`, `"trust": -1`, 1),
 		"a camp in the sky":  strings.Replace(text, `"y": 70`, `"y": 900`, 1),
+		"a fire in the sky":  strings.Replace(text, `"y": 104`, `"y": 900`, 1),
+		"one of no look":     strings.Replace(text, `"look": 11`, `"look": -1`, 1),
+		"one nowhere":        strings.Replace(text, `"yaw": 0.75`, `"yaw": 1e999`, 1),
+		"one never there":    strings.Replace(text, `"away": 3.25`, `"away": -1`, 1),
 	} {
 		if content == text {
 			t.Fatalf("%s: the test did not change the file", name)

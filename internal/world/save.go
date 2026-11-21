@@ -103,6 +103,32 @@ type Meta struct {
 	// Camps are what the player has done with the people of the camps, by the cell of
 	// each camp's fire.
 	Camps []Camp `json:"camps,omitempty"`
+
+	// Home is the player's fire as last seen: a hearth near the bed it last lay on. nil
+	// for none.
+	Home *Cell `json:"home,omitempty"`
+
+	// Tribe are the people who came from the camps to live at the player's fire, those
+	// still on their way among them.
+	Tribe []Member `json:"tribe,omitempty"`
+}
+
+// Member is one who came from a camp to live at the player's fire: the fire of their
+// camp, their look, where they are, whether they follow the player there still, and,
+// for one left behind who finds their own way, the day they are at the fire: 0 for
+// none.
+type Member struct {
+	Camp    Cell             `json:"camp"`
+	Look    int              `json:"look"`
+	Pos     geometry.Vector3 `json:"pos"`
+	Yaw     float64          `json:"yaw"`
+	Follows bool             `json:"follows,omitempty"`
+	Away    float64          `json:"away,omitempty"`
+}
+
+// valid reports whether a game could have made the member.
+func (m Member) valid() bool {
+	return m.Camp.valid() && m.Look >= 0 && finite(m.Pos.X, m.Pos.Y, m.Pos.Z, m.Yaw, m.Away) && m.Away >= 0
 }
 
 // Camp is what the player has done with the people of one camp: how much they trust
@@ -282,10 +308,12 @@ func (m Meta) check() string {
 	case !finite(m.Torch) || m.Torch < 0:
 		return "its player's torch has burned for no time there is"
 	case len(m.Items) > maxSlots || len(m.Drops) > maxDrops || len(m.Mossbacks) > maxMossbacks || len(m.Beasts) > maxMossbacks ||
-		len(m.Pots) > maxStores || len(m.Hearths) > maxStores || len(m.Paintings) > maxPaintings || len(m.Met) > maxMet || len(m.Camps) > maxCamps:
+		len(m.Pots) > maxStores || len(m.Hearths) > maxStores || len(m.Paintings) > maxPaintings || len(m.Met) > maxMet || len(m.Camps) > maxCamps || len(m.Tribe) > maxCamps:
 		return "it holds more things than a game can make"
 	case m.Bed != nil && !m.Bed.valid():
 		return "its player's bed is nowhere"
+	case m.Home != nil && !m.Home.valid():
+		return "its player's fire is nowhere"
 	}
 	for _, c := range m.Pots {
 		if !c.valid() || len(c.Items) > PotSlots || slices.ContainsFunc(c.Items, func(s Stack) bool { return !s.valid() }) {
@@ -306,6 +334,11 @@ func (m Meta) check() string {
 	for _, c := range m.Camps {
 		if !c.valid() {
 			return "one of its camps is not one this game can make"
+		}
+	}
+	for _, t := range m.Tribe {
+		if !t.valid() {
+			return "one who came to its player's fire is nowhere"
 		}
 	}
 	for _, s := range m.Items {
