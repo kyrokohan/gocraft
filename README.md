@@ -31,13 +31,13 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 |---|---|
 | W A S D | walk, strafe |
 | Arrows | look |
-| Space | jump; swim up; rise when flying |
+| Space | jump; swim up; rise when flying; on a beast you ride, jump or charge |
 | X | sink when flying |
 | F | flying on and off, in creative |
 | C | crouch, and stand again: slow, low and quiet; on a beast you ride, get down |
 | V | the view: through your eyes, or from behind your shoulder |
 | L | the next of six looks for your body |
-| Q / E | break / place the block aimed at (hold to go on); hit / shear a creature aimed at; either takes an egg aimed at, and E with an egg in hand puts it down; E with food in hand eats it, or feeds a young beast of yours aimed at; E on a grown bugler of yours gets on it; E on a clay pot or a hearth opens it, on a fur bed lies down, and on a fire lights the unlit torches in your hand; hold E with a fire drill on a hearth to light it |
+| Q / E | break / place the block aimed at (hold to go on); hit / shear a creature aimed at; either takes an egg aimed at, and E with an egg in hand puts it down; E with food in hand eats it, or feeds a young beast of yours aimed at; E on a grown bugler or shieldbrow of yours gets on it; E on a clay pot or a hearth opens it, on a fur bed lies down, and on a fire lights the unlit torches in your hand; hold E with a fire drill on a hearth to light it |
 | R | throw the spear in your hand, or with a sling in your hand a pebble (hold to go on) |
 | 1 to 9, Tab | pick a slot of the hotbar; the next one |
 | I | your things: move them between the hotbar and the pack, and make things from them (in creative: every block) |
@@ -205,6 +205,10 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - **You see from its back,** through your eyes over its lowered head, or from behind. It carries its head low and forward while you ride.
   - **What hits you hits you.** Hunters still come, but at a run you leave every one behind but the daggercat's spring. A fall is the bugler's, as for a heavy beast: two blocks and no more is no harm, and a jump is no fall.
   - A young bugler is too small to ride, and one that limps goes home. One that loses all its health while you ride it throws you off. You get down to throw.
+- **Riding a shieldbrow.** E gets you on a grown shieldbrow of yours, as on a bugler. You see over its shield of bone.
+  - **It is slow and strong:** it walks at 3 blocks a second, W held or not, and nothing knocks it back.
+  - **Space charges:** two seconds at 8 blocks a second, head down, the way you face. The first hunter its head meets takes 7 points and is thrown back, and that ends the charge. Then it rests four seconds before it charges again. It does not ram the dread, and the dread hunts it as before.
+  - **A hunter that one charge would kill keeps off you,** ten blocks off, while you ride a shieldbrow. None has so little health until it is hurt: a quickclaw or a howler you have charged once keeps off after that.
 - **The steppe** is the cold land: snow, tussocks of dry grass through it, and a few trees no taller than five blocks. It takes your warmth at any time of the world. Its beasts stand on the snow.
   - **Snowtusks** go in herds of three to five: three grown, five blocks tall, in long red hair, with a trunk and two tusks, and their young between them. Come within ten blocks of a young one and the grown ones turn on you, lower their heads and trumpet. Come within six, or hit one of the herd, and they charge, together: 7 points each, and you are thrown. 80 points of health, 10 pieces of meat, 4 hides, which is a fur cloak, and from a grown one two tusks. Tusks have no use yet.
   - **Slowclaws** go alone, slow and shaggy, with long arms that end in claws. One takes no notice of you, however near. When it stops it stands up on its hind legs, three blocks tall, as it does to feed from a tree. Hit it and it stands up and comes at where you were, slowly: 6 points. Step away and it does not follow. 40 points of health, 6 pieces of meat and 3 hides.
@@ -227,6 +231,8 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 ![A school of leapfins: two in the air over the water, dark above and white under, and the fin of a third cutting the water](docs/leapfins.png)
 
 ![A cave person riding a bugler on the snow of the steppe, sitting behind its neck, its head carried low and forward](docs/ride.png)
+
+![A cave person riding a shieldbrow on the sand, sitting high on its broad back behind its lowered head and its shield of bone](docs/ride-shieldbrow.png)
 
 ![A fire on the prairie with two eggs by it, and beside it a young shieldbrow and a young bugler, each half the size of a grown one](docs/hatch.png)
 
@@ -418,7 +424,7 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - A use for crystal, for tusks and for amber.
 - Snow that falls and lies as blocks, and ice on the sea in the winter.
 - Clothes other than the cloak, and a place to wear them.
-- Riding a shieldbrow, a snowtusk, or a galewing's glide: those are the next steps. Of the beasts you raise only a bugler is ridden yet.
+- Riding a snowtusk, and a galewing's glide: those are the next steps. Of the beasts you raise a bugler and a shieldbrow are ridden.
 - A raft, and fish to eat.
 - A star falls only where the world is loaded, about 100 blocks round you: there are no craters where you were not.
 - Lava that flows.
