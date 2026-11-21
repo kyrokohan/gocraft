@@ -48,6 +48,7 @@ type person struct {
 	asks    bool    // they ask to come, as their camp trusts the player enough
 	away    float64 // one left behind is on their own way, and at the fire at this day
 	hurry   bool    // they run, to catch up
+	swing   float64 // how far through a stroke of the drum their arm is, or held up with a flute
 
 	walking, seated, onGround bool
 	velY, timer               float64
@@ -238,7 +239,7 @@ func (one *person) goAside() {
 // pose is how a person is drawn. A seated one sits on the ground, which is lower than a
 // rider sits.
 func (one *person) pose() render.Person {
-	p := render.Person{Pos: one.Pos, Yaw: one.Yaw, Look: one.look, Stride: one.Stride, Seated: one.seated}
+	p := render.Person{Pos: one.Pos, Yaw: one.Yaw, Look: one.look, Stride: one.Stride, Swing: one.swing, Seated: one.seated}
 	if one.seated {
 		p.Pos.Y -= render.SeatHeight - seatLift
 	}
