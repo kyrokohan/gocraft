@@ -167,3 +167,24 @@ func (l look) leg(seed int) painter {
 		return l.skinAt(x, y, seed), true
 	}
 }
+
+// tentHide is the hide the people of the camps make their huts of.
+var tentHide = rgb{168, 128, 84}
+
+// tent is hide stretched over poles: panels of it sewn together, the seams stitched in a
+// paler cord, and a pole under one seam.
+func tent(x, y int) (rgb, bool) {
+	c := tentHide.scale(0.86 + 0.24*blotch(x, y, 5, 992))
+	switch {
+	case x == 7:
+		c = rgb{96, 70, 46} // the pole the panels are sewn over
+	case x == 6 || x == 8:
+		c = c.scale(0.8) // the panels' edges, which sag from it
+		if y%3 == 1 {
+			c = rgb{214, 196, 160} // a stitch
+		}
+	case y == 0 || y == size-1:
+		c = c.scale(0.85)
+	}
+	return grain(c, 0.05, x, y, 993), true
+}

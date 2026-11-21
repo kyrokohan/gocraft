@@ -210,6 +210,7 @@ var painters = [tile.Count]painter{
 	tile.RedPaint:       paint(ochreRed, 989),
 	tile.BlackPaint:     paint(charcoal, 990),
 	tile.WhitePaint:     paint(chalkWhite, 991),
+	tile.Tent:           tent,
 	tile.Tar:            tar,
 	tile.Obsidian:       obsidianShard,
 	tile.Firestone:      firestonePiece,
