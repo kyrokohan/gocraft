@@ -99,6 +99,22 @@ type Meta struct {
 	// Met is what the player has seen and can paint, by name: the kinds of beast, and
 	// the comet. A name this game does not know is let go.
 	Met []string `json:"met,omitempty"`
+
+	// Camps are what the player has done with the people of the camps, by the cell of
+	// each camp's fire.
+	Camps []Camp `json:"camps,omitempty"`
+}
+
+// Camp is what the player has done with the people of one camp: how much they trust
+// the player, which grows with trade, gifts and help.
+type Camp struct {
+	Fire  Cell `json:"fire"`
+	Trust int  `json:"trust"`
+}
+
+// valid reports whether a game could have made the camp.
+func (c Camp) valid() bool {
+	return c.Fire.valid() && c.Trust >= 0 && c.Trust <= maxTrust
 }
 
 // Ember is a block that burns or glows for a time and then changes: a fire that a
@@ -243,6 +259,8 @@ const (
 	maxStores    = 1 << 12 // pots, and hearths
 	maxPaintings = 1 << 16
 	maxMet       = 1 << 8
+	maxCamps     = 1 << 12
+	maxTrust     = 1 << 16
 )
 
 // check returns what is wrong with what a save says beside its blocks, or "".
@@ -264,7 +282,7 @@ func (m Meta) check() string {
 	case !finite(m.Torch) || m.Torch < 0:
 		return "its player's torch has burned for no time there is"
 	case len(m.Items) > maxSlots || len(m.Drops) > maxDrops || len(m.Mossbacks) > maxMossbacks || len(m.Beasts) > maxMossbacks ||
-		len(m.Pots) > maxStores || len(m.Hearths) > maxStores || len(m.Paintings) > maxPaintings || len(m.Met) > maxMet:
+		len(m.Pots) > maxStores || len(m.Hearths) > maxStores || len(m.Paintings) > maxPaintings || len(m.Met) > maxMet || len(m.Camps) > maxCamps:
 		return "it holds more things than a game can make"
 	case m.Bed != nil && !m.Bed.valid():
 		return "its player's bed is nowhere"
@@ -283,6 +301,11 @@ func (m Meta) check() string {
 	for _, p := range m.Paintings {
 		if !p.valid() {
 			return "one of its paintings is not one this game can make"
+		}
+	}
+	for _, c := range m.Camps {
+		if !c.valid() {
+			return "one of its camps is not one this game can make"
 		}
 	}
 	for _, s := range m.Items {
