@@ -12,8 +12,8 @@ import (
 // The mixer's numbers.
 const (
 	// Voices is the most sounds that play at once: a new one past that takes the place
-	// of the one nearest its end.
-	Voices = 16
+	// of the one nearest its end. The music at a fire takes a few of them.
+	Voices = 24
 
 	// Hearing is how far away a sound can be heard, in blocks. It fades to nothing there.
 	Hearing = 24.0
@@ -23,7 +23,8 @@ const (
 	slew = 0.6
 
 	// spread is how much the pitch of a sound is moved, up or down at random, each time
-	// it plays, so that one played again and again does not sound the same each time.
+	// it plays, so that one played again and again does not sound the same each time:
+	// but for the music, which keeps in tune.
 	spread = 0.06
 
 	// boost is how much louder the mix is made at the end. The clips leave room above
@@ -139,6 +140,9 @@ func (m *Mixer) start(n Name, left, right float64) {
 		return
 	}
 	v := voice{clip: n, rate: 1 + spread*(2*m.rng.Float64()-1), left: left, right: right}
+	if n.Tuned() {
+		v.rate = 1
+	}
 	if len(m.voices) < Voices {
 		m.voices = append(m.voices, v)
 		return

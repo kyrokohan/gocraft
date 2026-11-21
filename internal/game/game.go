@@ -143,6 +143,7 @@ type Game struct {
 	personAimed bool
 	trust       map[world.Cell]int
 	home        *world.Cell // the player's fire as last seen, a hearth by the bed: nil for none
+	music       float64     // the clock the music at the fires keeps, in seconds
 
 	player  Player
 	saved   bool // the world is the one in the save file
@@ -554,6 +555,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		}
 		g.lookRound(dt)
 		g.stepPeople(dt)
+		g.playMusic(dt)
 		g.worldSounds(dt)
 		g.flash = max(g.flash-dt, 0)
 		g.swing = max(g.swing-dt, 0)

@@ -516,6 +516,15 @@ func makeSound(n sound.Name) []float64 {
 		}
 		add(s, append([]float64(nil), s[:samples(0.1)]...), 0.3, samples(0.07)) // its echo
 		return peakTo(s, 0.4)
+	case sound.Drum:
+		// A skin drum struck low: a thump that falls in pitch, and the hand on the skin.
+		return peakTo(drum(0.6, 68, 0.16, 900, 0.4, 1005), 0.8)
+	case sound.Tap:
+		// The high drum, smaller and tighter.
+		return peakTo(drum(0.35, 190, 0.07, 2200, 0.6, 1006), 0.6)
+	case sound.Flute1, sound.Flute2, sound.Flute3, sound.Flute4, sound.Flute5:
+		i := int(n - sound.Flute1)
+		return peakTo(flute(fluteHz(i), 1010+2*i), 0.5)
 	case sound.Wind:
 		return scaleTo(loop(6, func(n int) []float64 {
 			s := make([]float64, n)
@@ -540,6 +549,49 @@ func makeSound(n sound.Name) []float64 {
 		}), 0.35)
 	}
 	return nil
+}
+
+// drum is a skin drum struck: a tone that falls fast to hz and dies away in decay
+// seconds, and the slap of the hand, noise ringing at slap, mixed in by slapMix.
+func drum(length, hz, decay, slap, slapMix float64, seed int) []float64 {
+	s := make([]float64, samples(length))
+	skin := newBand(slap, 1.2)
+	phase := 0.0
+	for i := range s {
+		t := float64(i) / rate
+		phase += 2 * math.Pi * hz * (1 + 0.7*math.Exp(-t/0.03)) / rate
+		s[i] = math.Sin(phase)*swell(t, 0.002, decay) + slapMix*skin.at(noise(i, seed))*swell(t, 0.001, 0.015)
+	}
+	return s
+}
+
+// The bone flute's notes: a minor five-note scale up from a high D, for a flute is
+// small.
+const fluteRoot = 587.33
+
+var fluteSteps = [sound.Notes]float64{0, 3, 5, 7, 10} // semitones over the root
+
+// fluteHz is the pitch of the flute's note i.
+func fluteHz(i int) float64 {
+	return fluteRoot * math.Pow(2, fluteSteps[i]/12)
+}
+
+// flute is a note of a bone flute: a puff of breath first, then a tone with a little of
+// its octave in it and a slow waver, that fades as the breath runs out.
+func flute(hz float64, seed int) []float64 {
+	const length = 0.9
+	s := make([]float64, samples(length))
+	bore, hiss := newBand(hz, 2), newHighpass(3000)
+	phase := 0.0
+	for i := range s {
+		t := float64(i) / rate
+		phase += 2 * math.Pi * hz * (1 + 0.004*math.Sin(2*math.Pi*5*t)) / rate
+		loud := math.Min(1, t/0.06) * math.Min(1, (length-t)/0.3)
+		tone := math.Sin(phase) + 0.18*math.Sin(2*phase) + 0.06*math.Sin(3*phase)
+		air := 0.5*bore.at(noise(i, seed)) + 0.12*hiss.at(noise(i, seed+1))
+		s[i] = 0.8*loud*tone + (0.25*loud+swell(t, 0.005, 0.04))*air
+	}
+	return s
 }
 
 // chirp is a short tone that rises by a ratio over its length.
