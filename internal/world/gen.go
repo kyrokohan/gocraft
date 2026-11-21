@@ -274,6 +274,22 @@ func (t terrain) build() {
 	}
 }
 
+// Where ochre and chalk lie. A bed of ochre is one layer in ochreEvery, in the columns
+// where a patch ochreWide across rises over ochrePart. A bed of chalk is chalkThick layers
+// in chalkEvery, within chalkDeep of the top, where its patches rise over chalkPart, and
+// flintInChalk of it is flint.
+const (
+	ochreWide    = 6.0
+	ochrePart    = 0.5
+	ochreEvery   = 4
+	chalkWide    = 13.0
+	chalkPart    = 0.62
+	chalkEvery   = 7
+	chalkThick   = 2
+	chalkDeep    = 14
+	flintInChalk = 0.1
+)
+
 // column builds the ground of one column, and the water over it.
 func (t terrain) column(x, z int, l land) {
 	// What the top block is, what the few blocks under it are, and how many of those.
@@ -323,6 +339,11 @@ func (t terrain) column(x, z int, l land) {
 		}
 	}
 
+	// Beds of ochre in the rock of the badlands, and of chalk in the stone near the top
+	// of every land: each lies in some columns and not others, and at some layers.
+	ochre := l.biome == Badlands && smooth(float64(x)/ochreWide, float64(z)/ochreWide, t.seed+61) > ochrePart
+	chalk := smooth(float64(x)/chalkWide, float64(z)/chalkWide, t.seed+62) > chalkPart
+
 	lx, lz := x-t.cx*ChunkSize, z-t.cz*ChunkSize
 	t.put(x, 0, z, Deepstone, false)
 	for y := 1; y <= l.top; y++ {
@@ -341,6 +362,15 @@ func (t terrain) column(x, z int, l land) {
 			b = under
 		default:
 			b = t.below.ore(x, y, z, lx, lz, t.seed)
+		}
+		switch {
+		case ochre && (b == Redrock || b == Sandstone) && (y+int(t.seed%ochreEvery))%ochreEvery == 0:
+			b = OchreSeam
+		case chalk && b == Stone && y > l.top-chalkDeep && (y+int(t.seed%chalkEvery))%chalkEvery < chalkThick:
+			b = ChalkSeam
+			if lattice3(x, y, z, t.seed+63) < flintInChalk {
+				b = FlintSeam // a nodule of flint, as real chalk has
+			}
 		}
 		t.put(x, y, z, b, false)
 	}

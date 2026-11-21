@@ -85,6 +85,9 @@ const (
 
 	Tar
 
+	OchreSeam
+	ChalkSeam
+
 	blockCount
 )
 
@@ -238,6 +241,11 @@ var infos = [256]Info{
 	// Tar is no solid thing: what walks into it sinks, slowly, and is held. It is black,
 	// lets no light through, and comes away in the hand.
 	Tar: dig(Info{Name: "tar", Top: tile.Tar, Side: tile.Tar, Bottom: tile.Tar, Shade: MaxLight}, 1.2),
+
+	// What paint is ground from. Ochre is a red earth that lies in beds in the rock of
+	// the badlands, and chalk a soft white rock with flint in it. Both break by hand.
+	OchreSeam: byPick(cube("ochre", tile.OchreSeam), 1.2, 0),
+	ChalkSeam: byPick(cube("chalk", tile.ChalkSeam), 1.0, 0),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for
