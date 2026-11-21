@@ -2,8 +2,12 @@ package render
 
 import (
 	"math"
+	"sync"
 
 	"glonk.dev/bitmap"
+	"glonk.dev/engine"
+	"glonk.dev/geometry"
+	"glonk.dev/mesh"
 
 	"github.com/kyrokohan/skyspear/internal/assets"
 	"github.com/kyrokohan/skyspear/internal/world"
@@ -25,11 +29,25 @@ type mask [assets.Levels][]uint8
 // round it reaches.
 const sprayReach = 6.0
 
-// makeMasks draws every picture.
-func makeMasks() (m [world.Pictures]mask) {
-	m[world.Hand] = drawMask(handPaint)
-	m[world.Spiral] = drawMask(spiralPaint)
-	return m
+// masks are every picture, drawn once: they are the same for every renderer.
+var (
+	masks     [world.Pictures]mask
+	masksOnce sync.Once
+)
+
+// makeMasks returns every picture: the hand, the spiral and the comet drawn by code, and
+// each kind of beast from its own body, as Beasts draws it.
+func makeMasks(set *assets.Set) [world.Pictures]mask {
+	masksOnce.Do(func() {
+		masks[world.Hand] = drawMask(handPaint)
+		masks[world.Spiral] = drawMask(spiralPaint)
+		masks[world.Comet] = drawMask(cometPaint)
+		beasts := NewBeasts(set)
+		for k := range Kinds {
+			masks[world.FirstBeast+world.Picture(k)] = drawMask(silhouette(beasts, k))
+		}
+	})
+	return masks
 }
 
 // drawMask makes a mask from how much paint there is at each point of a face, from 0 to
@@ -99,6 +117,79 @@ func spiralPaint(x, y float64) float64 {
 		near = min(near, math.Abs(r-outer/turns*(a/(2*math.Pi)+float64(k))))
 	}
 	return (half + soft - near) / soft
+}
+
+// cometPaint is the Skyspear: a round head high on the left, and a tail that widens and
+// fades down to the right.
+func cometPaint(x, y float64) float64 {
+	const head, long = 3.5, 22.0
+	dx, dy := x-9, y-9
+	if math.Hypot(dx, dy) < head {
+		return 1
+	}
+	along, across := (dx+dy)/math.Sqrt2, math.Abs(dx-dy)/math.Sqrt2
+	if along < 0 || along > long {
+		return 0
+	}
+	wide := 2 + 4*along/long
+	return min((wide-across)/0.8, 1) * (1 - 0.5*along/long)
+}
+
+// shapeSide is how many pixels across a beast is drawn before it is made a mask: enough
+// that a pixel of the mask is the mean of many.
+const shapeSide = 128
+
+// shapeMargin is how many pixels of the mask are left bare round a beast.
+const shapeMargin = 2
+
+// silhouette draws a kind of beast side on and far off, and returns how much of each
+// point of a mask its body covers, as a solid shape: as large as it fits, in the middle.
+func silhouette(b *Beasts, k Kind) func(x, y float64) float64 {
+	fb, err := engine.NewFrameBuffer(shapeSide, shapeSide/2)
+	if err != nil {
+		panic(err) // the size is fixed and fine
+	}
+	c := fb.Canvas()
+	width, height := Size(k, false)
+	back, front := Span(k, false)
+	long := max(back+front, height, width)
+	var x0, y0, x1, y1 int
+	// Some of a beast can reach past its box, a neck or a tail: one that runs off the
+	// edge of the view is drawn again from twice as far.
+	for try := 0; try < 4; try, long = try+1, 2*long {
+		far := 10 * long
+		cam := mesh.Camera{Position: geometry.Vector3{Y: height / 2, Z: -far}, FOV: 2 * math.Atan(0.75*long/far), Far: 2 * far}
+		c.Clear()
+		b.Draw(c, cam, []Beast{{Kind: k, Yaw: math.Pi / 2, Light: 1}}, NewSky(Noon))
+		x0, y0, x1, y1 = shapeSide, shapeSide, 0, 0 // the box round what was drawn
+		for y := range shapeSide {
+			for x := range shapeSide {
+				if !c.At(x, y).IsDefault() {
+					x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x+1), max(y1, y+1)
+				}
+			}
+		}
+		if x0 > 0 && y0 > 0 && x1 < shapeSide && y1 < shapeSide {
+			break
+		}
+	}
+	cover := make([]float64, maskSide*maskSide)
+	if x1 <= x0 {
+		return func(x, y float64) float64 { return 0 }
+	}
+	scale := float64(maskSide-2*shapeMargin) / float64(max(x1-x0, y1-y0)) // pixels of the mask to one drawn
+	ox := (maskSide - scale*float64(x1-x0)) / 2
+	oy := (maskSide - scale*float64(y1-y0)) / 2
+	for y := y0; y < y1; y++ {
+		for x := x0; x < x1; x++ {
+			if !c.At(x, y).IsDefault() {
+				mx, my := int(ox+scale*(float64(x-x0)+0.5)), int(oy+scale*(float64(y-y0)+0.5))
+				cover[my*maskSide+mx] += scale * scale
+			}
+		}
+	}
+	// A pixel of the mask half covered is painted in full, so that the shape is solid.
+	return func(x, y float64) float64 { return 2 * cover[int(y)*maskSide+int(x)] }
 }
 
 // speck is a number from 0 to 1 that is the same for a pixel each time and unlike its

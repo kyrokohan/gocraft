@@ -32,7 +32,7 @@ func TestPaintIsDrawnOnlyWhereThePictureIs(t *testing.T) {
 		for level := range assets.Levels {
 			m, side := r.masks[p][level], maskSide>>level
 			if len(m) != side*side {
-				t.Fatalf("the %s at level %d has %d pixels, wanted %d", p.Name(), level, len(m), side*side)
+				t.Fatalf("picture %d at level %d has %d pixels, wanted %d", p, level, len(m), side*side)
 			}
 			for i, a := range m {
 				u, v := (float64(i%side)+0.5)/float64(side), (float64(i/side)+0.5)/float64(side)
@@ -40,11 +40,11 @@ func TestPaintIsDrawnOnlyWhereThePictureIs(t *testing.T) {
 				got := r.painted(stone, paintedAt(0, 0, 0, p), u, v, level)
 				switch {
 				case a == 0 && got != stone:
-					t.Fatalf("the %s at level %d painted %x at %d, where it has no paint", p.Name(), level, got, i)
+					t.Fatalf("picture %d at level %d painted %x at %d, where it has no paint", p, level, got, i)
 				case a == 255:
 					c, was := unpack(got), unpack(stone)
 					if int(c.r)-int(c.g) <= max(int(was.r)-int(was.g), 0) {
-						t.Fatalf("the %s at level %d left %x at %d, wanted it red: the stone was %x", p.Name(), level, got, i, stone)
+						t.Fatalf("picture %d at level %d left %x at %d, wanted it red: the stone was %x", p, level, got, i, stone)
 					}
 				}
 			}
@@ -147,5 +147,29 @@ func BenchmarkPaintedWall(b *testing.B) {
 	for b.Loop() {
 		c.Clear()
 		r.Draw(c, w, facing, noon)
+	}
+}
+
+// Every beast is painted as itself: its body side on as a solid shape, big enough to see
+// and not a block of paint, and no two alike. A long thin one, a rattlewing or a
+// logcrawler, covers little of the face, as it is. The comet is a head and a tail.
+func TestEveryBeastIsPaintedAsItsOwnShape(t *testing.T) {
+	if int(Kinds) != world.BeastKinds {
+		t.Fatalf("the world counts %d kinds of beast, and there are %d", world.BeastKinds, Kinds)
+	}
+	r := newRenderer(t)
+	seen := map[string]Kind{}
+	for k := range Kinds {
+		m := r.masks[world.FirstBeast+world.Picture(k)]
+		if c := coverage(m); c < 0.07 || c > 2.0/3 {
+			t.Errorf("a %s covers %.2f of the face", k, c)
+		}
+		if other, ok := seen[string(m[0])]; ok {
+			t.Errorf("a %s is painted as a %s is", k, other)
+		}
+		seen[string(m[0])] = k
+	}
+	if c := coverage(r.masks[world.Comet]); c < 0.08 || c > 0.5 {
+		t.Errorf("the comet covers %.2f of the face", c)
 	}
 }
