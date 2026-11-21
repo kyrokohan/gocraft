@@ -145,6 +145,7 @@ func (g *Game) strike(p prey) {
 func (g *Game) wound(i int, points, knock float64, carves bool) {
 	from := g.player.Pos
 	c := &g.fauna.all[i]
+	g.meet(beastPicture(c.kind))
 	if c.hit(from, points) {
 		c.carved = carves
 	}

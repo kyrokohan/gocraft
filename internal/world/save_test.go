@@ -49,6 +49,7 @@ func played(t *testing.T) (*World, Meta) {
 		}},
 		Bed:       &Cell{X: 704, Y: 103, Z: 3},
 		Paintings: []Painting{{Side: Side{Cell: Cell{X: 705, Y: 101, Z: 3}, Face: FaceZNeg}, Picture: Spiral, Paint: RedPaint}},
+		Met:       []string{"comet", "daggercat"},
 	}
 }
 
@@ -91,8 +92,8 @@ func TestASavedWorldComesBackAsItWas(t *testing.T) {
 	if !reflect.DeepEqual(back.Pots, meta.Pots) || !slices.Equal(back.Hearths, meta.Hearths) || back.Bed == nil || *back.Bed != *meta.Bed {
 		t.Errorf("the pots, the hearths and the bed came back as %+v, %+v and %v", back.Pots, back.Hearths, back.Bed)
 	}
-	if !slices.Equal(back.Paintings, meta.Paintings) {
-		t.Errorf("the paintings came back as %+v", back.Paintings)
+	if !slices.Equal(back.Paintings, meta.Paintings) || !slices.Equal(back.Met, meta.Met) {
+		t.Errorf("the paintings and what was met came back as %+v and %v", back.Paintings, back.Met)
 	}
 	// The world opens round the player, with what was built there.
 	if !got.Loaded(702, 1) || got.At(705, 102, 3) != Sand {

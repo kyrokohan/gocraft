@@ -227,6 +227,12 @@ var (
 	omenRed    = color{150, 34, 26}
 )
 
+// CometSeen returns how much of the comet is seen in the sky at the hour of the last Set,
+// from 0, none, to 1.
+func (s *Sky) CometSeen() float64 {
+	return s.cometSeen
+}
+
 // SetComet has the comet stand among the stars, as near as near says, from 0, none, to
 // 1, at which it is biggest. It shows from the next Set.
 func (s *Sky) SetComet(near float64) {

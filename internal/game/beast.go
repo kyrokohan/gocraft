@@ -666,7 +666,8 @@ type fauna struct {
 	sounds []said
 	fallen []beast
 	thefts int
-	bitten float64 // points of harm the hunters' bites did the player
+	bitten float64       // points of harm the hunters' bites did the player
+	biters []render.Kind // the kinds of those that did it
 }
 
 func emptyFauna(w *world.World) *fauna {
@@ -987,6 +988,12 @@ func (f *fauna) raise(herd int, from geometry.Vector3) bool {
 	return true
 }
 
+// bite has a beast do the player points of harm this frame.
+func (f *fauna) bite(c *beast, points float64) {
+	f.bitten += points
+	f.biters = append(f.biters, c.kind)
+}
+
 // step moves the beasts for dt seconds, and now and then looks them over: those far
 // behind the player are let go, and a new group is found a place ahead if there are too
 // few of a kind. Those too far off to stand on loaded ground are not moved.
@@ -995,6 +1002,7 @@ func (f *fauna) raise(herd int, from geometry.Vector3) bool {
 // and are gone in fallen, for the game to play and to put down what they leave.
 func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 	f.sounds, f.fallen, f.thefts, f.bitten, f.shove = f.sounds[:0], f.fallen[:0], 0, 0, geometry.Vector3{}
+	f.biters = f.biters[:0]
 	f.treads, f.broken = f.treads[:0], f.broken[:0]
 	f.robbed = max(f.robbed-dt, 0)
 	for herd, a := range f.alarms {
@@ -1127,7 +1135,7 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		c.step(w, dt, middle)
 		if c.dived {
 			c.dived = false
-			f.bitten += galeDive
+			f.bite(c, galeDive)
 			f.sounds = append(f.sounds, said{b.cry, c.kind, c.voice()})
 		}
 		if c.trod != 0 {
@@ -1284,7 +1292,7 @@ func (f *fauna) tread(i int, player geometry.Vector3) {
 	for _, end := range [2]float64{1, -1} {
 		foot := c.Pos.Add(turned.Right().Scale(side * end * b.foot[0])).Add(turned.Forward().Scale(end * b.foot[1]))
 		if math.Hypot(player.X-foot.X, player.Z-foot.Z) <= stampReach {
-			f.bitten += b.stamp
+			f.bite(c, b.stamp)
 			f.shove = f.shove.Add(awayFrom(player, foot, c.Yaw+math.Pi/2).Scale(blowShove * b.stamp))
 		}
 	}
@@ -1751,6 +1759,9 @@ func (g *Game) stepBeasts(dt float64) {
 	f.step(g.world, g.player.Pos, dt)
 	g.seat()
 	g.hang()
+	for _, k := range f.biters {
+		g.meet(beastPicture(k))
+	}
 	if f.bitten > 0 && g.survival {
 		travel(g.world, &g.player.Pos, playerWidth, playerHeight, f.shove) // a blow throws
 		if g.hurt(f.bitten); g.screen != playing {
@@ -1818,6 +1829,7 @@ func (g *Game) stepBeasts(dt float64) {
 		// It runs the player down: a hurt, and a throw the way it runs.
 		c.bumped = bumpWait
 		travel(g.world, &g.player.Pos, playerWidth, playerHeight, mesh.Camera{Yaw: c.Yaw}.Forward().Scale(bumpShove))
+		g.meet(beastPicture(c.kind))
 		g.hurt(b.bump)
 		if g.screen != playing {
 			return // the player fainted
