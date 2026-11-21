@@ -87,6 +87,14 @@ const (
 	ShieldbrowEgg
 	GalewingEgg
 
+	// What a painting is made of: a piece of ochre or of chalk, and the paints ground
+	// from those and from coal.
+	Ochre
+	Chalk
+	RedPaint
+	BlackPaint
+	WhitePaint
+
 	itemEnd
 )
 
@@ -238,6 +246,12 @@ var things = [itemEnd - 256]thing{
 	BuglerEgg - 256:     {name: "bugler's egg", icon: tile.BuglerEgg},
 	ShieldbrowEgg - 256: {name: "shieldbrow's egg", icon: tile.ShieldbrowEgg},
 	GalewingEgg - 256:   {name: "galewing's egg", icon: tile.GalewingEgg},
+
+	Ochre - 256:      {name: "ochre", icon: tile.Ochre},
+	Chalk - 256:      {name: "chalk", icon: tile.Chalk},
+	RedPaint - 256:   {name: "red paint", icon: tile.RedPaint},
+	BlackPaint - 256: {name: "black paint", icon: tile.BlackPaint},
+	WhitePaint - 256: {name: "white paint", icon: tile.WhitePaint},
 }
 
 // obsidianUses is how many uses a tool of obsidian lasts, and skyIronUses one of sky
@@ -425,6 +439,10 @@ func (b Block) Drop() (Item, int) {
 		return Coal, 1
 	case CrystalOre:
 		return CrystalShard, 1
+	case OchreSeam:
+		return Ochre, 1
+	case ChalkSeam:
+		return Chalk, 1
 	}
 	return b.Item(), 1
 }

@@ -159,6 +159,13 @@ const (
 	BuglerEgg
 	ShieldbrowEgg
 	GalewingEgg
+	OchreSeam
+	ChalkSeam
+	Ochre
+	Chalk
+	RedPaint
+	BlackPaint
+	WhitePaint
 
 	// Count is the number of tiles in the strip.
 	Count
