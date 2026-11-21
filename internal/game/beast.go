@@ -62,6 +62,10 @@ const (
 // breed is a kind of beast as it lives: a row of the table. How it looks, and the box
 // that blocks stop it in, is the renderer's.
 type breed struct {
+	// lore is what the card of a painting of it says: what it eats and fears, what it
+	// does to you, and how it is won or killed, in two to four short lines.
+	lore []string
+
 	walk, run float64 // how fast it goes, walking and running
 	gait      float64 // how far its legs swing for each block it goes, in radians
 
@@ -209,12 +213,24 @@ type breed struct {
 // breeds is every kind of beast.
 var breeds = [render.Kinds]breed{
 	render.Mossback: {
+		lore: []string{
+			"grazes alone on the moss",
+			"cannot be hurt: it runs",
+			"three meals of berries or fruit tames it",
+			"keeps out of tar pits",
+		},
 		walk: creatureSpeed, run: 3.4, gait: 6.15,
 		group: [2]int{1, 1}, most: creatureCount,
 		eats: []world.Item{world.Berries, world.Fruit}, meals: 3,
 		call: sound.Call, cry: sound.Cry, callEvery: callEvery,
 	},
 	render.Bugler: {
+		lore: []string{
+			"eats berries, fruit and fiber",
+			"the herd runs when you come within 9 blocks",
+			"a runner hits you for 3 and throws you",
+			"has 16 health; or hatch an egg and ride one",
+		},
 		walk: 1.6, run: 6.5, gait: 2.6,
 		health: 16, bump: 3, meat: 3, hide: 1,
 		heavy:  true,
@@ -226,6 +242,12 @@ var breeds = [render.Kinds]breed{
 		call:  sound.Horn, cry: sound.Alarm, callEvery: 70, carries: 3 * sound.Hearing,
 	},
 	render.Nipper: {
+		lore: []string{
+			"the flock scatters within 5 blocks",
+			"holding food, one darts in from 9 blocks",
+			"it takes a piece and runs",
+			"has 3 health and leaves 1 meat",
+		},
 		walk: 1.8, run: 5.5, gait: 9,
 		health: 3, meat: 1,
 		temper: thief, group: [2]int{3, 5}, most: 10, wary: 5, lure: 9,
@@ -233,6 +255,12 @@ var breeds = [render.Kinds]breed{
 		call:  sound.Chirp, cry: sound.Chirp, callEvery: 18,
 	},
 	render.Quickclaw: {
+		lore: []string{
+			"hunts in the dark, in packs of 2 or 3",
+			"runs faster than you walk; bites for 3",
+			"will not step into torch or hearth light",
+			"has 10 health and leaves a hide",
+		},
 		walk: 2.0, run: 4.8, gait: 4.2,
 		health: 10, bite: 3, meat: 1, hide: 1,
 		temper: hunter, group: [2]int{2, 3}, most: 3, sees: 20, hears: 14,
@@ -243,6 +271,12 @@ var breeds = [render.Kinds]breed{
 
 	// The armed plant-eaters. They are few, strong, and hard to kill.
 	render.Shieldbrow: {
+		lore: []string{
+			"warns within 10 of its young, charges at 6",
+			"a charge hits for 6 and throws you",
+			"slow to turn: something solid saves you",
+			"has 60 health; hatch an egg to raise one",
+		},
 		walk: 1.2, run: 7.0, gait: 1.5,
 		health: 60, meat: 8, hide: 3,
 		heavy:  true,
@@ -255,6 +289,12 @@ var breeds = [render.Kinds]breed{
 		call:  sound.Grunt, cry: sound.Bellow, callEvery: 45, carries: 2 * sound.Hearing,
 	},
 	render.Thornback: {
+		lore: []string{
+			"rattles within 6 blocks and turns its tail",
+			"its tail strikes for 5 and throws you",
+			"it does not run: stay out of tail reach",
+			"has 45 health; leaves 6 meat and 2 hides",
+		},
 		walk: 0.9, run: 1.6, gait: 1.7,
 		health: 45, meat: 6, hide: 2,
 		heavy:  true,
@@ -264,6 +304,12 @@ var breeds = [render.Kinds]breed{
 		call:  sound.Grunt, cry: sound.Rattle, callEvery: 50,
 	},
 	render.Boulderback: {
+		lore: []string{
+			"armor takes 3 off every hit",
+			"a hand or stab does nothing; a club does 1",
+			"a thrown spear does 2, a hardened one 3",
+			"its tail club hits for 7; it does not run",
+		},
 		walk: 0.7, run: 1.2, gait: 2.4,
 		health: 50, armor: 3, meat: 6, hide: 2,
 		heavy:  true,
@@ -275,6 +321,11 @@ var breeds = [render.Kinds]breed{
 
 	// The giant among them: it goes in a pair, slowly, and takes no notice of anything.
 	render.Cloudgrazer: {
+		lore: []string{
+			"takes no notice of you, walks through trees",
+			"keep out from under it: its foot hits for 8",
+			"cannot be hurt and does not run",
+		},
 		walk: 1.0, run: 1.0, gait: 1.15,
 		heavy:  true,
 		temper: herder, group: [2]int{2, 2}, most: 2,
@@ -288,6 +339,12 @@ var breeds = [render.Kinds]breed{
 	// before it is seen; light does not hold it, and only a big fire does; and it is
 	// too strong to kill in the open.
 	render.Dread: {
+		lore: []string{
+			"outruns you; bites for 8 of your 20",
+			"only a big fire holds it: 3 or more fires",
+			"hide crouched in ferns, or in a narrow cave",
+			"a covered pit and spears kill it: 200 health",
+		},
 		walk: 2.2, run: 6.0, gait: 1.25,
 		health: 200, bite: 8, meat: 12, hide: 4,
 		heavy:  true,
@@ -302,6 +359,12 @@ var breeds = [render.Kinds]breed{
 	// shieldbrows does, and its grown ones charge together. A slowclaw goes alone and
 	// takes no notice of anything, until it is hit: then it stands up and comes.
 	render.Snowtusk: {
+		lore: []string{
+			"trumpets within 10 of a calf; charges at 6",
+			"each one hits for 7 and throws you",
+			"crouch, hold fiber, berries or fruit",
+			"feed the calf 5 meals, 3 a day: it is yours",
+		},
 		walk: 1.1, run: 6.0, gait: 1.2,
 		health: 80, meat: 10, hide: 4, tusks: 2,
 		heavy:  true,
@@ -313,6 +376,12 @@ var breeds = [render.Kinds]breed{
 		call: sound.Grunt, cry: sound.Trumpet, callEvery: 50, carries: 2 * sound.Hearing,
 	},
 	render.Slowclaw: {
+		lore: []string{
+			"takes no notice of you, however near",
+			"if hit, it comes slowly and hits for 6",
+			"step away and it does not follow",
+			"has 40 health; leaves 6 meat and 3 hides",
+		},
 		walk: 0.6, run: 1.6, gait: 2.2,
 		health: 40, meat: 6, hide: 3,
 		heavy:  true,
@@ -327,6 +396,12 @@ var breeds = [render.Kinds]breed{
 	// it does quickclaws. A daggercat lives there, alone, and hunts by day: it stalks,
 	// springs, and backs off to spring again, and it will not come at a fire.
 	render.Howler: {
+		lore: []string{
+			"packs of 4 to 6 hunt the steppe at night",
+			"the howl comes 8 seconds before the pack",
+			"quicker than quickclaws; a bite takes 3",
+			"a torch in your hand keeps them off",
+		},
 		walk: 2.2, run: 5.4, gait: 5.0,
 		health: 12, bite: 3, meat: 1, hide: 1,
 		temper: hunter, group: [2]int{4, 6}, most: 6, sees: 26, hears: 18,
@@ -337,6 +412,12 @@ var breeds = [render.Kinds]breed{
 		call:  sound.Growl, cry: sound.Howl, callEvery: 11, carries: 4 * sound.Hearing,
 	},
 	render.Daggercat: {
+		lore: []string{
+			"hunts alone by day; sees you from 26 blocks",
+			"springs from 8 blocks and hits for 10",
+			"two steps to a side and it misses",
+			"it keeps 12 blocks from you by a fire",
+		},
 		walk: 1.5, run: 5.6, gait: 3.4,
 		health: 30, bite: 10, meat: 3, hide: 2,
 		temper: hunter, group: [2]int{1, 1}, most: 1, sees: 26, hears: 12,
@@ -350,6 +431,11 @@ var breeds = [render.Kinds]breed{
 	// over the pools, and darts off when it is hit. A logcrawler creeps on the peat, and
 	// curls up when it is hit: then nothing gets through its plates.
 	render.Rattlewing: {
+		lore: []string{
+			"hangs in the air and never comes down",
+			"does you no harm",
+			"a hand hit sends it off; a spear kills it",
+		},
 		walk: 3.0, run: 8.0, gait: 60,
 		health: 2,
 		moves:  gaitFly, hover: 1.6,
@@ -358,6 +444,12 @@ var breeds = [render.Kinds]breed{
 		call:  sound.Whirr, cry: sound.Whirr, callEvery: 7,
 	},
 	render.Logcrawler: {
+		lore: []string{
+			"creeps on the peat, keeps out of the water",
+			"does you no harm",
+			"when hit it curls up: nothing hurts it",
+			"has 8 health and leaves 2 meat",
+		},
 		walk: 0.5, run: 0.9, gait: 9,
 		health: 8, meat: 2, curls: 6,
 		group: [2]int{1, 1}, most: 3,
@@ -369,6 +461,12 @@ var breeds = [render.Kinds]breed{
 	// day, and is only as quick as the sun has made it. A sailjaw lies in still water
 	// and lunges at what comes near, and does not go far from its water.
 	render.Sunback: {
+		lore: []string{
+			"hunts by day; at noon it outruns you",
+			"slow at sunrise and sunset: walk away",
+			"it lies still in the dark",
+			"bites for 6; has 35 health, 4 meat, 2 hides",
+		},
 		walk: 1.3, run: 6.0, gait: 4.0,
 		health: 35, bite: 6, meat: 4, hide: 2,
 		temper: hunter, group: [2]int{1, 1}, most: 2, sees: 22, hears: 12,
@@ -378,6 +476,12 @@ var breeds = [render.Kinds]breed{
 		call: sound.Hiss, cry: sound.Hiss, callEvery: 30,
 	},
 	render.Sailjaw: {
+		lore: []string{
+			"lies in still water, only its sail shows",
+			"from night 2, it lunges at 5 blocks for 9",
+			"two steps aside dodge it; slow on land",
+			"it goes back to its water after 10 blocks",
+		},
 		walk: 1.0, run: 3.2, gait: 2.2,
 		health: 60, bite: 9, meat: 6, hide: 3,
 		heavy:  true,
@@ -393,6 +497,12 @@ var breeds = [render.Kinds]breed{
 	// come to swim by a player. The deepmaw hunts both, and a player, where the water
 	// is six deep or more: it lies low until it has seen its prey, and then comes up.
 	render.Lakeneck: {
+		lore: []string{
+			"lies far out in deep water, neck above it",
+			"within 12 blocks it sinks and swims off",
+			"swims faster than you; comes back up later",
+			"has 40 health; leaves 6 meat and 2 hides",
+		},
 		walk: 1.2, run: 6.5, gait: 2.0,
 		health: 40, meat: 6, hide: 2,
 		temper: herder, group: [2]int{2, 3}, most: 3, wary: 12,
@@ -400,6 +510,12 @@ var breeds = [render.Kinds]breed{
 		call: sound.Moan, cry: sound.Splash, callEvery: 40, carries: 2 * sound.Hearing,
 	},
 	render.Leapfin: {
+		lore: []string{
+			"goes in schools of 4 to 7 in deep water",
+			"does not fear you: swim within 22 blocks",
+			"the school comes and swims by you",
+			"has 6 health and 2 meat; deepmaw hunts it",
+		},
 		walk: 3.0, run: 7.5, gait: 5.0,
 		health: 6, meat: 2,
 		temper: herder, group: [2]int{4, 7}, most: 7,
@@ -407,6 +523,12 @@ var breeds = [render.Kinds]breed{
 		call: sound.Splash, cry: sound.Splash, callEvery: 9,
 	},
 	render.Deepmaw: {
+		lore: []string{
+			"lies low in water 6 deep or more",
+			"from night 2 it sees you from 26 blocks",
+			"it comes fast: a bite takes 10 of your 20",
+			"in the shallows you are safe from it",
+		},
 		walk: 2.0, run: 7.0, gait: 1.2,
 		health: 160, bite: 10, meat: 12, hide: 4,
 		heavy:  true,
@@ -420,6 +542,12 @@ var breeds = [render.Kinds]breed{
 	// to the water, sleep on high ground, and take no notice of a player. Stiltwings
 	// stalk the badlands on foot, and take to their wings when one comes near.
 	render.Galewing: {
+		lore: []string{
+			"soars over shore and sea; takes no notice",
+			"by day, near its nest, it dives for 2",
+			"hatch an egg by fire; feed it raw meat",
+			"a raised one carries you down from heights",
+		},
 		walk: 6.0, run: 9.0, gait: 1.0,
 		health: 12, meat: 2,
 		moves: gaitSoar, hover: 14, dips: 25, roosts: true,
@@ -430,6 +558,12 @@ var breeds = [render.Kinds]breed{
 		call:  sound.Skree, cry: sound.Skree, callEvery: 35, carries: 3 * sound.Hearing,
 	},
 	render.Stiltwing: {
+		lore: []string{
+			"stalks the badlands on foot, tall as a tree",
+			"within 14 blocks it takes to its wings",
+			"flies about 60 blocks, faster than you walk",
+			"does no harm; has 25 health and 4 meat",
+		},
 		walk: 1.4, run: 9.0, gait: 2.0,
 		health: 25, meat: 4, hide: 1,
 		temper: herder, group: [2]int{1, 2}, most: 2, wary: 14, takes: 10,
