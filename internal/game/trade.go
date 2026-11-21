@@ -120,7 +120,15 @@ func (g *Game) showTo(i int) {
 	held := g.items[g.selected]
 	switch {
 	case one.tribe:
-		one.says(thanks, thanksTime) // one of the tribe greets the player
+		// Shown what a job is done with, one at the fire takes that job. Anything else,
+		// and they greet the player.
+		if j, ok := jobFor(held.Item); ok && held.Count > 0 && !one.follows {
+			one.job, one.errand = j, errandNone
+			one.says(saying{item: held.Item}, thanksTime)
+			g.tell(jobTold[j])
+			return
+		}
+		one.says(thanks, thanksTime)
 		return
 	case held.Count == 0 && one.asks:
 		g.invite(i)

@@ -3,6 +3,7 @@ package game
 import (
 	"math"
 	"math/rand/v2"
+	"slices"
 
 	"glonk.dev/geometry"
 
@@ -165,7 +166,13 @@ func (g *Game) savedTribe() []world.Member {
 	var tribe []world.Member
 	for _, one := range g.people {
 		if one.tribe {
-			tribe = append(tribe, world.Member{Camp: one.camp, Look: one.look, Pos: one.Pos, Yaw: one.Yaw, Follows: one.follows, Away: one.away})
+			m := world.Member{Camp: one.camp, Look: one.look, Pos: one.Pos, Yaw: one.Yaw, Follows: one.follows, Away: one.away, Job: jobNames[one.job]}
+			for _, s := range one.carry {
+				if s.Count > 0 {
+					m.Carry = append(m.Carry, s)
+				}
+			}
+			tribe = append(tribe, m)
 		}
 	}
 	return tribe
@@ -184,6 +191,10 @@ func (g *Game) loadTribe(s world.Meta) {
 		if g.home != nil {
 			one.fire = *g.home
 		}
+		if j := slices.Index(jobNames[:], m.Job); j > 0 {
+			one.job = job(j)
+		}
+		one.picks = copy(one.carry[:], m.Carry) // what they carry, they bring home
 		g.people = append(g.people, one)
 	}
 }

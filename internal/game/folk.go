@@ -50,6 +50,15 @@ type person struct {
 	hurry   bool    // they run, to catch up
 	swing   float64 // how far through a stroke of the drum their arm is, or held up with a flute
 
+	job      job                     // the work the player gave one of the tribe
+	workIn   float64                 // how long before a keeper sees to the hearth again
+	errand   int                     // what a gatherer is on the way to do
+	goal     geometry.Vector3        // and where
+	goalCell world.Cell              // and the cell of it
+	missed   []world.Cell            // the cells of what they could not reach since they were home
+	carry    [gatherLoad]world.Stack // what they carry home
+	picks    int                     // how many things they have picked since
+
 	walking, seated, onGround bool
 	velY, timer               float64
 	aside                     float64          // how much longer they go aside, round what is in their way
@@ -105,9 +114,11 @@ func (g *Game) stepPeople(dt float64) {
 			one.say = one.idle()
 		}
 		if one.Pos.Distance(g.player.Pos) < creatureAwake {
-			if one.follows {
+			switch {
+			case g.work(one, night, dt):
+			case one.follows:
 				one.follow(g.player.Pos, dt)
-			} else {
+			default:
 				one.think(night, dt)
 			}
 			one.step(g.world, dt)
