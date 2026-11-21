@@ -39,8 +39,13 @@ func (inv *inventory) add(s world.Stack) (left int) {
 }
 
 // count returns how many the inventory holds of any of some items.
-func (inv *inventory) count(items []world.Item) (n int) {
-	for _, s := range inv {
+func (inv *inventory) count(items []world.Item) int {
+	return countIn(inv[:], items)
+}
+
+// countIn returns how many some slots hold of any of some items.
+func countIn(slots []world.Stack, items []world.Item) (n int) {
+	for _, s := range slots {
 		if slices.Contains(items, s.Item) {
 			n += s.Count
 		}
@@ -51,9 +56,15 @@ func (inv *inventory) count(items []world.Item) (n int) {
 // use takes n of some items out of the inventory, of the first item of them that it has
 // first, and from the pack before the hotbar. It has them: count says so.
 func (inv *inventory) use(items []world.Item, n int) {
+	useFrom(inv[:], items, n)
+}
+
+// useFrom takes n of some items out of slots, as use does, and returns how many of them
+// it did not find.
+func useFrom(slots []world.Stack, items []world.Item, n int) int {
 	for _, item := range items {
-		for i := len(inv) - 1; i >= 0 && n > 0; i-- {
-			if s := &inv[i]; s.Item == item {
+		for i := len(slots) - 1; i >= 0 && n > 0; i-- {
+			if s := &slots[i]; s.Item == item {
 				took := min(n, s.Count)
 				if s.Count -= took; s.Count == 0 {
 					*s = world.Stack{}
@@ -62,6 +73,7 @@ func (inv *inventory) use(items []world.Item, n int) {
 			}
 		}
 	}
+	return n
 }
 
 // takeOne takes one thing from a slot.

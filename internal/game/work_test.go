@@ -1,16 +1,24 @@
 package game
 
 import (
+	"math"
+	"math/rand/v2"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"glonk.dev/geometry"
 
+	"github.com/kyrokohan/skyspear/internal/render"
 	"github.com/kyrokohan/skyspear/internal/world"
 )
 
-// The pot by the hearth on the test floor, 2 blocks from it.
-var floorPot = world.Cell{X: 8, Y: 6, Z: 10}
+// The pot by the hearth on the test floor, 2 blocks from it, and the place for a
+// knapping stone, 2 blocks from it the other way.
+var (
+	floorPot   = world.Cell{X: 8, Y: 6, Z: 10}
+	floorStone = world.Cell{X: 4, Y: 6, Z: 10}
+)
 
 // atHome is a survival game on the test floor at noon, with the player's hearth and a
 // pot by it, and one of the tribe living there with a job.
@@ -127,16 +135,105 @@ func TestASaveKeepsEachOnesJobAndWhatTheyCarry(t *testing.T) {
 	one.carry[0], one.picks = world.Stack{Item: world.Berries, Count: 2}, 1
 	keeps := member(world.Cell{X: 600, Y: 70}, 5)
 	keeps.job = keeper
-	g.people = append(g.people, keeps)
+	guards := member(world.Cell{X: 900, Y: 70}, 6)
+	guards.job, guards.carry[0] = sentry, world.Stack{Item: world.HardSpear, Count: 1, Wear: 7}
+	g.people = append(g.people, keeps, guards)
 	if err := g.Save(); err != nil {
 		t.Fatal(err)
 	}
 
 	them := ofTribe(savedGame(t, path))
-	if len(them) != 2 {
-		t.Fatalf("%d of the tribe came back, wanted 2", len(them))
+	if len(them) != 3 {
+		t.Fatalf("%d of the tribe came back, wanted 3", len(them))
 	}
 	if them[0].job != gatherer || them[0].carry[0] != (world.Stack{Item: world.Berries, Count: 2}) || them[1].job != keeper {
 		t.Errorf("the first of the tribe came back with job %d carrying %+v, the second with job %d", them[0].job, them[0].carry, them[1].job)
+	}
+	if them[2].job != sentry || them[2].carry[0] != (world.Stack{Item: world.HardSpear, Count: 1, Wear: 7}) {
+		t.Errorf("a guard came back with job %d carrying %+v", them[2].job, them[2].carry[0])
+	}
+}
+
+func TestShowingFlintMakesAKnapperAndGivingASpearAGuard(t *testing.T) {
+	g, one := facingMember(t)
+	holding(g, world.Flint, 2)
+	press(g, 'e')
+	if one.job != knapper || g.items[g.selected].Count != 2 {
+		t.Fatalf("shown flint, one of the tribe has job %d, and the player has %d flint", one.job, g.items[g.selected].Count)
+	}
+	holding(g, world.Spear, 1)
+	press(g, 'e')
+	if one.job != sentry || one.carry[0].Item != world.Spear || g.items[g.selected].Count != 0 {
+		t.Fatalf("given a spear, one of the tribe has job %d and carries %+v, and the player has %d spears", one.job, one.carry[0], g.items[g.selected].Count)
+	}
+	holding(g, world.Stick, 3)
+	press(g, 'e')
+	if one.job != keeper || one.carry[0].Count != 0 || len(g.drops) != 1 || g.drops[0].Item != world.Spear {
+		t.Errorf("shown sticks, a guard has job %d and carries %+v, and %d things lie about", one.job, one.carry[0], len(g.drops))
+	}
+}
+
+func TestAKnapperMakesToolsAtTheKnappingStoneFromTheFlintInThePots(t *testing.T) {
+	g, _ := atHome(t, knapper)
+	pot := g.pot(floorPot)
+	pot.Items[0], pot.Items[1], pot.Items[2] = world.Stack{Item: world.Flint, Count: 5}, world.Stack{Item: world.Stick, Count: 2}, world.Stack{Item: world.Cord, Count: 1}
+	hold(t, g, seconds(30))
+	if inPot(pot, world.Flint) != 5 {
+		t.Fatal("a knapper made something with no knapping stone by the fire")
+	}
+
+	g.world.Set(floorStone.X, floorStone.Y, floorStone.Z, world.KnappingStone)
+	hold(t, g, seconds(90))
+	if axes, knives := inPot(pot, world.HandAxe), inPot(pot, world.FlintKnife); axes != 2 || knives != 1 || inPot(pot, world.Flint) != 0 {
+		t.Errorf("after 90 seconds at the stone the pot holds %d hand axes, %d knives and %d flint", axes, knives, inPot(pot, world.Flint))
+	}
+}
+
+// guarding is atHome with one of the tribe guarding the fire with a spear.
+func guarding(t *testing.T) (*Game, *person) {
+	t.Helper()
+	g, one := atHome(t, sentry)
+	one.carry[0] = world.Stack{Item: world.Spear, Count: 1}
+	return g, one
+}
+
+func TestAGuardWatchesAtTheEdgeOfTheFiresLightAndFightsAHunterThatComes(t *testing.T) {
+	g, one := guarding(t)
+	hold(t, g, seconds(10))
+	mid := cellMid(floorHearth.X, floorHearth.Y, floorHearth.Z)
+	if far := math.Hypot(one.Pos.X-mid.X, one.Pos.Z-mid.Z); math.Abs(far-guardOut) > 1 || one.seated {
+		t.Fatalf("a guard with nothing to fight stands %.1f blocks from the fire", far)
+	}
+
+	c := cat(6.5, 18.5) // 8 blocks from the fire
+	c.rng = rand.New(rand.NewPCG(1, 2))
+	g.fauna.all = []beast{c}
+	hold(t, g, seconds(10))
+	if c := g.fauna.all[0]; c.health >= breeds[render.Daggercat].health {
+		t.Error("in 10 seconds the guard did not hurt the daggercat 8 blocks from the fire")
+	}
+}
+
+func TestGuardsGoOutAfterAKindPaintedByYourFireAndNoOther(t *testing.T) {
+	g, _ := guarding(t)
+	g.fauna.all = []beast{{
+		kind: render.Bugler, Pos: geometry.Vector3{X: 30.5, Y: 6, Z: 30.5}, // 31 blocks from the fire
+		health: breeds[render.Bugler].health, rng: rand.New(rand.NewPCG(1, 2)),
+	}}
+	bugler := world.FirstBeast + world.Picture(render.Bugler)
+	far := world.Side{Cell: world.Cell{X: 31, Y: 5, Z: 10}, Face: world.FaceYPos} // 25 blocks from the fire
+	g.paintings[far] = world.Painting{Side: far, Picture: bugler, Paint: world.RedPaint}
+	hold(t, g, seconds(15))
+	if g.fauna.all[0].health < breeds[render.Bugler].health {
+		t.Fatal("a guard went out after a bugler painted only 25 blocks from the fire")
+	}
+
+	near := world.Side{Cell: world.Cell{X: 10, Y: 5, Z: 14}, Face: world.FaceYPos}
+	g.paintings[near] = world.Painting{Side: near, Picture: bugler, Paint: world.RedPaint}
+	hold(t, g, seconds(30))
+	hurt := len(g.fauna.all) == 1 && g.fauna.all[0].health < breeds[render.Bugler].health
+	killed := len(g.fauna.all) == 0 && slices.ContainsFunc(g.drops, func(d drop) bool { return d.Item == world.Meat })
+	if !hurt && !killed {
+		t.Error("in 30 seconds the guard did not hurt the bugler painted by the fire")
 	}
 }

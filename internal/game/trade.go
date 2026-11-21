@@ -120,10 +120,20 @@ func (g *Game) showTo(i int) {
 	held := g.items[g.selected]
 	switch {
 	case one.tribe:
-		// Shown what a job is done with, one at the fire takes that job. Anything else,
-		// and they greet the player.
+		// Shown what a job is done with, one at the fire takes that job, and puts down
+		// what they carried for the last. A spear they are given. Anything else, and they
+		// greet the player.
 		if j, ok := jobFor(held.Item); ok && held.Count > 0 && !one.follows {
-			one.job, one.errand = j, errandNone
+			if j != one.job {
+				g.unload(one)
+				one.job, one.errand, one.hurry, one.workIn = j, errandNone, false, 0
+			}
+			if j == sentry && one.carry[0].Count == 0 {
+				one.carry[0] = world.Stack{Item: held.Item, Count: 1, Wear: held.Wear}
+				if g.survival {
+					g.items.takeOne(g.selected)
+				}
+			}
 			one.says(saying{item: held.Item}, thanksTime)
 			g.tell(jobTold[j])
 			return

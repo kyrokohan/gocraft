@@ -49,6 +49,7 @@ type person struct {
 	away    float64 // one left behind is on their own way, and at the fire at this day
 	hurry   bool    // they run, to catch up
 	swing   float64 // how far through a stroke of the drum their arm is, or held up with a flute
+	blow    float64 // how much longer a blow of a guard's spear, or of a knapper's stone, is seen
 
 	job      job                     // the work the player gave one of the tribe
 	workIn   float64                 // how long before a keeper sees to the hearth again
@@ -248,9 +249,15 @@ func (one *person) goAside() {
 }
 
 // pose is how a person is drawn. A seated one sits on the ground, which is lower than a
-// rider sits.
+// rider sits. A guard holds their spear.
 func (one *person) pose() render.Person {
 	p := render.Person{Pos: one.Pos, Yaw: one.Yaw, Look: one.look, Stride: one.Stride, Swing: one.swing, Seated: one.seated}
+	if one.blow > 0 {
+		p.Swing = 1 - one.blow/swingTime
+	}
+	if one.job == sentry {
+		p.Held = one.carry[0].Item
+	}
 	if one.seated {
 		p.Pos.Y -= render.SeatHeight - seatLift
 	}
