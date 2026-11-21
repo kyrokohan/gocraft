@@ -138,18 +138,24 @@ func (g *Game) strike(p prey) {
 	}
 }
 
-// wound is a beast hit by the player, with what is in hand or with a thing thrown: it
-// takes points of harm, is knocked back, as many times as far as a hand knocks it, and
-// cries out. A herd runs with it, and a hunter only staggers, unless it is badly hurt
-// and alone. A kill that is carved leaves more.
+// wound is a beast hit by the player, with what is in hand or with a thing thrown. The
+// player meets it, and a kill that is carved leaves more.
 func (g *Game) wound(i int, points, knock float64, carves bool) {
-	from := g.player.Pos
 	c := &g.fauna.all[i]
 	g.meet(beastPicture(c.kind))
-	if c.hit(from, points) {
+	if g.harm(i, g.player.Pos, points, knock) {
 		c.carved = carves
 		g.helped(c)
 	}
+}
+
+// harm is a beast hit from a place, by the player or by one who guards the player's
+// fire: it takes points of harm, is knocked back, as many times as far as a hand knocks
+// it, and cries out. A herd runs with it, and a hunter only staggers, unless it is badly
+// hurt and alone. It reports whether the hit killed it.
+func (g *Game) harm(i int, from geometry.Vector3, points, knock float64) (killed bool) {
+	c := &g.fauna.all[i]
+	killed = c.hit(from, points)
 	c.push = c.push.Scale(knock) // a club sends it farther
 	g.voice(c, breeds[c.kind].cry, 1)
 	if b := &breeds[c.kind]; b.temper == hunter {
@@ -160,6 +166,7 @@ func (g *Game) wound(i int, points, knock float64, carves bool) {
 	} else {
 		g.fauna.raise(c.herd, from) // its herd runs with it
 	}
+	return killed
 }
 
 // feed gives the beast aimed at what is in the player's hand, if it will take it. It
