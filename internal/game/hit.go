@@ -148,6 +148,7 @@ func (g *Game) wound(i int, points, knock float64, carves bool) {
 	g.meet(beastPicture(c.kind))
 	if c.hit(from, points) {
 		c.carved = carves
+		g.helped(c)
 	}
 	c.push = c.push.Scale(knock) // a club sends it farther
 	g.voice(c, breeds[c.kind].cry, 1)

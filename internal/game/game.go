@@ -135,7 +135,13 @@ type Game struct {
 	// at again, and the pictures they show, made once each.
 	people     []person
 	peopleWait float64
-	bubbles    map[world.Item]*bitmap.Bitmap
+	bubbles    map[saying]*bitmap.Bitmap
+
+	// The person the player aims at, by their place in the list, and how much each camp
+	// trusts the player, by the cell of its fire.
+	talkTo      int
+	personAimed bool
+	trust       map[world.Cell]int
 
 	player  Player
 	saved   bool // the world is the one in the save file
@@ -287,7 +293,7 @@ func New(opts Options) (*Game, error) {
 	}
 	g := &Game{
 		opts: opts, set: set, rend: render.New(set), beasts: render.NewBeasts(set), look: render.NewDrops(set),
-		folk: render.NewPeople(set), bubbles: map[world.Item]*bitmap.Bitmap{},
+		folk: render.NewPeople(set), bubbles: map[saying]*bitmap.Bitmap{},
 		exact: true, box: mesh.Cube(1), settings: loadSettings(opts.Settings),
 		ears: sound.NewMixer(set.Sounds), noises: rand.New(rand.NewPCG(1, 0x736f756e)),
 		scatter: rand.New(rand.NewPCG(2, 0x62697473)),
@@ -378,6 +384,7 @@ func (g *Game) Save() error {
 	m.Pots, m.Hearths = g.savedStores()
 	m.Paintings = g.savedPaintings()
 	m.Met = g.savedMet()
+	m.Camps = g.savedCamps()
 	m.Bed = g.bed
 	return g.world.Save(g.opts.SavePath, m)
 }

@@ -94,9 +94,13 @@ func (g *Game) aim() {
 	if g.prey, g.preyed = g.aimCreature(origin, direction, limit); g.preyed {
 		g.aimed = false
 	}
-	// An egg in front of both, within a hand's reach, is aimed at in their place.
-	if g.egged, g.eggAimed = g.aimEgg(origin, direction, min(limit, reach)); g.eggAimed {
+	// A person in front of them, within a hand's reach, is aimed at in their place, and
+	// an egg in front of all of them.
+	if g.talkTo, g.personAimed = g.aimPerson(origin, direction, min(limit, reach)); g.personAimed {
 		g.aimed, g.preyed = false, false
+	}
+	if g.egged, g.eggAimed = g.aimEgg(origin, direction, min(limit, reach)); g.eggAimed {
+		g.aimed, g.preyed, g.personAimed = false, false, false
 	}
 }
 
@@ -247,7 +251,7 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		if clicked || places {
 			g.selected = slot
 		}
-		g.aimed, g.preyed, g.eggAimed, g.digging = false, false, false, 0
+		g.aimed, g.preyed, g.eggAimed, g.personAimed, g.digging = false, false, false, false, 0
 		return
 	}
 	places = places || keyDown(in.Pressed, 'e')
@@ -261,6 +265,13 @@ func (g *Game) build(in *engine.Input, dt float64) {
 		// An egg is aimed at: Q, E or a click takes it.
 		if g.digging = 0; clicked || places || keyDown(in.Pressed, 'q') {
 			g.takeEgg(g.egged)
+		}
+		return
+	}
+	if g.personAimed {
+		// A person is aimed at: E or a right click shows them what is in hand.
+		if g.digging = 0; places {
+			g.showTo(g.talkTo)
 		}
 		return
 	}

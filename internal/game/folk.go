@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"slices"
+	"strconv"
 
 	"glonk.dev/bitmap"
 	"glonk.dev/engine"
@@ -30,9 +31,6 @@ const (
 	sideTime   = 0.8  // how long a person goes aside round what is in their way, in seconds
 )
 
-// campWants are the things the people of the camps want.
-var campWants = []world.Item{world.Meat, world.Hide, world.Flint, world.Amber, world.Tusk, world.CrystalShard, world.Berries}
-
 // person is one of the people of a camp.
 type person struct {
 	Pos         geometry.Vector3
@@ -40,7 +38,9 @@ type person struct {
 	look        int
 	fire        world.Cell // the fire of their camp
 	seat        float64    // the way from the fire to their place by it, in radians
-	want        world.Item // what they show over their head
+	want        world.Item // what they want, which they show over their head
+	say         saying     // what they show now
+	sayFor      float64    // and for how much longer, before they show their want again
 
 	walking, seated, onGround bool
 	velY, timer               float64
@@ -54,7 +54,7 @@ type person struct {
 func campPeople(w *world.World, fire world.Cell) []person {
 	rng := rand.New(rand.NewPCG(uint64(w.Seed), uint64(uint32(fire.X))<<32|uint64(uint32(fire.Z))))
 	them := make([]person, 3+rng.IntN(3))
-	looks := rng.Perm(assets.PersonLooks)
+	looks, wants := rng.Perm(assets.PersonLooks), campMarket(w.Seed, fire).wants
 	for i := range them {
 		seat := 2 * math.Pi * (float64(i) + 0.4*rng.Float64()) / float64(len(them))
 		at := cellMid(fire.X, fire.Y, fire.Z).Add(geometry.Vector3{X: 4 * math.Cos(seat), Z: 4 * math.Sin(seat)})
@@ -65,10 +65,11 @@ func campPeople(w *world.World, fire world.Cell) []person {
 				break
 			}
 		}
+		want := wants[rng.IntN(len(wants))]
 		them[i] = person{
 			Pos: at, Yaw: rng.Float64() * 2 * math.Pi, look: looks[i], fire: fire, seat: seat,
-			want: campWants[rng.IntN(len(campWants))],
-			rng:  rand.New(rand.NewPCG(uint64(w.Seed), rng.Uint64())),
+			want: want, say: saying{item: want},
+			rng: rand.New(rand.NewPCG(uint64(w.Seed), rng.Uint64())),
 		}
 	}
 	return them
@@ -83,7 +84,11 @@ func (g *Game) stepPeople(dt float64) {
 	}
 	night := g.fauna.sun < sunUp
 	for i := range g.people {
-		if one := &g.people[i]; one.Pos.Distance(g.player.Pos) < creatureAwake {
+		one := &g.people[i]
+		if one.sayFor -= dt; one.sayFor <= 0 {
+			one.say = saying{item: one.want}
+		}
+		if one.Pos.Distance(g.player.Pos) < creatureAwake {
 			one.think(night, dt)
 			one.step(g.world, dt)
 		}
@@ -233,7 +238,7 @@ func (g *Game) sayings(c *engine.Canvas, cam mesh.Camera) {
 		if !ok {
 			continue
 		}
-		pic := g.bubble(one.want)
+		pic := g.bubble(one.say)
 		w := int(math.Round(saySize / (2 * depth * math.Tan(fov/2)) * float64(c.Height())))
 		if w < 6 {
 			continue // too small to make out
@@ -249,10 +254,11 @@ const (
 	bubbleTail = 3
 )
 
-// bubble returns the picture of an item on a pale ground with a dark edge, and a tail
-// under it, as a person shows it. Each is made once.
-func (g *Game) bubble(item world.Item) *bitmap.Bitmap {
-	if b := g.bubbles[item]; b != nil {
+// bubble returns what a person says as a picture on a pale ground with a dark edge, and
+// a tail under it: a thing, with how many in its corner when there are more than one, or
+// a hand stenciled in red on stone, for thanks. Each is made once.
+func (g *Game) bubble(s saying) *bitmap.Bitmap {
+	if b := g.bubbles[s]; b != nil {
 		return b
 	}
 	b := bitmap.New(bubbleSide, bubbleSide+bubbleTail)
@@ -276,7 +282,10 @@ func (g *Game) bubble(item world.Item) *bitmap.Bitmap {
 			b.Set(x, bubbleSide+i, sayPale)
 		}
 	}
-	icon := g.set.Icons[item.Icon()]
+	icon := g.set.Icons[s.item.Icon()]
+	if s.hand {
+		icon = g.rend.Picture(world.Painting{Picture: world.Hand, Paint: world.RedPaint}, world.Stone, false)
+	}
 	for y := range icon.Height() {
 		for x := range icon.Width() {
 			if p := icon.At(x, y); !p.IsDefault() {
@@ -284,6 +293,39 @@ func (g *Game) bubble(item world.Item) *bitmap.Bitmap {
 			}
 		}
 	}
-	g.bubbles[item] = b
+	if s.count > 1 {
+		count(b, s.count, bubbleSide-3, bubbleSide-3)
+	}
+	g.bubbles[s] = b
 	return b
+}
+
+// digits are the figures a count is drawn in, three pixels wide and five high.
+var digits = [10][5]string{
+	{"###", "#.#", "#.#", "#.#", "###"}, {".#.", "##.", ".#.", ".#.", "###"},
+	{"###", "..#", "###", "#..", "###"}, {"###", "..#", "###", "..#", "###"},
+	{"#.#", "#.#", "###", "..#", "..#"}, {"###", "#..", "###", "..#", "###"},
+	{"###", "#..", "###", "#.#", "###"}, {"###", "..#", ".#.", ".#.", ".#."},
+	{"###", "#.#", "###", "#.#", "###"}, {"###", "#.#", "###", "..#", "###"},
+}
+
+// count draws a number into a picture with its last figure's lower right corner at x, y:
+// dark figures on a pale ground a pixel wider all round, so it reads over the thing.
+func count(b *bitmap.Bitmap, n, x, y int) {
+	text := strconv.Itoa(n)
+	left := x - 4*len(text) + 2
+	for py := y - 5; py <= y+1; py++ {
+		for px := left - 1; px <= x+1; px++ {
+			b.Set(px, py, sayPale)
+		}
+	}
+	for i, d := range text {
+		for row, line := range digits[d-'0'] {
+			for col, c := range line {
+				if c == '#' {
+					b.Set(left+4*i+col, y-4+row, sayEdge)
+				}
+			}
+		}
+	}
 }
