@@ -47,6 +47,7 @@ func TestABrokenBlockDropsWhatItIsMadeOf(t *testing.T) {
 		{Leaves, NoItem, 0},
 		{Fern, Fiber, 1},
 		{TallFern, Fiber, 2},
+		{DryBush, Fiber, 1},
 		{FlintSeam, Flint, 1},
 	} {
 		if item, count := tc.block.Drop(); item != tc.item || count != tc.count {

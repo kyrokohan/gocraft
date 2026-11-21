@@ -43,7 +43,7 @@ const (
 	Meat // raw, from a beast that died
 
 	// The things of the stone age.
-	Fiber // from a fern
+	Fiber // from a fern, or a tussock of dry grass
 	Cord  // twisted from fiber
 	Flint
 	Hide
@@ -395,7 +395,7 @@ func (b Block) DigWith(hand Item) (seconds float64, yields bool) {
 // itself, and nothing for leaves and grass that crumble away.
 func (b Block) Drop() (Item, int) {
 	switch b {
-	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fronds, FanLeaves, ScaleCrown, DryBush, Fire, HotCore:
+	case Air, Water, Leaves, PineNeedles, PaleLeaves, Fronds, FanLeaves, ScaleCrown, Fire, HotCore:
 		return NoItem, 0
 	case PalmCrown:
 		return PalmSeeds, 2
@@ -403,7 +403,7 @@ func (b Block) Drop() (Item, int) {
 		return Coal, 1 // what is left of the wood burns well
 	case HearthLit:
 		return Hearth.Item(), 1 // broken, it goes out
-	case Fern:
+	case Fern, DryBush:
 		return Fiber, 1
 	case TallFern:
 		return Fiber, 2
