@@ -217,3 +217,18 @@ func TestACampFireSmokesAndCrackles(t *testing.T) {
 		t.Error("the camp's fire does not crackle")
 	}
 }
+
+func TestAPersonWhoClimbedOneBlockStepsDownAgain(t *testing.T) {
+	g, _ := floorCamp(t)
+	g.days = 0.2 // noon
+	g.world.Set(20, 6, 22, world.Cobble)
+	g.people = g.people[:1]
+	one := &g.people[0]
+	one.Pos, one.timer = geometry.Vector3{X: 20.5, Y: 7, Z: 22.5}, 0
+	for range 30 {
+		if hold(t, g, seconds(1)); one.Pos.Y < 6.5 {
+			return
+		}
+	}
+	t.Errorf("a person on a block one high is still on it after 30 seconds, at %.1f, %.1f, %.1f", one.Pos.X, one.Pos.Y, one.Pos.Z)
+}

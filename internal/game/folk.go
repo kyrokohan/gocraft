@@ -198,7 +198,7 @@ func (one *person) step(w *world.World, dt float64) {
 		ahead := mesh.Camera{Yaw: one.Yaw}.Forward()
 		front := one.Pos.Add(ahead.Scale(playerWidth/2 + lookAhead))
 		fire := w.At(int(math.Floor(front.X)), int(math.Floor(one.Pos.Y+0.1)), int(math.Floor(front.Z))) == world.Fire
-		switch climb, blocked := lookAheadOf(w, one.Pos, ahead, playerWidth, playerHeight, 1, 1, true, solid); {
+		switch climb, blocked := lookAheadOf(w, one.Pos, ahead, playerWidth, playerHeight, 1, 2, true, solid); {
 		case climb > 0 && !fire:
 			if one.onGround {
 				one.velY = creatureHop
