@@ -107,7 +107,7 @@ func TestNothingGrowsOrLiesInACampButItsFireAndHuts(t *testing.T) {
 		for z := fire.Z - campReach; z <= fire.Z+campReach; z++ {
 			for x := fire.X - campReach; x <= fire.X+campReach; x++ {
 				for y := landAt(x, z, s).top + 1; y < Height; y++ {
-					if b := blockIn(chunks, x, y, z); !slices.Contains([]Block{Air, Fire, Tent, Dirt, Cobble, Water}, b) {
+					if b := blockIn(chunks, x, y, z); !slices.Contains([]Block{Air, Fire, Tent, Dirt, Turf, Cobble, Water}, b) {
 						t.Fatalf("seed %d: a %s stands in the camp at %d, %d, %d", seed, b.Info().Name, x, y, z)
 					}
 				}
@@ -128,5 +128,20 @@ func TestATentBreaksIntoHide(t *testing.T) {
 func TestAWorldNotMadeFromASeedHasNoCamps(t *testing.T) {
 	if fires := New().Camps(0, 0, 1000); fires != nil {
 		t.Errorf("an empty world has camps: %v", fires)
+	}
+}
+
+func TestTheGroundRoundACampsFireIsLevel(t *testing.T) {
+	for seed := int64(1); seed <= 10; seed++ {
+		fire := firstFire(t, seed)
+		chunks := around(seed, fire)
+		for z := fire.Z - yardReach; z <= fire.Z+yardReach; z++ {
+			for x := fire.X - yardReach; x <= fire.X+yardReach; x++ {
+				under, at := blockIn(chunks, x, fire.Y-1, z), blockIn(chunks, x, fire.Y, z)
+				if !under.Info().Solid || at != Air && at != Fire {
+					t.Fatalf("seed %d: by the fire, at %d, %d the ground is %s under %s", seed, x, z, under.Info().Name, at.Info().Name)
+				}
+			}
+		}
 	}
 }

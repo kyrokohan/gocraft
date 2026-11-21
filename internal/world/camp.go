@@ -16,7 +16,8 @@ const (
 	campApart  = 96 // and no other camp lies nearer to it than this, along x or z
 	firstTries = 48 // the places that are tried for the first camp, until one will hold it
 	campClear  = 20 // how high over its ground a camp is cleared of what grew or lay there
-	hutOut     = 6  // how far from the fire a hut's middle stands
+	yardReach  = 4  // the ground this near the fire, along x or z, is made level with it
+	hutOut     = 6  // how far from the fire a hut's middle stands, along x or z
 	hutBlocks  = 24 // the blocks of tent in a hut: two rings of walls, a roof and its top
 )
 
@@ -110,7 +111,8 @@ func inCamp(x, z int, camps []camp) bool {
 }
 
 // camp builds a camp's part in this chunk. Its ground is cleared of what grew there, and
-// of anything else the seed put there first. The fire burns on the middle of a ring of
+// of anything else the seed put there first, and the ground round the fire is made level,
+// so its people can walk to it and sit by it. The fire burns on the middle of a ring of
 // stones laid in the ground, and the huts stand round it.
 func (t terrain) camp(c camp) {
 	for z := c.z - campReach; z <= c.z+campReach; z++ {
@@ -127,16 +129,26 @@ func (t terrain) camp(c camp) {
 			}
 		}
 	}
-	for dz := -1; dz <= 1; dz++ {
-		for dx := -1; dx <= 1; dx++ {
-			t.raise(c.x+dx, c.z+dz, c.y-1)
-			t.put(c.x+dx, c.y, c.z+dz, Cobble, false)
+	for dz := -yardReach; dz <= yardReach; dz++ {
+		for dx := -yardReach; dx <= yardReach; dx++ {
+			x, z := c.x+dx, c.z+dz
+			t.raise(x, z, c.y-1)
+			for y := c.y + 1; y <= landAt(x, z, t.seed).top; y++ {
+				t.put(x, y, z, Air, false) // where the ground stood higher
+			}
+			top := Turf
+			if abs(dx) <= 1 && abs(dz) <= 1 {
+				top = Cobble
+			}
+			t.put(x, c.y, z, top, false)
 		}
 	}
 	t.put(c.x, c.y+1, c.z, Fire, false)
 	for i := range c.huts {
+		// hutOut along x or along z, whichever is farther, so a hut keeps out of the yard.
 		a := c.turn + 2*math.Pi*float64(i)/float64(c.huts)
-		t.hut(c.x+int(math.Round(hutOut*math.Cos(a))), c.z+int(math.Round(hutOut*math.Sin(a))), a+math.Pi)
+		out := hutOut / max(math.Abs(math.Cos(a)), math.Abs(math.Sin(a)))
+		t.hut(c.x+int(math.Round(out*math.Cos(a))), c.z+int(math.Round(out*math.Sin(a))), a+math.Pi)
 	}
 }
 
