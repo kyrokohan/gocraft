@@ -76,6 +76,7 @@ const (
 
 	settingsScreen // the settings, over the title or the paused world
 	picking        // the pictures that can be painted, over the world standing still
+	reading        // the card of a painting, over the world standing still
 )
 
 // The lines of the menus. What a line does is decided by its text, so the order of a
@@ -227,6 +228,10 @@ type Game struct {
 	// looks round for more.
 	met      [world.Pictures]bool
 	meetWait float64
+
+	// The painting whose card is open, and its picture, large.
+	card        world.Painting
+	cardPicture *bitmap.Bitmap
 
 	notice     string  // a line over play, of what was just done
 	noticeLeft float64 // seconds it stays
@@ -570,6 +575,12 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		g.usePicker(in, escape)
 		return nil
 	}
+	if g.screen == reading {
+		if escape || keyDown(in.Started, 'e') {
+			g.show(playing)
+		}
+		return nil
+	}
 
 	// A menu: the title's, its questions, the pause menu's, the settings, or the one to
 	// wake from. A new world's name and seed are typed.
@@ -867,7 +878,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	g.sky.SetWings(g.farWings(cam))
 	g.rend.Draw(c, g.world, cam, g.sky)
 	g.drawThings(c, cam, behind)
-	if g.aimed && (g.screen == playing || g.screen == paused || g.screen == picking) {
+	if g.aimed && (g.screen == playing || g.screen == paused || g.screen == picking || g.screen == reading) {
 		// The outline lies on the faces of the block, which the rays have drawn with
 		// their depth, so glonk draws it whole there and hides it behind what is nearer.
 		g.box.Transform.Position = geometry.Vector3{
@@ -916,5 +927,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		g.drawSettings(fb)
 	case picking:
 		g.drawPicker(fb, c)
+	case reading:
+		g.drawCard(fb, c)
 	}
 }

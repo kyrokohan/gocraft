@@ -368,7 +368,8 @@ func compareCells(a, b world.Cell) int {
 // useBlock does what E does to a block aimed at, when that is not to build against it:
 // it lies down on a fur bed, lights the unlit torches in hand at a fire, lights a cold
 // hearth that has fuel with the torch in hand, and opens a pot or a hearth, the last
-// three in survival. It reports whether it did.
+// three in survival. With a paint in hand on rock it opens the picker, and on a painting
+// with anything else in hand it shows the painting's card. It reports whether it did.
 func (g *Game) useBlock(t world.Hit) bool {
 	c := world.Cell{X: t.X, Y: t.Y, Z: t.Z}
 	held := &g.items[g.selected]
@@ -389,6 +390,8 @@ func (g *Game) useBlock(t world.Hit) bool {
 		g.openStore(world.ClayPot, c)
 	case held.Item.IsPaint() && world.Paintable(t.Block):
 		g.openPicker(t)
+	case g.paintings[sideOf(t)] != (world.Painting{}):
+		g.openCard(g.paintings[sideOf(t)], t.Block)
 	default:
 		return false
 	}

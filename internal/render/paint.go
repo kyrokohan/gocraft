@@ -230,18 +230,23 @@ func (r *Renderer) painted(pixel uint32, p world.Painting, u, v float64, level i
 	return 0xFF000000 | c.r<<16 | c.g<<8 | c.b
 }
 
-// PictureSide is how many pixels across Picture makes a painting.
+// PictureSide is how many pixels across Picture makes a painting when it is small: for
+// the picker, which shows many. A painting's card shows it twice as large.
 const PictureSide = maskSide / 2
 
 // Picture returns a painting as it looks on a kind of block, face on and with no light
-// on it: for the picker, which shows what can be painted.
-func (r *Renderer) Picture(p world.Painting, on world.Block) *bitmap.Bitmap {
-	pic := bitmap.New(PictureSide, PictureSide)
+// on it, PictureSide pixels across or, large, twice that.
+func (r *Renderer) Picture(p world.Painting, on world.Block, large bool) *bitmap.Bitmap {
+	side, level := PictureSide, 1
+	if large {
+		side, level = maskSide, 0
+	}
+	pic := bitmap.New(side, side)
 	hit := world.Hit{Block: on, Face: p.Face}
-	for i := range PictureSide * PictureSide {
-		x, y := i%PictureSide, i/PictureSide
-		u, v := (float64(x)+0.5)/PictureSide, (float64(y)+0.5)/PictureSide
-		pic.Set(x, y, unpack(r.painted(r.texel(hit, u, v, 0), p, u, v, 1)).engine())
+	for i := range side * side {
+		x, y := i%side, i/side
+		u, v := (float64(x)+0.5)/float64(side), (float64(y)+0.5)/float64(side)
+		pic.Set(x, y, unpack(r.painted(r.texel(hit, u, v, 0), p, u, v, level)).engine())
 	}
 	return pic
 }

@@ -26,10 +26,10 @@ const (
 
 // openPicker shows the picker, to paint the face of rock a ray met with the paint in hand.
 func (g *Game) openPicker(t world.Hit) {
-	g.wall, g.pick = world.Side{Cell: world.Cell{X: t.X, Y: t.Y, Z: t.Z}, Face: t.Face}, 0
+	g.wall, g.pick = sideOf(t), 0
 	g.shown = g.shown[:0]
 	for _, p := range g.known() {
-		g.shown = append(g.shown, g.rend.Picture(world.Painting{Side: g.wall, Picture: p, Paint: g.items[g.selected].Item}, t.Block))
+		g.shown = append(g.shown, g.rend.Picture(world.Painting{Side: g.wall, Picture: p, Paint: g.items[g.selected].Item}, t.Block, false))
 	}
 	g.digging = 0
 	g.show(picking)
