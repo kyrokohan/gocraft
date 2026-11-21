@@ -66,23 +66,23 @@ func (f *fauna) threat(i int, player geometry.Vector3) (at geometry.Vector3, nea
 	return at, near
 }
 
-// strike has a guard's charge or tail hit what is within reach of a point: the player,
-// whom it throws the way given, and any hunter. It reports whether it hit anything.
-func (f *fauna) strike(i int, at geometry.Vector3, reach float64, way, player geometry.Vector3) (hit bool) {
+// strike has a guard's charge or tail hit what is within reach of a point, for so many
+// points: the player, whom it throws the way given, and any hunter. A ridden one spares
+// its rider, and does not ram the dread. It reports whether it hit anything.
+func (f *fauna) strike(i int, at geometry.Vector3, reach, points float64, way, player geometry.Vector3) (hit bool) {
 	c := &f.all[i]
-	b := &breeds[c.kind]
 	_, height := render.Size(c.kind, false)
 	within := func(p geometry.Vector3) bool {
 		return math.Hypot(p.X-at.X, p.Z-at.Z) <= reach && p.Y > c.Pos.Y-playerHeight && p.Y < c.Pos.Y+height
 	}
-	if within(player) {
-		f.bitten += b.blow
-		f.shove = f.shove.Add(way.Scale(blowShove * b.blow))
+	if within(player) && !c.ridden {
+		f.bitten += points
+		f.shove = f.shove.Add(way.Scale(blowShove * points))
 		hit = true
 	}
 	for j := range f.all {
-		if h := &f.all[j]; breeds[h.kind].temper == hunter && !h.dead && within(h.Pos) {
-			h.hit(c.Pos, b.blow)
+		if h := &f.all[j]; breeds[h.kind].temper == hunter && !h.dead && within(h.Pos) && !(c.ridden && breeds[h.kind].cows) {
+			h.hit(c.Pos, points)
 			f.sounds = append(f.sounds, said{breeds[h.kind].cry, h.kind, h.voice()})
 			hit = true
 		}
@@ -138,7 +138,7 @@ func (f *fauna) guard(i int, player geometry.Vector3, dt float64) {
 		c.Yaw = turnToward(c.Yaw, yawOf(at), chargeTurn*dt)
 		c.walking, c.hurry, c.timer = true, true, max(c.timer, rethink)
 		head := c.Pos.Add(ahead.Scale(front - width/2))
-		if c.ire -= dt; f.strike(i, head, width/2+blowReach, ahead, player) || c.ire <= 0 {
+		if c.ire -= dt; f.strike(i, head, width/2+blowReach, b.blow, ahead, player) || c.ire <= 0 {
 			c.ire, c.rest = 0, chargeRest
 			c.walking, c.timer = false, rethink
 		}
@@ -155,7 +155,7 @@ func (f *fauna) guard(i int, player geometry.Vector3, dt float64) {
 			if ahead.X*to.Z-ahead.Z*to.X > 0 {
 				c.lashSide = -1 // to the side the threat is on
 			}
-			f.strike(i, tail, b.swings, awayFrom(foe, c.Pos, c.Yaw), player)
+			f.strike(i, tail, b.swings, b.blow, awayFrom(foe, c.Pos, c.Yaw), player)
 		}
 	case near < b.warns:
 		// It turns on the threat, lowers its head and cries out.
@@ -164,5 +164,26 @@ func (f *fauna) guard(i int, player geometry.Vector3, dt float64) {
 		cry()
 	case b.rears && !c.walking:
 		c.lower = true // it has stopped, and stands up as it does to feed from a tree
+	}
+}
+
+// ram has a ridden beast that rams go on with the charge its rider set off, for dt
+// seconds: head down, at ramSpeed, the way its rider faces. The first hunter its head
+// meets takes its blow and is thrown back, and that ends the charge. It cannot charge
+// again until it has rested.
+func (f *fauna) ram(i int, player geometry.Vector3, dt float64) {
+	c := &f.all[i]
+	b := &breeds[c.kind]
+	c.rest = max(c.rest-dt, 0)
+	if c.lower = c.ire > 0; !c.lower {
+		return
+	}
+	c.reined, c.walking = ramSpeed, true
+	width, _ := render.Size(c.kind, false)
+	_, front := render.Span(c.kind, false)
+	ahead := mesh.Camera{Yaw: c.Yaw}.Forward()
+	head := c.Pos.Add(ahead.Scale(front - width/2))
+	if c.ire -= dt; f.strike(i, head, width/2+blowReach, b.rams, ahead, player) || c.ire <= 0 {
+		c.ire, c.rest = 0, ramRest
 	}
 }

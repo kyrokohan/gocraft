@@ -294,6 +294,15 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 		}
 		return
 	}
+	if m := f.mount(); m != nil && quarry == nil && breeds[m.kind].rams >= c.health {
+		// The charge of the beast the player rides would kill it: it keeps off, out of
+		// reach, and waits.
+		c.walking, c.hurry, c.timer = far < ramKeep, false, max(c.timer, rethink)
+		if c.Yaw = yawOf(to); c.walking {
+			c.Yaw = yawOf(to.Neg())
+		}
+		return
+	}
 	if far > 1e-6 {
 		c.Yaw = yawOf(to)
 	}

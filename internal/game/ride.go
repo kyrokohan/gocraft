@@ -14,6 +14,11 @@ const (
 	gather   = 1.5  // how many seconds a beast ridden with W held takes to go from a walk to its run
 	backPace = 0.5  // how much of a walk it backs at
 	setGap   = 0.05 // how far from its mount a rider is set down
+
+	ramTime  = 2.0  // how long the charge of a beast that rams lasts, at the most
+	ramSpeed = 8.0  // how fast it charges
+	ramRest  = 4.0  // from the end of a charge to the next
+	ramKeep  = 10.0 // how far off its rider a hunter its charge would kill keeps
 )
 
 // mount returns the beast the player rides, or nil.
@@ -48,8 +53,9 @@ func (g *Game) getOn(p prey) bool {
 }
 
 // ride turns the player by the keys, and has the beast it rides go as they say, the way
-// the player faces: W on at a walk, and on to its run while it is held; S back; A and D
-// turn, as the arrows do; Space jumps. C gets the player down.
+// the player faces: W on at a walk, the player's or its own if that is slower, and on to
+// its run while it is held; S back; A and D turn, as the arrows do. Space jumps, or sets
+// off a charge. C gets the player down.
 func (g *Game) ride(m *beast, c controls, dt float64) {
 	p := &g.player
 	p.Turn((c.turn+c.strafe)*turnSpeed*dt, c.tilt*tiltSpeed*dt)
@@ -57,16 +63,21 @@ func (g *Game) ride(m *beast, c controls, dt float64) {
 		g.getDown(m)
 		return
 	}
+	b := &breeds[m.kind]
+	walk := min(walkSpeed, b.ride)
 	switch {
 	case c.forward > 0:
 		g.urge = min(g.urge+dt/gather, 1)
-		m.reined = walkSpeed + (breeds[m.kind].ride-walkSpeed)*g.urge
+		m.reined = walk + (b.ride-walk)*g.urge
 	case c.forward < 0:
-		g.urge, m.reined = 0, -backPace*walkSpeed
+		g.urge, m.reined = 0, -backPace*walk
 	default:
 		g.urge, m.reined = 0, 0
 	}
-	m.Yaw, m.walking, m.jumping = p.Yaw, m.reined != 0, c.rise
+	m.Yaw, m.walking, m.jumping = p.Yaw, m.reined != 0, c.rise && b.clears > 0
+	if c.rise && b.rams > 0 && m.ire == 0 && m.rest == 0 {
+		m.ire = ramTime
+	}
 }
 
 // seat puts the player on the back of the beast it rides. One that has lost all its
