@@ -267,3 +267,11 @@ func TestASaveKeepsWhoCameToYourFire(t *testing.T) {
 		}
 	}
 }
+
+func TestANewWorldHasNoneOfTheTribeOfTheLast(t *testing.T) {
+	g, _ := joined(t)
+	g.newWorld(5)
+	if len(g.people) != 0 || g.home != nil {
+		t.Errorf("a new world begins with %d people and the fire %v of the last", len(g.people), g.home)
+	}
+}
