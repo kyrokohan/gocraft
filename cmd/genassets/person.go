@@ -11,7 +11,8 @@ type look struct {
 	spots, beard           bool // the hide is spotted; the face has a beard
 }
 
-// looks are the cave people a player can be. internal/assets says how many there are.
+// looks are the cave people a player can be, and the people of the camps are.
+// internal/assets says how many there are.
 var looks = []look{
 	{skin: rgb{198, 142, 100}, hair: rgb{40, 32, 30}, hide: rgb{124, 88, 56}, trim: rgb{214, 196, 160}},
 	{skin: rgb{120, 78, 52}, hair: rgb{30, 26, 26}, hide: rgb{178, 142, 92}, trim: rgb{92, 64, 44}, spots: true},
@@ -19,6 +20,19 @@ var looks = []look{
 	{skin: rgb{176, 128, 86}, hair: rgb{76, 50, 34}, hide: rgb{88, 64, 48}, trim: rgb{176, 132, 84}},
 	{skin: rgb{94, 62, 44}, hair: rgb{170, 166, 160}, hide: rgb{136, 96, 60}, trim: rgb{232, 226, 210}, beard: true},
 	{skin: rgb{210, 160, 118}, hair: rgb{198, 172, 114}, hide: rgb{204, 176, 128}, trim: rgb{110, 76, 50}, spots: true},
+
+	// The people of the camps wear these too, and so the same skins, hairs and hides come
+	// again in new mixes, with some of their own.
+	{skin: rgb{226, 180, 146}, hair: rgb{40, 32, 30}, hide: rgb{156, 104, 64}, trim: rgb{70, 48, 34}},
+	{skin: rgb{120, 78, 52}, hair: rgb{170, 166, 160}, hide: rgb{60, 52, 46}, trim: rgb{196, 170, 120}, beard: true},
+	{skin: rgb{176, 128, 86}, hair: rgb{170, 74, 38}, hide: rgb{186, 170, 140}, trim: rgb{120, 84, 56}, spots: true},
+	{skin: rgb{94, 62, 44}, hair: rgb{30, 26, 26}, hide: rgb{204, 176, 128}, trim: rgb{60, 44, 34}},
+	{skin: rgb{198, 142, 100}, hair: rgb{198, 172, 114}, hide: rgb{112, 100, 72}, trim: rgb{218, 204, 170}, beard: true},
+	{skin: rgb{210, 160, 118}, hair: rgb{76, 50, 34}, hide: rgb{96, 74, 58}, trim: rgb{214, 196, 160}, spots: true},
+	{skin: rgb{140, 96, 64}, hair: rgb{52, 36, 28}, hide: rgb{166, 132, 96}, trim: rgb{82, 58, 40}},
+	{skin: rgb{236, 196, 164}, hair: rgb{120, 64, 40}, hide: rgb{72, 62, 56}, trim: rgb{200, 184, 150}},
+	{skin: rgb{108, 70, 48}, hair: rgb{40, 32, 30}, hide: rgb{140, 120, 90}, trim: rgb{230, 220, 196}, spots: true, beard: true},
+	{skin: rgb{186, 136, 96}, hair: rgb{140, 136, 130}, hide: rgb{120, 72, 44}, trim: rgb{236, 228, 214}, beard: true},
 }
 
 // personTiles returns the painters of every look's tiles, in the order they are drawn.
@@ -152,4 +166,25 @@ func (l look) leg(seed int) painter {
 		}
 		return l.skinAt(x, y, seed), true
 	}
+}
+
+// tentHide is the hide the people of the camps make their huts of.
+var tentHide = rgb{168, 128, 84}
+
+// tent is hide stretched over poles: panels of it sewn together, the seams stitched in a
+// paler cord, and a pole under one seam.
+func tent(x, y int) (rgb, bool) {
+	c := tentHide.scale(0.86 + 0.24*blotch(x, y, 5, 992))
+	switch {
+	case x == 7:
+		c = rgb{96, 70, 46} // the pole the panels are sewn over
+	case x == 6 || x == 8:
+		c = c.scale(0.8) // the panels' edges, which sag from it
+		if y%3 == 1 {
+			c = rgb{214, 196, 160} // a stitch
+		}
+	case y == 0 || y == size-1:
+		c = c.scale(0.85)
+	}
+	return grain(c, 0.05, x, y, 993), true
 }

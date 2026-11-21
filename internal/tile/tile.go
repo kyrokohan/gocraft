@@ -166,6 +166,7 @@ const (
 	RedPaint
 	BlackPaint
 	WhitePaint
+	Tent
 
 	// Count is the number of tiles in the strip.
 	Count

@@ -88,6 +88,8 @@ const (
 	OchreSeam
 	ChalkSeam
 
+	Tent
+
 	blockCount
 )
 
@@ -246,6 +248,10 @@ var infos = [256]Info{
 	// the badlands, and chalk a soft white rock with flint in it. Both break by hand.
 	OchreSeam: byPick(cube("ochre", tile.OchreSeam), 1.2, 0),
 	ChalkSeam: byPick(cube("chalk", tile.ChalkSeam), 1.0, 0),
+
+	// Tent is hide stretched over poles, which the people of a camp make their huts of.
+	// It is cut away by hand, and leaves the hide.
+	Tent: dig(cube("tent", tile.Tent), 1.0),
 }
 
 // solid is a block that stops the player and lets no light through, with a tile for

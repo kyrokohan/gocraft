@@ -19,7 +19,7 @@ const (
 	crouchedStep = 0.4  // how loud a crouched player's step is, of a walking one's
 	digStroke    = 0.25 // seconds from one stroke of digging to the next
 	crackleTime  = 1.0  // seconds of a hearth's crackle, which is played again as it ends
-	crackleReach = 24.0 // how far off a tree that burns is still heard, in blocks
+	crackleReach = 24.0 // how far off a tree that burns, or a camp's fire, is still heard, in blocks
 	callEvery    = 14.0 // seconds a mossback is quiet for, as a rule
 	dripEvery    = 4.0  // and the water in a cave
 	splashSpeed  = 2.0  // blocks a second down, the least to splash into water at
@@ -140,7 +140,8 @@ func (g *Game) worldSounds(dt float64) {
 				g.ears.Play(sound.Crackle, cellMid(c.X, c.Y, c.Z), 0.8)
 			}
 		}
-		for _, c := range g.world.Struck(g.player.Pos.X, g.player.Pos.Z, crackleReach) {
+		p := g.player.Pos
+		for _, c := range append(g.world.Struck(p.X, p.Z, crackleReach), g.world.Camps(p.X, p.Z, crackleReach)...) {
 			if g.world.At(c.X, c.Y, c.Z) == world.Fire {
 				g.ears.Play(sound.Crackle, cellMid(c.X, c.Y, c.Z), 0.8)
 			}

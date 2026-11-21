@@ -443,6 +443,8 @@ func (b Block) Drop() (Item, int) {
 		return Ochre, 1
 	case ChalkSeam:
 		return Chalk, 1
+	case Tent:
+		return Hide, 1
 	}
 	return b.Item(), 1
 }

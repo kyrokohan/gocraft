@@ -143,7 +143,7 @@ const (
 )
 
 // PersonLooks is how many looks a cave person can have.
-const PersonLooks = 6
+const PersonLooks = 16
 
 // Load reads the pictures built into the program.
 func Load() (*Set, error) {

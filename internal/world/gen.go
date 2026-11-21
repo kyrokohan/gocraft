@@ -101,8 +101,9 @@ func Generate(seed int64) *World {
 func Terrain(seed int64) Generator {
 	s := uint32(seed) ^ uint32(seed>>32)
 	below := new(under) // kept between chunks: it is big, and a chunk is made many times a second
+	first, hasFirst := firstCamp(s)
 	return func(cx, cz int, blocks []Block) {
-		terrain{seed: s, cx: cx, cz: cz, blocks: blocks, below: below}.build()
+		terrain{seed: s, cx: cx, cz: cz, blocks: blocks, below: below, first: first, hasFirst: hasFirst}.build()
 	}
 }
 
@@ -225,6 +226,9 @@ type terrain struct {
 	cx, cz int
 	blocks []Block
 	below  *under // the caves and ores under this chunk
+
+	first    camp // the camp within a walk of where the world begins
+	hasFirst bool
 }
 
 // put sets the block at a place in the world, if the place is in this chunk. Leaves
@@ -262,13 +266,18 @@ func (t terrain) build() {
 
 	t.landmarks()
 	t.mountains()
+	camps := t.camps()
 
 	// The trees whose leaves can reach into this chunk: those rooted in it or within
 	// treeReach of it. A tree takes the place of whatever small thing grew at its foot.
+	// None grows where it would reach into a camp.
 	for gz := floorDiv(z0-treeReach, treeSquare); gz <= floorDiv(z0+ChunkSize-1+treeReach, treeSquare); gz++ {
 		for gx := floorDiv(x0-treeReach, treeSquare); gx <= floorDiv(x0+ChunkSize-1+treeReach, treeSquare); gx++ {
 			x := gx*treeSquare + 2 + int(lattice(gx, gz, t.seed+7002)*3)
 			z := gz*treeSquare + 2 + int(lattice(gx, gz, t.seed+7003)*3)
+			if inCamp(x, z, camps) {
+				continue
+			}
 			t.plant(x, z, landAt(x, z, t.seed), lattice(gx, gz, t.seed+7001), lattice(gx, gz, t.seed+7004))
 		}
 	}
