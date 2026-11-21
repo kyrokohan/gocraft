@@ -220,3 +220,17 @@ func TestASoundThatCarriesIsHeardFromFarther(t *testing.T) {
 		t.Errorf("two away a sound that carries is %v, %v and another %v, %v", fl, fr, l, r)
 	}
 }
+
+func TestTheMusicPlaysInTuneAndAnythingElseAtAPitchOfItsOwn(t *testing.T) {
+	m := mixer(noLoops())
+	for range 3 {
+		for _, n := range []Name{Drum, Tap, Note(0), Note(Notes - 1), Pickup} {
+			m.PlayNear(n, 1)
+		}
+	}
+	for _, v := range m.voices {
+		if tuned := v.clip != Pickup; tuned != (v.rate == 1) {
+			t.Errorf("%s plays at a rate of %.4f", v.clip.File(), v.rate)
+		}
+	}
+}

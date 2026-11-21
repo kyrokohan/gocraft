@@ -66,10 +66,23 @@ const (
 	Clack   // a stiltwing: its long beak, clattered
 	Crackle // a hearth's fire
 	Drip    // water in a cave
-	Wind    // a loop
-	Cave    // a loop
+	Drum    // the low drum of the music people make at night by a fire
+	Tap     // and the high drum
+	Flute1  // the lowest note of the bone flute, and the four after it up its scale
+	Flute2
+	Flute3
+	Flute4
+	Flute5
+	Wind // a loop
+	Cave // a loop
 	Count
 )
+
+// Notes is how many notes the bone flute has: one five-note scale.
+const Notes = 5
+
+// Note is the flute's note i, from the lowest, 0, up.
+func Note(i int) Name { return Flute1 + Name(i) }
 
 // Step, Dig, Break and Place are the sounds of a material.
 func Step(m Material) Name  { return Name(m)*perMaterial + stepOf }
@@ -80,7 +93,8 @@ func Place(m Material) Name { return Name(m)*perMaterial + placeOf }
 var materialNames = [materials]string{"earth", "stone", "sand", "wood", "plant", "glass", "snow"}
 
 var otherNames = [Count - Splash]string{
-	"splash", "pickup", "hurt", "eat", "call", "cry", "horn", "alarm", "chirp", "growl", "screech", "bellow", "grunt", "rattle", "thud", "drone", "roar", "rumble", "geyser", "tremor", "boom", "trumpet", "howl", "snarl", "whirr", "hiss", "moan", "skree", "clack", "crackle", "drip", "wind", "cave",
+	"splash", "pickup", "hurt", "eat", "call", "cry", "horn", "alarm", "chirp", "growl", "screech", "bellow", "grunt", "rattle", "thud", "drone", "roar", "rumble", "geyser", "tremor", "boom", "trumpet", "howl", "snarl", "whirr", "hiss", "moan", "skree", "clack", "crackle", "drip",
+	"drum", "tap", "flute-1", "flute-2", "flute-3", "flute-4", "flute-5", "wind", "cave",
 }
 
 // File is the name of the sound's file: step-wood.wav, say, or splash.wav.
@@ -90,6 +104,12 @@ func (n Name) File() string {
 		return kind + "-" + materialNames[n/perMaterial] + ".wav"
 	}
 	return otherNames[n-Splash] + ".wav"
+}
+
+// Tuned reports whether the sound is one of the notes of the music, which is always
+// played at its own pitch, so that the flute stays in its scale.
+func (n Name) Tuned() bool {
+	return n >= Drum && n <= Flute5
 }
 
 // Loops reports whether the sound is played round and round, as the wind and the air of
