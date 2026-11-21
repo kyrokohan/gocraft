@@ -1613,41 +1613,54 @@ func (c *beast) turnBack() {
 // walk on, hop up onto it, or turn back. solid says which blocks stop the beast.
 func (c *beast) wayAhead(w *world.World, ahead geometry.Vector3, afloat bool, solid func(*world.World, int, int, int) bool) (hop, blocked bool) {
 	width, height := render.Size(c.kind, c.young)
-	front := c.Pos.Add(ahead.Scale(width/2 + lookAhead))
-	x, y, z := int(math.Floor(front.X)), int(math.Floor(c.Pos.Y+0.1)), int(math.Floor(front.Z))
+	// Tar looks like ground, and a beast walks onto it: but one that nothing kills knows
+	// it, and keeps out, and so does one that is the player's.
+	wary := breeds[c.kind].health == 0 || c.tame
+	climb, blocked := lookAheadOf(w, c.Pos, ahead, width, height, max(breeds[c.kind].steps, 1), wary, solid)
+	if climb > 0 {
+		c.climb = climb
+		return c.OnGround || afloat, true
+	}
+	return false, blocked
+}
+
+// lookAheadOf looks at the cell just past the front of a body that stands at pos, width
+// across and height high, going the way ahead, and says what to do about it: walk on,
+// climb onto it, or turn back. climb is how many blocks high the step is, if there is
+// room on top for the whole body, and is never more than steps. A wary body keeps off
+// tar. solid says which blocks stop it.
+func lookAheadOf(w *world.World, pos, ahead geometry.Vector3, width, height float64, steps int, wary bool, solid func(*world.World, int, int, int) bool) (climb int, blocked bool) {
+	front := pos.Add(ahead.Scale(width/2 + lookAhead))
+	x, y, z := int(math.Floor(front.X)), int(math.Floor(pos.Y+0.1)), int(math.Floor(front.Z))
 
 	if solid(w, x, y, z) {
-		// A block at the height of its feet. It is a step the beast can hop, if it is no
-		// higher than its kind climbs, the beast has its feet on something, and there is
-		// room on top for the whole of it.
+		// A block at the height of its feet: a step it can climb, if it is no higher than
+		// steps and there is room on top for the whole of it.
 		high := 1
-		for high < max(breeds[c.kind].steps, 1) && solid(w, x, y+high, z) {
+		for high < steps && solid(w, x, y+high, z) {
 			high++
 		}
 		for up := high; up < high+int(math.Ceil(height)); up++ {
 			if solid(w, x, y+up, z) {
-				return false, true
+				return 0, true
 			}
 		}
-		c.climb = high
-		return c.OnGround || afloat, true
+		return high, true
 	}
 	if in, under := w.At(x, y, z), w.At(x, y-1, z); in == world.Water || under == world.Water || in == world.Lava || under == world.Lava {
-		return false, true // it keeps out of water, and out of lava
+		return 0, true // it keeps out of water, and out of lava
 	}
 	for down := 1; down <= longDrop; down++ {
 		switch below := w.At(x, y-down, z); {
 		case below == world.Water || below == world.Lava:
-			return false, true // water under a bank: it keeps out of that too
+			return 0, true // water under a bank: it keeps out of that too
 		case below == world.Tar:
-			// Tar looks like ground, and a beast walks onto it: but one that nothing
-			// kills knows it, and keeps out, and so does one that is the player's.
-			return false, breeds[c.kind].health == 0 || c.tame
+			return 0, wary
 		case solid(w, x, y-down, z):
-			return false, false // ground to step onto or down to
+			return 0, false // ground to step onto or down to
 		}
 	}
-	return false, true // nothing under it for a long way
+	return 0, true // nothing under it for a long way
 }
 
 // Step moves a beast that goes alone for dt seconds.
