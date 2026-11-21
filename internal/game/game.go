@@ -131,6 +131,12 @@ type Game struct {
 	strode float64
 	paced  bool
 
+	// The people of the camps near the player, the time until the camps near are looked
+	// at again, and the pictures they show, made once each.
+	people     []person
+	peopleWait float64
+	bubbles    map[world.Item]*bitmap.Bitmap
+
 	player  Player
 	saved   bool // the world is the one in the save file
 	started bool // play has begun, so there is something worth saving
@@ -281,7 +287,7 @@ func New(opts Options) (*Game, error) {
 	}
 	g := &Game{
 		opts: opts, set: set, rend: render.New(set), beasts: render.NewBeasts(set), look: render.NewDrops(set),
-		folk:  render.NewPeople(set),
+		folk: render.NewPeople(set), bubbles: map[world.Item]*bitmap.Bitmap{},
 		exact: true, box: mesh.Cube(1), settings: loadSettings(opts.Settings),
 		ears: sound.NewMixer(set.Sounds), noises: rand.New(rand.NewPCG(1, 0x736f756e)),
 		scatter: rand.New(rand.NewPCG(2, 0x62697473)),
@@ -538,6 +544,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 			return nil // a hunter made the player faint
 		}
 		g.lookRound(dt)
+		g.stepPeople(dt)
 		g.worldSounds(dt)
 		g.flash = max(g.flash-dt, 0)
 		g.swing = max(g.swing-dt, 0)
@@ -714,9 +721,10 @@ func (g *Game) changeSetting(i, by int) {
 	}
 }
 
-// drawThings draws what glonk draws into the world, over the blocks: the creatures,
-// which are solid, and then the clouds, which are seen through and so come last. The
-// player's own body is among them when the view is from behind it.
+// drawThings draws what glonk draws into the world, over the blocks: the creatures and
+// the people, which are solid, with what the people say over their heads, and then the
+// clouds, which are seen through and so come last. The player's own body is among the
+// people when the view is from behind it.
 func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera, body bool) {
 	g.poses = g.poses[:0]
 	for i := range g.fauna.all {
@@ -730,7 +738,15 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera, body bool) {
 	if g.cast = g.cast[:0]; body {
 		g.cast = append(g.cast, g.body())
 	}
+	for i := range g.people {
+		if one := &g.people[i]; one.Pos.Distance(cam.Position) < render.ViewDistance {
+			pose := one.pose()
+			pose.Light = g.sky.Brightness(g.lightAt(one.Pos.Add(geometry.Vector3{Y: 1})))
+			g.cast = append(g.cast, pose)
+		}
+	}
 	g.folk.Draw(c, cam, g.cast, g.sky, g.look)
+	g.sayings(c, cam)
 
 	g.lying = g.lying[:0]
 	for _, d := range g.drops {

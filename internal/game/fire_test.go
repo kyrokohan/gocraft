@@ -534,8 +534,8 @@ func TestSmokeRisesFromATreeThatLightningStruck(t *testing.T) {
 		t.Errorf("%d puffs of smoke stand over the struck tree after four seconds, of %d bits", over, len(g.bits))
 	}
 
-	// A fire that has been put out smokes no more.
-	for _, f := range fires {
+	// A fire that has been put out smokes no more. The fire of a camp near is put out too.
+	for _, f := range append(fires, g.world.Camps(g.player.Pos.X, g.player.Pos.Z, smokeReach)...) {
 		g.world.Set(f.X, f.Y, f.Z, world.Air)
 	}
 	hold(t, g, seconds(smokeLife+1))

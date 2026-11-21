@@ -1616,7 +1616,7 @@ func (c *beast) wayAhead(w *world.World, ahead geometry.Vector3, afloat bool, so
 	// Tar looks like ground, and a beast walks onto it: but one that nothing kills knows
 	// it, and keeps out, and so does one that is the player's.
 	wary := breeds[c.kind].health == 0 || c.tame
-	climb, blocked := lookAheadOf(w, c.Pos, ahead, width, height, max(breeds[c.kind].steps, 1), wary, solid)
+	climb, blocked := lookAheadOf(w, c.Pos, ahead, width, height, max(breeds[c.kind].steps, 1), longDrop, wary, solid)
 	if climb > 0 {
 		c.climb = climb
 		return c.OnGround || afloat, true
@@ -1627,9 +1627,9 @@ func (c *beast) wayAhead(w *world.World, ahead geometry.Vector3, afloat bool, so
 // lookAheadOf looks at the cell just past the front of a body that stands at pos, width
 // across and height high, going the way ahead, and says what to do about it: walk on,
 // climb onto it, or turn back. climb is how many blocks high the step is, if there is
-// room on top for the whole body, and is never more than steps. A wary body keeps off
-// tar. solid says which blocks stop it.
-func lookAheadOf(w *world.World, pos, ahead geometry.Vector3, width, height float64, steps int, wary bool, solid func(*world.World, int, int, int) bool) (climb int, blocked bool) {
+// room on top for the whole body, and is never more than steps. It goes down no more
+// than drop blocks. A wary body keeps off tar. solid says which blocks stop it.
+func lookAheadOf(w *world.World, pos, ahead geometry.Vector3, width, height float64, steps, drop int, wary bool, solid func(*world.World, int, int, int) bool) (climb int, blocked bool) {
 	front := pos.Add(ahead.Scale(width/2 + lookAhead))
 	x, y, z := int(math.Floor(front.X)), int(math.Floor(pos.Y+0.1)), int(math.Floor(front.Z))
 
@@ -1650,7 +1650,7 @@ func lookAheadOf(w *world.World, pos, ahead geometry.Vector3, width, height floa
 	if in, under := w.At(x, y, z), w.At(x, y-1, z); in == world.Water || under == world.Water || in == world.Lava || under == world.Lava {
 		return 0, true // it keeps out of water, and out of lava
 	}
-	for down := 1; down <= longDrop; down++ {
+	for down := 1; down <= drop; down++ {
 		switch below := w.At(x, y-down, z); {
 		case below == world.Water || below == world.Lava:
 			return 0, true // water under a bank: it keeps out of that too

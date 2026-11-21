@@ -100,14 +100,15 @@ func (g *Game) puffOf(item world.Item, at geometry.Vector3, size, life, rise flo
 var smokeItem = world.Gravel.Item()
 
 // smoke lets the fires near the player smoke, dt seconds on: the trees that lightning
-// struck, whose smoke stands high and is seen from far off, and the hearths that burn.
+// struck and the fires of the camps, whose smoke stands high and is seen from far off,
+// and the hearths that burn.
 func (g *Game) smoke(dt float64) {
 	if g.smoking -= dt; g.smoking > 0 {
 		return
 	}
 	g.smoking = smokeEvery
 	p := g.player.Pos
-	for _, c := range g.world.Struck(p.X, p.Z, smokeReach) {
+	for _, c := range append(g.world.Struck(p.X, p.Z, smokeReach), g.world.Camps(p.X, p.Z, smokeReach)...) {
 		if g.world.At(c.X, c.Y, c.Z) == world.Fire {
 			g.puff(cellMid(c.X, c.Y+1, c.Z), 0.5, smokeLife)
 		}
