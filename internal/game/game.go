@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"glonk.dev/bitmap"
 	"glonk.dev/engine"
 	"glonk.dev/geometry"
 	"glonk.dev/mesh"
@@ -74,6 +75,7 @@ const (
 	seeding      // and its seed
 
 	settingsScreen // the settings, over the title or the paused world
+	picking        // the pictures that can be painted, over the world standing still
 )
 
 // The lines of the menus. What a line does is decided by its text, so the order of a
@@ -214,6 +216,13 @@ type Game struct {
 	at      world.Cell  // where that is
 	bed     *world.Cell
 
+	// The paintings on the faces of rock, by face; and while the picker is open, the face
+	// it paints, the picture chosen, and how each it can paint looks there.
+	paintings map[world.Side]world.Painting
+	wall      world.Side
+	pick      int
+	shown     []*bitmap.Bitmap
+
 	notice     string  // a line over play, of what was just done
 	noticeLeft float64 // seconds it stays
 
@@ -351,6 +360,7 @@ func (g *Game) Save() error {
 	m.Beasts = g.fauna.saved()
 	m.Eggs = g.fauna.savedEggs()
 	m.Pots, m.Hearths = g.savedStores()
+	m.Paintings = g.savedPaintings()
 	m.Bed = g.bed
 	return g.world.Save(g.opts.SavePath, m)
 }
@@ -540,12 +550,17 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		g.hatch(dt)
 		g.noticeLeft = max(g.noticeLeft-dt, 0)
 		g.build(in, dt)
+		g.keepPaintings()
 		g.carry(dt)
 		return nil
 	}
 	if g.screen == inBag {
 		g.stepHearths(dt) // a hearth that is open is seen to cook
 		g.useBag(in, escape)
+		return nil
+	}
+	if g.screen == picking {
+		g.usePicker(in, escape)
 		return nil
 	}
 
@@ -820,6 +835,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	g.plume()
 	g.rend.Crack = render.Crack{}
 	g.rend.Frost = g.frost()
+	g.rend.Paintings = g.paintings
 	if g.titleShown() {
 		// The world from a little above where the player will stand, turning slowly.
 		cam := g.eyes()
@@ -844,7 +860,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 	g.sky.SetWings(g.farWings(cam))
 	g.rend.Draw(c, g.world, cam, g.sky)
 	g.drawThings(c, cam, behind)
-	if g.aimed && (g.screen == playing || g.screen == paused) {
+	if g.aimed && (g.screen == playing || g.screen == paused || g.screen == picking) {
 		// The outline lies on the faces of the block, which the rays have drawn with
 		// their depth, so glonk draws it whole there and hides it behind what is nearer.
 		g.box.Transform.Position = geometry.Vector3{
@@ -891,5 +907,7 @@ func (g *Game) Draw(fb *engine.FrameBuffer) {
 		g.drawPause(fb)
 	case settingsScreen:
 		g.drawSettings(fb)
+	case picking:
+		g.drawPicker(fb, c)
 	}
 }
