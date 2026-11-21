@@ -47,7 +47,8 @@ func played(t *testing.T) (*World, Meta) {
 			In:   Stack{Item: IronOre.Item(), Count: 2}, Fuel: Stack{Item: Coal, Count: 1}, Out: Stack{Item: IronBar, Count: 4},
 			Burn: 20.5, Burns: 48, Cooked: 2.25,
 		}},
-		Bed: &Cell{X: 704, Y: 103, Z: 3},
+		Bed:       &Cell{X: 704, Y: 103, Z: 3},
+		Paintings: []Painting{{Side: Side{Cell: Cell{X: 705, Y: 101, Z: 3}, Face: FaceZNeg}, Picture: Spiral, Paint: RedPaint}},
 	}
 }
 
@@ -89,6 +90,9 @@ func TestASavedWorldComesBackAsItWas(t *testing.T) {
 	}
 	if !reflect.DeepEqual(back.Pots, meta.Pots) || !slices.Equal(back.Hearths, meta.Hearths) || back.Bed == nil || *back.Bed != *meta.Bed {
 		t.Errorf("the pots, the hearths and the bed came back as %+v, %+v and %v", back.Pots, back.Hearths, back.Bed)
+	}
+	if !slices.Equal(back.Paintings, meta.Paintings) {
+		t.Errorf("the paintings came back as %+v", back.Paintings)
 	}
 	// The world opens round the player, with what was built there.
 	if !got.Loaded(702, 1) || got.At(705, 102, 3) != Sand {
@@ -213,6 +217,8 @@ func TestABrokenWorldFileIsAnErrorAndNeverAPanic(t *testing.T) {
 		"unburnt hearth":  strings.Replace(text, `"burn": 20.5`, `"burn": -1`, 1),
 		"hearth out cold": strings.Replace(text, `"cooked": 2.25`, `"cooked": 1e999`, 1),
 		"bed in the sky":  strings.Replace(text, `"y": 103`, `"y": 500`, 1),
+		"painted no face": strings.Replace(text, `"face": 4`, `"face": 9`, 1),
+		"no such picture": strings.Replace(text, `"picture": 1`, `"picture": 99`, 1),
 	} {
 		if content == text {
 			t.Fatalf("%s: the test did not change the file", name)

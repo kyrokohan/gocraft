@@ -92,6 +92,9 @@ type Meta struct {
 
 	// Torch is how many seconds the torch in the player's hand has burned.
 	Torch float64 `json:"torch,omitempty"`
+
+	// Paintings are the pictures painted on the faces of rock, wherever they are.
+	Paintings []Painting `json:"paintings,omitempty"`
 }
 
 // Ember is a block that burns or glows for a time and then changes: a fire that a
@@ -234,6 +237,7 @@ const (
 	maxDrops     = 1 << 14
 	maxMossbacks = 1 << 10
 	maxStores    = 1 << 12 // pots, and hearths
+	maxPaintings = 1 << 16
 )
 
 // check returns what is wrong with what a save says beside its blocks, or "".
@@ -255,7 +259,7 @@ func (m Meta) check() string {
 	case !finite(m.Torch) || m.Torch < 0:
 		return "its player's torch has burned for no time there is"
 	case len(m.Items) > maxSlots || len(m.Drops) > maxDrops || len(m.Mossbacks) > maxMossbacks || len(m.Beasts) > maxMossbacks ||
-		len(m.Pots) > maxStores || len(m.Hearths) > maxStores:
+		len(m.Pots) > maxStores || len(m.Hearths) > maxStores || len(m.Paintings) > maxPaintings:
 		return "it holds more things than a game can make"
 	case m.Bed != nil && !m.Bed.valid():
 		return "its player's bed is nowhere"
@@ -269,6 +273,11 @@ func (m Meta) check() string {
 		if !k.valid() || !k.In.valid() || !k.Fuel.valid() || !k.Out.valid() ||
 			!finite(k.Burn, k.Burns, k.Cooked) || k.Burn < 0 || k.Burns < 0 || k.Cooked < 0 {
 			return "one of its hearths is not one this game can make"
+		}
+	}
+	for _, p := range m.Paintings {
+		if !p.valid() {
+			return "one of its paintings is not one this game can make"
 		}
 	}
 	for _, s := range m.Items {
