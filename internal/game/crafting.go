@@ -98,6 +98,11 @@ var recipes = func() []recipe {
 		{world.SkyIronPick, 1, []need{of(world.SkyIron, 3), of(world.Stick, 2), of(world.Cord, 1)}, atBench},
 		{world.SkyIronAxe, 1, []need{of(world.SkyIron, 3), of(world.Stick, 2), of(world.Cord, 1)}, atBench},
 		{world.SkyIronSpear, 1, []need{of(world.SkyIron, 1), of(world.Stick, 3), of(world.Cord, 1)}, atBench},
+
+		// Paint is ground on the stone: red of ochre, black of coal, white of chalk.
+		{world.RedPaint, 4, []need{of(world.Ochre, 1)}, atBench},
+		{world.BlackPaint, 4, []need{of(world.Coal, 1)}, atBench},
+		{world.WhitePaint, 4, []need{of(world.Chalk, 1)}, atBench},
 	}
 }()
 

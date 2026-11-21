@@ -30,12 +30,20 @@ type cook struct {
 	makes world.Item
 }
 
-var cooks = []cook{
+var cooks = append([]cook{
 	{world.Meat, 1, world.CookedMeat},
 	{world.PalmSeeds, 1, world.RoastSeeds},
 	{world.Spear, 1, world.HardSpear},
 	{world.SoftPot, 1, world.ClayPot.Item()},
 	{world.Clay.Item(), 1, world.Brick.Item()},
+}, charcoal()...)
+
+// charcoal is what a hearth makes of a log it cooks, with no air: coal.
+func charcoal() (of []cook) {
+	for _, log := range logs {
+		of = append(of, cook{log, 1, world.Coal})
+	}
+	return of
 }
 
 // burnTime is how many seconds a piece of an item burns in a hearth: 0 for what is not
