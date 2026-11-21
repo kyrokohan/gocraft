@@ -37,7 +37,7 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 | C | crouch, and stand again: slow, low and quiet; on a beast you ride, get down |
 | V | the view: through your eyes, or from behind your shoulder |
 | L | the next of six looks for your body |
-| Q / E | break / place the block aimed at (hold to go on); hit / shear a creature aimed at; either takes an egg aimed at, and E with an egg in hand puts it down; E with food in hand eats it, or feeds a young beast of yours aimed at; E on a grown bugler or shieldbrow of yours gets on it; E on a clay pot or a hearth opens it, on a fur bed lies down, and on a fire lights the unlit torches in your hand; hold E with a fire drill on a hearth to light it |
+| Q / E | break / place the block aimed at (hold to go on); hit / shear a creature aimed at; either takes an egg aimed at, and E with an egg in hand puts it down; E with food in hand eats it, or feeds a young beast of yours, or a snowtusk calf, aimed at; E on a grown bugler, shieldbrow or snowtusk of yours gets on it; E on a clay pot or a hearth opens it, on a fur bed lies down, and on a fire lights the unlit torches in your hand; hold E with a fire drill on a hearth to light it |
 | R | throw the spear in your hand, or with a sling in your hand a pebble (hold to go on) |
 | 1 to 9, Tab | pick a slot of the hotbar; the next one |
 | I | your things: move them between the hotbar and the pack, and make things from them (in creative: every block) |
@@ -64,7 +64,7 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 
 **New world** asks how the world is played, and the world keeps that.
 
-- **Survival.** You start with nothing. A block takes time to dig, from a fifth of a second for leaves to five seconds for stone by hand, and cracks show as you dig. Let go, or look away, and it starts again. A broken block drops as a small block of itself (stone as cobble, mossy earth as dirt, a bush as berries, a fern as fiber, a flint seam as flint, and one block of gravel in eight as a flint; leaves crumble away), which you pick up by walking near. You carry 9 slots on the hotbar and 27 in the pack, 64 of a kind to a slot, and placing a block uses one up.
+- **Survival.** You start with nothing. A block takes time to dig, from a fifth of a second for leaves to five seconds for stone by hand, and cracks show as you dig. Let go, or look away, and it starts again. A broken block drops as a small block of itself (stone as cobble, mossy earth as dirt, a bush as berries, a fern or a tussock of dry grass as fiber, a flint seam as flint, and one block of gravel in eight as a flint; leaves crumble away), which you pick up by walking near. You carry 9 slots on the hotbar and 27 in the pack, 64 of a kind to a slot, and placing a block uses one up.
 - **Your body.** Health, food and air show over the hotbar. A fall of more than three blocks hurts, a point for each block more, but not into water. Under water your air lasts 15 seconds, then you drown, slowly. Food goes down a point every 30 seconds; while it is 18 or more of 20 you heal, and at none hunger hurts, though it cannot kill. Berries from bushes, fruit from now and then a leaf, and meat are food. Standing in a fire hurts, 2 points a second. Warmth is a fourth bar, over your health, that shows only when you have lost some: the cold takes it, and a fire gives it back.
 - **Making things.** The I screen lists what you can make, beside your slots: Right from the last column goes into the list, and Enter or a click makes one. A line is dim while you lack something for it, and what a line needs shows under the slots. By hand you make four sticks from a log, a cord from three fibers, a knapping stone from four cobble, a digging stick (2 sticks), a club (a log), a spear (3 sticks), a fur bed (3 hides and 6 moss), a hearth (8 cobble), a fire drill (a stick, a log and a cord), two unlit torches (a stick and resin), a soft pot (4 clay), a sling (2 cords and a hide), four pebbles (a block of gravel) and two pit covers (2 sticks and 2 fibers). Stand within four blocks of a knapping stone to knap flint: a hand axe (2 flint), a flint knife (a flint, a stick and a cord) and a flint pick (3 flint, 2 sticks and a cord). Planks, the workbench, the kiln, the crate, torches of coal and the tools of copper and iron can no longer be made; a world that has them keeps them.
 - **Fire is found.** Here and there stands a tree that lightning struck: a charred trunk that burns at its top, with a limb that fell from it burning at its foot. Its smoke stands nine blocks over it by day, and its fire shows at night. No hand breaks a fire, and no block takes its place: it goes when the log it burns on is broken. A charred log leaves coal.
@@ -209,6 +209,12 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
   - **It is slow and strong:** it walks at 3 blocks a second, W held or not, and nothing knocks it back.
   - **Space charges:** two seconds at 8 blocks a second, head down, the way you face. The first hunter its head meets takes 7 points and is thrown back, and that ends the charge. Then it rests four seconds before it charges again. It does not ram the dread, and the dread hunts it as before.
   - **A hunter that one charge would kill keeps off you,** ten blocks off, while you ride a shieldbrow. None has so little health until it is hurt: a quickclaw or a howler you have charged once keeps off after that.
+- **A snowtusk calf.** A snowtusk is not hatched: you win a young one from its family, with food.
+  - **Crouch, with food it eats in your hand:** fiber, berries or fruit. Then the family lets you come to the calf. Stand up, or come with anything else in hand, and they warn you and charge, as before.
+  - **E feeds it from your hand.** Five meals and it is yours, but it takes no more than three in a day: three one day and two the next win it. A grown snowtusk eats nothing from your hand.
+  - **Then it leaves its family** and follows you, and its family lets it go. It grows as a young beast you hatched does: a meal a day, two days of growing.
+  - **Ride it grown,** with E. It is the slowest of your mounts and the hardest to stop: it walks at 2.5 blocks a second, W held or not, and pushes through leaves. A hunter in its way is run down: 7 points, and thrown aside. It does not run down the dread.
+  - **On its back you keep warm.** The cold of the steppe and of the Long Winter takes none of your warmth while you ride it.
 - **The steppe** is the cold land: snow, tussocks of dry grass through it, and a few trees no taller than five blocks. It takes your warmth at any time of the world. Its beasts stand on the snow.
   - **Snowtusks** go in herds of three to five: three grown, five blocks tall, in long red hair, with a trunk and two tusks, and their young between them. Come within ten blocks of a young one and the grown ones turn on you, lower their heads and trumpet. Come within six, or hit one of the herd, and they charge, together: 7 points each, and you are thrown. 80 points of health, 10 pieces of meat, 4 hides, which is a fur cloak, and from a grown one two tusks. Tusks have no use yet.
   - **Slowclaws** go alone, slow and shaggy, with long arms that end in claws. One takes no notice of you, however near. When it stops it stands up on its hind legs, three blocks tall, as it does to feed from a tree. Hit it and it stands up and comes at where you were, slowly: 6 points. Step away and it does not follow. 40 points of health, 6 pieces of meat and 3 hides.
@@ -233,6 +239,10 @@ The game as it was under its old name still installs, as `gocraft`: `go install 
 ![A cave person riding a bugler on the snow of the steppe, sitting behind its neck, its head carried low and forward](docs/ride.png)
 
 ![A cave person riding a shieldbrow on the sand, sitting high on its broad back behind its lowered head and its shield of bone](docs/ride-shieldbrow.png)
+
+![On the snow of the steppe, seen low from where a cave person crouches with berries in hand: two grown snowtusks, and their calf between them](docs/calf.png)
+
+![A cave person riding a snowtusk on the snow, small on the top of its back over its shoulders, by its trunk and tusks](docs/ride-snowtusk.png)
 
 ![A fire on the prairie with two eggs by it, and beside it a young shieldbrow and a young bugler, each half the size of a grown one](docs/hatch.png)
 
@@ -424,7 +434,7 @@ Skyspear uses glonk v0.12.0, and oto v3.5.1 for sound.
 - A use for crystal, for tusks and for amber.
 - Snow that falls and lies as blocks, and ice on the sea in the winter.
 - Clothes other than the cloak, and a place to wear them.
-- Riding a snowtusk, and a galewing's glide: those are the next steps. Of the beasts you raise a bugler and a shieldbrow are ridden.
+- A galewing's glide: that is the next step. Of the beasts you raise a bugler, a shieldbrow and a snowtusk are ridden.
 - A raft, and fish to eat.
 - A star falls only where the world is loaded, about 100 blocks round you: there are no craters where you were not.
 - Lava that flows.
