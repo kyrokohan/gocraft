@@ -109,12 +109,18 @@ type Renderer struct {
 	// as they are, to 1: the ground of a winter. No block is changed by it.
 	Frost float64
 
+	// Paintings are the pictures painted on the faces of rock, by face. Only faces of rock
+	// are looked up, and none when there are no paintings.
+	Paintings map[world.Side]world.Painting
+
 	tiles    *[tile.Count]assets.Texture
 	faceTile [256][6]tile.ID  // the tile on each face of each kind of block
 	plant    [256]bool        // the kinds of block that are plants: two crossed pictures, and not a cube
 	mat      [256]bool        // the kinds of block that are mats: one picture lying flat
 	glow     [256]world.Light // the light each kind of block gives off
 	shuts    [256]bool        // the kinds of block that cast the soft shadows where blocks meet
+	rock     [256]bool        // the kinds of block that can be painted on
+	masks    [world.Pictures]mask
 
 	wet []wetPixel // the pixels of the last Draw that show water, for Wash
 }
@@ -194,7 +200,7 @@ func (r *Renderer) cracked(pixel uint32, u, v float64, level int) uint32 {
 
 // New returns a renderer that draws blocks with the tiles of set.
 func New(set *assets.Set) *Renderer {
-	r := &Renderer{tiles: &set.Tiles}
+	r := &Renderer{tiles: &set.Tiles, masks: makeMasks()}
 	for b := range r.faceTile {
 		info := world.Block(b).Info()
 		r.faceTile[b] = [6]tile.ID{
@@ -206,6 +212,7 @@ func New(set *assets.Set) *Renderer {
 		r.mat[b] = info.Mat
 		r.glow[b] = world.Light(min(info.Glow, world.MaxLight))
 		r.shuts[b] = info.Solid && !info.Stands() && info.Shade == world.MaxLight
+		r.rock[b] = world.Paintable(world.Block(b))
 	}
 	return r
 }
@@ -389,6 +396,10 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 	var shadedAt world.Hit
 	var shades [4]uint32
 	shaded := false
+	// The face last looked up for a painting, and what is painted on it, if anything.
+	var paintedAt world.Side
+	var painting world.Painting
+	looked, onIt := false, false
 
 	levelAt := func(dist float64) int {
 		level := 0
@@ -458,6 +469,15 @@ func (r *Renderer) Draw(c *engine.Canvas, w *world.World, cam mesh.Camera, sky *
 				if pixel = r.texel(hit, fu, fv, level); pixel>>24 != 0 {
 					if crack := r.Crack; crack.Part > 0 && hit.X == crack.X && hit.Y == crack.Y && hit.Z == crack.Z {
 						pixel = r.cracked(pixel, fu, fv, level)
+					}
+					if r.rock[hit.Block] && len(r.Paintings) > 0 {
+						if side := (world.Side{Cell: world.Cell{X: hit.X, Y: hit.Y, Z: hit.Z}, Face: hit.Face}); !looked || side != paintedAt {
+							painting, onIt = r.Paintings[side]
+							paintedAt, looked = side, true
+						}
+						if onIt {
+							pixel = r.painted(pixel, painting, fu, fv, level)
+						}
 					}
 					light, depth, found = r.lightOn(w, sky, hit), hit.T, true
 					frost, bog = 0, hit.Block == world.Peat
