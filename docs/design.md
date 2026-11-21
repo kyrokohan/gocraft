@@ -242,7 +242,8 @@ Each is settled when its milestone starts. The first choice named is the one lea
 
 - What the Great Fall leaves behind: winter, then spring, and the comet returns.
 - What happens when a tamed beast falls: it limps home and heals.
-- How a new cave person looks, and whether the player chooses.
+- How a new cave person looks, and whether the player chooses: sixteen looks; the seed
+  gives each person of a camp one, and the player picks their own with L.
 - How near a star may fall to what the player built: never within 24 blocks of the bed.
 
 ## Risks
