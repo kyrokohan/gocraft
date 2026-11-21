@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"glonk.dev/engine"
+	"glonk.dev/geometry"
 
 	"github.com/kyrokohan/skyspear/internal/render"
 	"github.com/kyrokohan/skyspear/internal/world"
@@ -15,12 +16,19 @@ import (
 // at x = 0.5 and the z given, facing +z. The player got on with E.
 func mounted(t *testing.T, z float64) (*Game, *beast) {
 	t.Helper()
-	g := among(t, z-2, raised(render.Bugler, 0.5, z, false))
+	return mountedOn(t, render.Bugler, z)
+}
+
+// mountedOn is mounted, on a beast of the kind given: the player got on from behind it.
+func mountedOn(t *testing.T, kind render.Kind, z float64) (*Game, *beast) {
+	t.Helper()
+	back, _ := render.Span(kind, false)
+	g := among(t, z+back-1.4, raised(kind, 0.5, z, false))
 	g.world = wide()
 	hold(t, g, 1, 'e')
 	m := &g.fauna.all[0]
 	if !m.ridden {
-		t.Fatal("E on a tame grown bugler two blocks ahead did not get the player on it")
+		t.Fatalf("E on a tame grown %s just ahead did not get the player on it", kind)
 	}
 	return g, m
 }
@@ -236,5 +244,109 @@ func TestASaveHoldsARider(t *testing.T) {
 	hold(t, back, 2)
 	if m := back.fauna.mount(); m == nil || !onBack(back, m) {
 		t.Errorf("a save of a player on a bugler opened with the player at %v off its back", back.player.Pos)
+	}
+}
+
+func TestARiddenShieldbrowWalksAtThreeAndNothingKnocksItBack(t *testing.T) {
+	g, m := mountedOn(t, render.Shieldbrow, -60.5)
+	hold(t, g, seconds(2), 'w')
+	from := m.Pos.Z
+	hold(t, g, seconds(1), 'w')
+	if went := m.Pos.Z - from; math.Abs(went-3) > 0.2 || !onBack(g, m) {
+		t.Errorf("a shieldbrow ridden with W held for three seconds went %.1f blocks in the last of them: wanted 3", went)
+	}
+	hold(t, g, seconds(0.5))
+	at := m.Pos
+	m.hit(at.Add(geometry.Vector3{Z: 2}), 20)
+	hold(t, g, seconds(1))
+	if moved := m.Pos.Distance(at); moved > 0.05 || !m.ridden {
+		t.Errorf("a ridden shieldbrow hit hard went %.2f blocks; it is ridden: %v", moved, m.ridden)
+	}
+}
+
+func TestARiddenShieldbrowChargesForTwoSecondsAndThenRestsForFour(t *testing.T) {
+	g, m := mountedOn(t, render.Shieldbrow, -60.5)
+	from := m.Pos.Z
+	hold(t, g, 1, ' ')
+	hold(t, g, seconds(1)-1)
+	if went := m.Pos.Z - from; math.Abs(went-8) > 0.6 {
+		t.Errorf("in the first second of a charge a ridden shieldbrow went %.1f blocks: wanted 8", went)
+	}
+	hold(t, g, seconds(1.2))
+	from = m.Pos.Z
+	hold(t, g, seconds(0.5))
+	if went := m.Pos.Z - from; went > 0.1 || m.ire > 0 {
+		t.Errorf("a charge of a ridden shieldbrow went on past two seconds: %.1f blocks more", went)
+	}
+	// From the end of a charge it is four seconds before Space charges again.
+	since := 0.7 // seconds since the charge ended
+	for _, tc := range []struct {
+		after float64 // seconds since the charge ended
+		again bool
+	}{{0.9, false}, {2.5, false}, {3.7, false}, {4.3, true}} {
+		hold(t, g, seconds(tc.after-since))
+		hold(t, g, 1, ' ')
+		since = tc.after + frame
+		if again := m.ire > 0; again != tc.again {
+			t.Errorf("Space %.1f s after a charge ended charged: %v", tc.after, again)
+		}
+	}
+	if !m.ridden || !onBack(g, m) || g.health != maxHealth {
+		t.Errorf("the rider of a charge is on its back: %v, with %v points lost", onBack(g, m), maxHealth-g.health)
+	}
+}
+
+func TestARiddenShieldbrowsChargeThrowsAHunterBackAndSparesTheDread(t *testing.T) {
+	g, _ := mountedOn(t, render.Shieldbrow, 10.5)
+	g.days = midnight
+	g.fauna.all = append(g.fauna.all, claw(0.5, 18.5))
+	hold(t, g, 1, ' ')
+	hold(t, g, seconds(1.5))
+	m, q := &g.fauna.all[0], only(g.fauna.all, render.Quickclaw)
+	b := breeds[render.Shieldbrow]
+	if len(q) != 1 || q[0].health != breeds[render.Quickclaw].health-b.rams || m.ire != 0 {
+		t.Fatalf("a quickclaw in the way of a ridden shieldbrow's charge was hit for %v points; the charge goes on: %v", breeds[render.Quickclaw].health-q[0].health, m.ire > 0)
+	}
+	if far := math.Hypot(q[0].Pos.X-m.Pos.X, q[0].Pos.Z-m.Pos.Z); far < 3 || g.health != maxHealth {
+		t.Errorf("a quickclaw a charge met is %.1f blocks from the shieldbrow, and the rider lost %v points", far, maxHealth-g.health)
+	}
+
+	g, _ = mountedOn(t, render.Shieldbrow, 10.5)
+	g.fauna.all = append(g.fauna.all, dread(0.5, 20.5))
+	hold(t, g, 1, ' ')
+	hold(t, g, seconds(2.5))
+	if d := only(g.fauna.all, render.Dread); len(d) != 1 || d[0].health != breeds[render.Dread].health {
+		t.Errorf("a ridden shieldbrow rammed the dread")
+	}
+}
+
+func TestHuntersAChargeWouldKillKeepOffARiddenShieldbrow(t *testing.T) {
+	for _, tc := range []struct {
+		kind render.Kind
+		away bool
+	}{{render.Shieldbrow, true}, {render.Bugler, false}} {
+		g, _ := mountedOn(t, tc.kind, 10.5)
+		g.days = midnight
+		hurt, whole := claw(-2.5, 28.5), claw(3.5, 28.5)
+		hurt.health = breeds[render.Shieldbrow].rams - 1
+		g.fauna.all = append(g.fauna.all, hurt, whole)
+		closest := map[float64]float64{-2.5: math.Inf(1), 3.5: math.Inf(1)}
+		for range seconds(8) {
+			hold(t, g, 1)
+			for _, q := range only(g.fauna.all, render.Quickclaw) {
+				d := math.Hypot(q.Pos.X-g.player.Pos.X, q.Pos.Z-g.player.Pos.Z)
+				if q.health < breeds[render.Quickclaw].health {
+					closest[-2.5] = min(closest[-2.5], d)
+				} else {
+					closest[3.5] = min(closest[3.5], d)
+				}
+			}
+		}
+		if kept := closest[-2.5] > ramKeep-1; kept != tc.away {
+			t.Errorf("on a %s a hurt quickclaw came within %.1f blocks of the rider", tc.kind, closest[-2.5])
+		}
+		if closest[3.5] > 3 {
+			t.Errorf("on a %s a whole quickclaw came no nearer than %.1f blocks", tc.kind, closest[3.5])
+		}
 	}
 }

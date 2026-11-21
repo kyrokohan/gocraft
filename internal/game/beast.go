@@ -164,9 +164,9 @@ type breed struct {
 	egg   world.Item
 
 	// One that can be ridden: how fast it runs with a rider held on, how high its back
-	// is, how far ahead of its middle the rider sits, and how many blocks high it jumps
-	// when the rider asks.
-	ride, back, seat, clears float64
+	// is, and how far ahead of its middle the rider sits. What Space does: how many blocks
+	// high it jumps, or the points its charge takes.
+	ride, back, seat, clears, rams float64
 
 	// A guard does not run. warns is how near what it guards, its young or itself, a
 	// threat may come before it turns on it and gives its cry. charges is how near
@@ -245,7 +245,8 @@ var breeds = [render.Kinds]breed{
 		temper: guard, group: [2]int{3, 4}, grown: 2, most: 4,
 		warns: 10, charges: 6, blow: 6, steps: 2,
 		nests: 0.5, egg: world.ShieldbrowEgg,
-		eats:  []world.Item{world.Berries, world.Fruit, world.Fiber},
+		eats: []world.Item{world.Berries, world.Fruit, world.Fiber},
+		ride: 3, back: 2.4, seat: -0.6, rams: 7,
 		lands: []world.Biome{world.Prairie},
 		call:  sound.Grunt, cry: sound.Bellow, callEvery: 45, carries: 2 * sound.Hearing,
 	},
@@ -1059,8 +1060,11 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 		if b.temper == hunter && !c.dead {
 			f.hunt(w, i, player, dt)
 		}
-		if b.temper == guard && !c.dead && !c.limping {
+		if b.temper == guard && !c.dead && !c.limping && !c.ridden {
 			f.guard(i, player, dt)
+		}
+		if c.ridden && b.rams > 0 && !c.dead {
+			f.ram(i, player, dt)
 		}
 		var middle *geometry.Vector3
 		if m, ok := middles[c.herd]; ok && b.temper != loner {
