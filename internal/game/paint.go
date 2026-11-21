@@ -24,11 +24,6 @@ const (
 	pickerHint   = " Left, Right: choose   Enter: paint   Esc: leave "
 )
 
-// known returns the pictures the player can paint.
-func (g *Game) known() []world.Picture {
-	return []world.Picture{world.Hand, world.Spiral}
-}
-
 // openPicker shows the picker, to paint the face of rock a ray met with the paint in hand.
 func (g *Game) openPicker(t world.Hit) {
 	g.wall, g.pick = world.Side{Cell: world.Cell{X: t.X, Y: t.Y, Z: t.Z}, Face: t.Face}, 0
@@ -88,29 +83,33 @@ func (g *Game) savedPaintings() []world.Painting {
 }
 
 // drawPicker draws the picker in the middle of the frame: the pictures in a row, the one
-// chosen framed bright, with its name over them and the keys under them. It comes after
-// Canvas.Compose, as the HUD does.
+// chosen framed bright, with its name over them and the keys under them. A row wider than
+// the frame shows the part of it round the one chosen. It comes after Canvas.Compose, as
+// the HUD does.
 func (g *Game) drawPicker(fb *engine.FrameBuffer, c *engine.Canvas) {
-	w := len(g.shown)*pickerPitch + 1
+	fit := max((fb.Width()-1)/pickerPitch, 1)
+	first := min(max(g.pick-fit/2, 0), max(len(g.shown)-fit, 0))
+	shown := g.shown[first:min(first+fit, len(g.shown))]
+	w := len(shown)*pickerPitch + 1
 	x, y := (fb.Width()-w)/2, max((fb.Height()-pickerHeight)/2, 1)
 	widget.Panel{Style: hudFrame, Fill: hudFill}.Draw(fb, x, y, w, pickerHeight)
 	line := hudFrame
 	line.Character = '│'
-	for i := 1; i < len(g.shown); i++ {
+	for i := 1; i < len(shown); i++ {
 		for r := 1; r < pickerHeight-1; r++ {
 			fb.Set(x+i*pickerPitch, y+r, line)
 		}
 	}
-	widget.Panel{Style: hudPick}.Draw(fb, x+g.pick*pickerPitch, y, pickerPitch+1, pickerHeight)
+	widget.Panel{Style: hudPick}.Draw(fb, x+(g.pick-first)*pickerPitch, y, pickerPitch+1, pickerHeight)
 
 	// The pictures are pixels over the cells of the panel, with the world's rubbed out.
 	c.FillRect(x, 2*y, w, 2*pickerHeight, engine.Color{})
-	for i, pic := range g.shown {
+	for i, pic := range shown {
 		pic.Draw(c, x+1+i*pickerPitch, 2*(y+1))
 	}
 	c.ComposeRect(x, 2*y, w, 2*pickerHeight)
 
-	name := " " + g.known()[g.pick].Name() + " "
+	name := " " + nameOf(g.known()[g.pick]) + " "
 	widget.Label{Text: name, Align: widget.Center, Style: hudText}.Draw(fb, 0, y-1, fb.Width())
 	widget.Label{Text: pickerHint, Align: widget.Center, Style: hudText}.Draw(fb, 0, y+pickerHeight, fb.Width())
 }

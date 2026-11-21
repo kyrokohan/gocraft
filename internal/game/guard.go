@@ -80,7 +80,7 @@ func (f *fauna) strike(i int, at geometry.Vector3, reach, points float64, way, p
 		return math.Hypot(p.X-at.X, p.Z-at.Z) <= reach && p.Y > c.Pos.Y-playerHeight && p.Y < c.Pos.Y+height
 	}
 	if within(player) && !c.ridden {
-		f.bitten += points
+		f.bite(c, points)
 		f.shove = f.shove.Add(way.Scale(blowShove * points))
 		hit = true
 	}

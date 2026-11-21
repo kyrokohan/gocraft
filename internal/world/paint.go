@@ -5,14 +5,24 @@ type Picture uint8
 
 // The pictures, in the order a save numbers them.
 const (
-	Hand     Picture = iota // a stencil: the paint blown round a hand, which is left bare
-	Spiral                  // a line that winds out from the middle
-	Pictures                // how many there are
+	Hand       Picture = iota // a stencil: the paint blown round a hand, which is left bare
+	Spiral                    // a line that winds out from the middle
+	Comet                     // the Skyspear: a head and a long tail
+	FirstBeast                // a beast side on: one of the game's kind k is FirstBeast + k
+
+	Pictures = FirstBeast + BeastKinds // how many there are
 )
 
-// Name returns what the picture is called.
+// BeastKinds is how many kinds of beast the game has. A new kind is only ever added
+// after the last, so that a painting of one keeps its number.
+const BeastKinds = 22
+
+// Name returns what a picture is called; for a beast, nothing: the game names its kinds.
 func (p Picture) Name() string {
-	return [Pictures]string{"hand", "spiral"}[p]
+	if p < FirstBeast {
+		return [FirstBeast]string{"hand", "spiral", "comet"}[p]
+	}
+	return ""
 }
 
 // Side is one face of the block in a cell.

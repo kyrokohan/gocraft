@@ -200,7 +200,7 @@ func (r *Renderer) cracked(pixel uint32, u, v float64, level int) uint32 {
 
 // New returns a renderer that draws blocks with the tiles of set.
 func New(set *assets.Set) *Renderer {
-	r := &Renderer{tiles: &set.Tiles, masks: makeMasks()}
+	r := &Renderer{tiles: &set.Tiles, masks: makeMasks(set)}
 	for b := range r.faceTile {
 		info := world.Block(b).Info()
 		r.faceTile[b] = [6]tile.ID{

@@ -280,7 +280,7 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 		switch {
 		case far < biteReach+0.3 && math.Abs(goal.Y-c.Pos.Y) < 2:
 			if quarry == nil {
-				f.bitten += b.bite
+				f.bite(c, b.bite)
 			} else if quarry.hit(c.Pos, b.bite) {
 				c.feeding = b.feeds
 			}
@@ -324,7 +324,7 @@ func (f *fauna) hunt(w *world.World, i int, player geometry.Vector3, dt float64)
 		}
 		c.biteIn = b.snaps
 		if quarry == nil {
-			f.bitten += b.bite
+			f.bite(c, b.bite)
 			return
 		}
 		if f.raise(quarry.herd, c.Pos) {

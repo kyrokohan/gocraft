@@ -223,6 +223,11 @@ type Game struct {
 	pick      int
 	shown     []*bitmap.Bitmap
 
+	// What the player has met and can paint, by picture, and how long until it next
+	// looks round for more.
+	met      [world.Pictures]bool
+	meetWait float64
+
 	notice     string  // a line over play, of what was just done
 	noticeLeft float64 // seconds it stays
 
@@ -361,6 +366,7 @@ func (g *Game) Save() error {
 	m.Eggs = g.fauna.savedEggs()
 	m.Pots, m.Hearths = g.savedStores()
 	m.Paintings = g.savedPaintings()
+	m.Met = g.savedMet()
 	m.Bed = g.bed
 	return g.world.Save(g.opts.SavePath, m)
 }
@@ -526,6 +532,7 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		if g.stepBeasts(dt); g.screen != playing {
 			return nil // a hunter made the player faint
 		}
+		g.lookRound(dt)
 		g.worldSounds(dt)
 		g.flash = max(g.flash-dt, 0)
 		g.swing = max(g.swing-dt, 0)

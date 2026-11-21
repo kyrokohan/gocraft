@@ -95,6 +95,10 @@ type Meta struct {
 
 	// Paintings are the pictures painted on the faces of rock, wherever they are.
 	Paintings []Painting `json:"paintings,omitempty"`
+
+	// Met is what the player has seen and can paint, by name: the kinds of beast, and
+	// the comet. A name this game does not know is let go.
+	Met []string `json:"met,omitempty"`
 }
 
 // Ember is a block that burns or glows for a time and then changes: a fire that a
@@ -238,6 +242,7 @@ const (
 	maxMossbacks = 1 << 10
 	maxStores    = 1 << 12 // pots, and hearths
 	maxPaintings = 1 << 16
+	maxMet       = 1 << 8
 )
 
 // check returns what is wrong with what a save says beside its blocks, or "".
@@ -259,7 +264,7 @@ func (m Meta) check() string {
 	case !finite(m.Torch) || m.Torch < 0:
 		return "its player's torch has burned for no time there is"
 	case len(m.Items) > maxSlots || len(m.Drops) > maxDrops || len(m.Mossbacks) > maxMossbacks || len(m.Beasts) > maxMossbacks ||
-		len(m.Pots) > maxStores || len(m.Hearths) > maxStores || len(m.Paintings) > maxPaintings:
+		len(m.Pots) > maxStores || len(m.Hearths) > maxStores || len(m.Paintings) > maxPaintings || len(m.Met) > maxMet:
 		return "it holds more things than a game can make"
 	case m.Bed != nil && !m.Bed.valid():
 		return "its player's bed is nowhere"
