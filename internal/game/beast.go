@@ -167,9 +167,10 @@ type breed struct {
 	// One that can be ridden: how fast it runs with a rider held on, how high its back
 	// is, and how far ahead of its middle the rider sits. What Space does: how many blocks
 	// high it jumps, or the points its charge takes. One that is hairy keeps its rider
-	// warm, and one that crushes runs down the hunters in its way as it is ridden.
+	// warm, and one that crushes runs down the hunters in its way as it is ridden. One
+	// that glides is not ridden: it carries the player down from a height.
 	ride, back, seat, clears, rams float64
-	hairy, crushes                 bool
+	hairy, crushes, glides         bool
 
 	// A guard does not run. warns is how near what it guards, its young or itself, a
 	// threat may come before it turns on it and gives its cry. charges is how near
@@ -423,7 +424,7 @@ var breeds = [render.Kinds]breed{
 		health: 12, meat: 2,
 		moves: gaitSoar, hover: 14, dips: 25, roosts: true,
 		group: [2]int{1, 2}, most: 3,
-		nests: 1, egg: world.GalewingEgg,
+		nests: 1, egg: world.GalewingEgg, glides: true,
 		eats:  []world.Item{world.Meat},
 		lands: []world.Biome{world.Sea, world.Shore},
 		call:  sound.Skree, cry: sound.Skree, callEvery: 35, carries: 3 * sound.Hearing,
@@ -511,9 +512,10 @@ type beast struct {
 
 	// One the player rides goes as the keys say, and not as it would: at so many blocks
 	// a second this step, back if less than 0, and with a jump.
-	ridden  bool
-	reined  float64
-	jumping bool
+	ridden   bool
+	carrying bool // a galewing that has the player in a glide
+	reined   float64
+	jumping  bool
 
 	// A hunter: how long it still keeps after the player, until it can bite again, how
 	// long it still stands over its kill, how long it has stood in the light, and
@@ -1013,8 +1015,8 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 	middles, wards := f.middles(false), f.middles(true)
 	for i := range f.all {
 		c := &f.all[i]
-		if c.Pos.Distance(player) >= creatureAwake {
-			continue
+		if c.Pos.Distance(player) >= creatureAwake || c.carrying {
+			continue // the game moves one that carries the player
 		}
 		b := &breeds[c.kind]
 		to := geometry.Vector3{X: player.X - c.Pos.X, Z: player.Z - c.Pos.Z}
@@ -1092,6 +1094,12 @@ func (f *fauna) step(w *world.World, player geometry.Vector3, dt float64) {
 			c.pace = coldPace + (1-coldPace)*f.noon
 		}
 		c.abed = b.roosts && f.sun < sunUp
+		if c.tame && b.moves == gaitSoar {
+			c.den, c.denned = player, true // one that is the player's keeps over it by day,
+			if c.abed {
+				c.den = f.home // and roosts by its bed at night
+			}
+		}
 		if !b.warms {
 			c.pace = 0
 		}
@@ -1742,6 +1750,7 @@ func (g *Game) stepBeasts(dt float64) {
 	}
 	f.step(g.world, g.player.Pos, dt)
 	g.seat()
+	g.hang()
 	if f.bitten > 0 && g.survival {
 		travel(g.world, &g.player.Pos, playerWidth, playerHeight, f.shove) // a blow throws
 		if g.hurt(f.bitten); g.screen != playing {
@@ -1918,8 +1927,12 @@ func (c *beast) soar(w *world.World, speed, dt float64) {
 		}
 		c.turn = way * speed / (soarNear + soarWide*c.rng.Float64())
 		if c.abed && !c.roosting {
+			round := c.Pos
+			if c.tame {
+				round = c.den
+			}
 			if c.roost, c.roosting = c.nest, c.nested; !c.nested {
-				c.roost, c.roosting = highGround(w, c.rng, c.Pos, floor, roostTries)
+				c.roost, c.roosting = highGround(w, c.rng, round, floor, roostTries)
 			}
 			c.timer = min(c.timer, 3) // it looks again soon, if it found none
 		}
@@ -1953,11 +1966,16 @@ func (c *beast) soar(w *world.World, speed, dt float64) {
 		if !c.denned {
 			c.den, c.denned = c.Pos, true
 		}
-		c.Yaw += c.turn * dt
-		ahead := mesh.Camera{Yaw: c.Yaw}.Forward()
-		next, home := c.Pos.Add(ahead.Scale(soarAhead)), geometry.Vector3{X: c.den.X - c.Pos.X, Z: c.den.Z - c.Pos.Z}
-		if land, ok := w.Land(next.X, next.Z); ok && !slices.Contains(b.lands, land) || home.Length() > soarRoam && home.Dot(ahead) < 0 {
-			c.Yaw += 2 * c.turn * dt
+		home := geometry.Vector3{X: c.den.X - c.Pos.X, Z: c.den.Z - c.Pos.Z}
+		if c.tame && home.Length() > keepOver {
+			c.Yaw, speed = yawOf(home), b.run // it has fallen behind the player, and comes straight on
+		} else {
+			c.Yaw += c.turn * dt
+			ahead := mesh.Camera{Yaw: c.Yaw}.Forward()
+			next := c.Pos.Add(ahead.Scale(soarAhead))
+			if land, ok := w.Land(next.X, next.Z); ok && !c.tame && !slices.Contains(b.lands, land) || home.Length() > soarRoam && home.Dot(ahead) < 0 {
+				c.Yaw += 2 * c.turn * dt
+			}
 		}
 		switch {
 		case on != world.Water:
