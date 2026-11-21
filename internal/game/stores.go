@@ -317,7 +317,7 @@ func (g *Game) spill(c world.Cell) {
 	}
 }
 
-// loadStores takes the pots, the hearths and the bed from a save.
+// loadStores takes the pots, the hearths, the bed and the paintings from a save.
 func (g *Game) loadStores(s world.Meta) {
 	g.pots, g.hearths, g.bed = map[world.Cell]*world.PotStore{}, map[world.Cell]*world.HearthStore{}, s.Bed
 	for _, c := range s.Pots {
@@ -327,6 +327,10 @@ func (g *Game) loadStores(s world.Meta) {
 	}
 	for _, k := range s.Hearths {
 		g.hearths[k.Cell] = &k
+	}
+	g.paintings = map[world.Side]world.Painting{}
+	for _, p := range s.Paintings {
+		g.paintings[p.Side] = p
 	}
 }
 
@@ -381,6 +385,8 @@ func (g *Game) useBlock(t world.Hit) bool {
 		g.openStore(world.Hearth, c)
 	case t.Block == world.ClayPot && g.survival:
 		g.openStore(world.ClayPot, c)
+	case held.Item.IsPaint() && world.Paintable(t.Block):
+		g.openPicker(t)
 	default:
 		return false
 	}
