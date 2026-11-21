@@ -105,7 +105,7 @@ func (g *Game) aimPerson(origin, dir geometry.Vector3, limit float64) (i int, ok
 			at.Y -= render.SeatHeight - seatLift
 			height = render.SeatHeight + 0.6
 		}
-		if t, hit := rayBox(origin, dir, at, playerWidth*aimWider, height); hit && t < best {
+		if t, hit := rayBox(origin, dir, at, playerWidth*aimWider, height); hit && t < best && one.away == 0 {
 			best, i, ok = t, j, true
 		}
 	}
@@ -118,6 +118,14 @@ func (g *Game) aimPerson(origin, dir geometry.Vector3, limit float64) (i int, ok
 func (g *Game) showTo(i int) {
 	one := &g.people[i]
 	held := g.items[g.selected]
+	switch {
+	case one.tribe:
+		one.says(thanks, thanksTime) // one of the tribe greets the player
+		return
+	case held.Count == 0 && one.asks:
+		g.invite(i)
+		return
+	}
 	m := campMarket(g.world.Seed, one.fire)
 	if held.Count == 0 || !slices.Contains(m.wants, held.Item) {
 		one.says(saying{item: one.want}, 0)
@@ -155,7 +163,7 @@ func (g *Game) helped(c *beast) {
 	var seen []world.Cell
 	for i := range g.people {
 		one := &g.people[i]
-		if cellMid(one.fire.X, one.fire.Y, one.fire.Z).Distance(c.Pos) > helpReach {
+		if one.tribe || cellMid(one.fire.X, one.fire.Y, one.fire.Z).Distance(c.Pos) > helpReach {
 			continue
 		}
 		if !slices.Contains(seen, one.fire) {

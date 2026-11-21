@@ -142,6 +142,7 @@ type Game struct {
 	talkTo      int
 	personAimed bool
 	trust       map[world.Cell]int
+	home        *world.Cell // the player's fire as last seen, a hearth by the bed: nil for none
 
 	player  Player
 	saved   bool // the world is the one in the save file
@@ -385,6 +386,7 @@ func (g *Game) Save() error {
 	m.Paintings = g.savedPaintings()
 	m.Met = g.savedMet()
 	m.Camps = g.savedCamps()
+	m.Home, m.Tribe = g.home, g.savedTribe()
 	m.Bed = g.bed
 	return g.world.Save(g.opts.SavePath, m)
 }
@@ -746,7 +748,7 @@ func (g *Game) drawThings(c *engine.Canvas, cam mesh.Camera, body bool) {
 		g.cast = append(g.cast, g.body())
 	}
 	for i := range g.people {
-		if one := &g.people[i]; one.Pos.Distance(cam.Position) < render.ViewDistance {
+		if one := &g.people[i]; one.away == 0 && one.Pos.Distance(cam.Position) < render.ViewDistance {
 			pose := one.pose()
 			pose.Light = g.sky.Brightness(g.lightAt(one.Pos.Add(geometry.Vector3{Y: 1})))
 			g.cast = append(g.cast, pose)
