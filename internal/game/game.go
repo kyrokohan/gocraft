@@ -161,6 +161,7 @@ type Game struct {
 	warmth, chill     float64 // how warm the body is, and seconds since the cold last took a point of health
 	hunger, mend      float64 // seconds since food last went down, and since the body last mended
 	peak              float64 // the highest the player has been since last on the ground
+	dropped           bool    // whether the player let go of a galewing, and is not yet down
 	urge              float64 // how far the beast the player rides has gone from its walk to its run, from 0 to 1
 	flash             float64 // seconds the view still shows red, for a hurt
 
@@ -504,8 +505,11 @@ func (g *Game) Update(dt float64, in *engine.Input) error {
 		from, wasWet, fell := g.player.Pos, inWater(g.world, g.player.Pos), -g.player.velY
 		if m := g.fauna.mount(); m != nil {
 			g.ride(m, c, dt) // the beast moves the player, with the others
+		} else if m := g.fauna.glider(); m != nil {
+			g.glide(m, c, dt)
 		} else {
 			g.player.Step(g.world, c, dt)
+			g.takeOff()
 		}
 		g.pace(from)
 		g.stepSounds(from, wasWet, fell)

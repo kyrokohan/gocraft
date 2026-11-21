@@ -122,6 +122,9 @@ func (g *Game) wake() {
 	if m := g.fauna.mount(); m != nil {
 		m.ridden = false // the player wakes off its back
 	}
+	if m := g.fauna.glider(); m != nil {
+		m.carrying = false
+	}
 	g.player = Player{Pos: pos, Yaw: g.player.Yaw}
 	g.renew()
 	g.aimed, g.preyed, g.digging = false, false, 0
