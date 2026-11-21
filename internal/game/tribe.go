@@ -3,6 +3,7 @@ package game
 import (
 	"math"
 	"math/rand/v2"
+	"slices"
 
 	"glonk.dev/geometry"
 
@@ -27,7 +28,7 @@ const (
 var asking = saying{item: world.Fire.Item()}
 
 // homeFire returns the player's fire: the hearth nearest the bed it last lay on, within
-// homeReach of it. With no bed, or none near it, there is none.
+// homeReach of it, cold or burning. With no bed, or none near it, there is none.
 func (g *Game) homeFire() *world.Cell {
 	b := g.bed
 	if b == nil || g.world.At(b.X, b.Y, b.Z) != world.FurBed {
@@ -39,7 +40,7 @@ func (g *Game) homeFire() *world.Cell {
 		for z := b.Z - homeReach; z <= b.Z+homeReach; z++ {
 			for x := b.X - homeReach; x <= b.X+homeReach; x++ {
 				far := math.Sqrt(float64((x-b.X)*(x-b.X) + (y-b.Y)*(y-b.Y) + (z-b.Z)*(z-b.Z)))
-				if far < near && g.world.At(x, y, z) == world.Hearth {
+				if far < near && isHearth(g.world.At(x, y, z)) {
 					best, near = &world.Cell{X: x, Y: y, Z: z}, far
 				}
 			}
@@ -165,7 +166,13 @@ func (g *Game) savedTribe() []world.Member {
 	var tribe []world.Member
 	for _, one := range g.people {
 		if one.tribe {
-			tribe = append(tribe, world.Member{Camp: one.camp, Look: one.look, Pos: one.Pos, Yaw: one.Yaw, Follows: one.follows, Away: one.away})
+			m := world.Member{Camp: one.camp, Look: one.look, Pos: one.Pos, Yaw: one.Yaw, Follows: one.follows, Away: one.away, Job: jobNames[one.job]}
+			for _, s := range one.carry {
+				if s.Count > 0 {
+					m.Carry = append(m.Carry, s)
+				}
+			}
+			tribe = append(tribe, m)
 		}
 	}
 	return tribe
@@ -184,6 +191,10 @@ func (g *Game) loadTribe(s world.Meta) {
 		if g.home != nil {
 			one.fire = *g.home
 		}
+		if j := slices.Index(jobNames[:], m.Job); j > 0 {
+			one.job = job(j)
+		}
+		one.picks = copy(one.carry[:], m.Carry) // what they carry, they bring home
 		g.people = append(g.people, one)
 	}
 }

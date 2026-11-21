@@ -116,7 +116,8 @@ type Meta struct {
 // Member is one who came from a camp to live at the player's fire: the fire of their
 // camp, their look, where they are, whether they follow the player there still, and,
 // for one left behind who finds their own way, the day they are at the fire: 0 for
-// none.
+// none. Job is the work the player gave them, by name: none for none, and a job this
+// game does not have is none. Carry is what they carry home to the fire.
 type Member struct {
 	Camp    Cell             `json:"camp"`
 	Look    int              `json:"look"`
@@ -124,11 +125,14 @@ type Member struct {
 	Yaw     float64          `json:"yaw"`
 	Follows bool             `json:"follows,omitempty"`
 	Away    float64          `json:"away,omitempty"`
+	Job     string           `json:"job,omitempty"`
+	Carry   []Stack          `json:"carry,omitempty"`
 }
 
 // valid reports whether a game could have made the member.
 func (m Member) valid() bool {
-	return m.Camp.valid() && m.Look >= 0 && finite(m.Pos.X, m.Pos.Y, m.Pos.Z, m.Yaw, m.Away) && m.Away >= 0
+	return m.Camp.valid() && m.Look >= 0 && finite(m.Pos.X, m.Pos.Y, m.Pos.Z, m.Yaw, m.Away) && m.Away >= 0 &&
+		len(m.Carry) <= PotSlots && !slices.ContainsFunc(m.Carry, func(s Stack) bool { return !s.valid() })
 }
 
 // Camp is what the player has done with the people of one camp: how much they trust

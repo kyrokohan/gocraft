@@ -52,7 +52,8 @@ func played(t *testing.T) (*World, Meta) {
 		Met:       []string{"comet", "daggercat"},
 		Camps:     []Camp{{Fire: Cell{X: -120, Y: 70, Z: 44}, Trust: 6}},
 		Home:      &Cell{X: 706, Y: 104, Z: 3},
-		Tribe:     []Member{{Camp: Cell{X: -120, Y: 70, Z: 44}, Look: 11, Pos: geometry.Vector3{X: 708.5, Y: 102, Z: 5.5}, Yaw: 0.75, Follows: true, Away: 3.25}},
+		Tribe: []Member{{Camp: Cell{X: -120, Y: 70, Z: 44}, Look: 11, Pos: geometry.Vector3{X: 708.5, Y: 102, Z: 5.5}, Yaw: 0.75, Follows: true, Away: 3.25,
+			Job: "gatherer", Carry: []Stack{{Item: Flint, Count: 23}}}},
 	}
 }
 
@@ -229,6 +230,7 @@ func TestABrokenWorldFileIsAnErrorAndNeverAPanic(t *testing.T) {
 		"one of no look":     strings.Replace(text, `"look": 11`, `"look": -1`, 1),
 		"one nowhere":        strings.Replace(text, `"yaw": 0.75`, `"yaw": 1e999`, 1),
 		"one never there":    strings.Replace(text, `"away": 3.25`, `"away": -1`, 1),
+		"one carries 99":     strings.Replace(text, `"count": 23`, `"count": 99`, 1),
 	} {
 		if content == text {
 			t.Fatalf("%s: the test did not change the file", name)

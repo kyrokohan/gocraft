@@ -35,22 +35,7 @@ func creativeStart() (inv inventory) {
 // the hotbar before the pack, so what is picked up is at hand. A tool is one to a slot,
 // and keeps its wear.
 func (inv *inventory) add(s world.Stack) (left int) {
-	n, size := s.Count, s.Item.StackSize()
-	for i := range inv {
-		if in := &inv[i]; in.Item == s.Item && in.Count < size {
-			put := min(n, size-in.Count)
-			in.Count += put
-			n -= put
-		}
-	}
-	for i := range inv {
-		if in := &inv[i]; n > 0 && in.Count == 0 {
-			put := min(n, size)
-			*in = world.Stack{Item: s.Item, Count: put, Wear: s.Wear}
-			n -= put
-		}
-	}
-	return n
+	return addTo(inv[:], s)
 }
 
 // count returns how many the inventory holds of any of some items.
