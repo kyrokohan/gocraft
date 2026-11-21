@@ -179,7 +179,7 @@ func sayAt(t *testing.T, g *Game, one person) int {
 
 func TestAPersonNearShowsWhatTheyWantAndAWallHidesIt(t *testing.T) {
 	g := onFloor(t)
-	one := person{Pos: geometry.Vector3{X: 20.5, Y: 6, Z: 24.5}, Yaw: math.Pi, want: world.Amber}
+	one := person{Pos: geometry.Vector3{X: 20.5, Y: 6, Z: 24.5}, Yaw: math.Pi, want: world.Amber, say: saying{item: world.Amber}}
 	g.people = []person{one}
 	if n := sayAt(t, g, one); n < 10 {
 		t.Errorf("a person 4 blocks ahead shows %d pixels of a picture, wanted one", n)

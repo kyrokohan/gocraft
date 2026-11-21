@@ -31,16 +31,23 @@ const (
 	sideTime   = 0.8  // how long a person goes aside round what is in their way, in seconds
 )
 
-// person is one of the people of a camp.
+// person is one of the people of a camp, or one who came from it to the player's fire.
 type person struct {
 	Pos         geometry.Vector3
 	Yaw, Stride float64
 	look        int
-	fire        world.Cell // the fire of their camp
+	camp        world.Cell // the fire of their camp
+	fire        world.Cell // and the fire they live at: their camp's, or the player's
 	seat        float64    // the way from the fire to their place by it, in radians
 	want        world.Item // what they want, which they show over their head
 	say         saying     // what they show now
 	sayFor      float64    // and for how much longer, before they show their want again
+
+	tribe   bool    // they came to the player's fire, or are on their way
+	follows bool    // they follow the player there
+	asks    bool    // they ask to come, as their camp trusts the player enough
+	away    float64 // one left behind is on their own way, and at the fire at this day
+	hurry   bool    // they run, to catch up
 
 	walking, seated, onGround bool
 	velY, timer               float64
@@ -58,21 +65,26 @@ func campPeople(w *world.World, fire world.Cell) []person {
 	for i := range them {
 		seat := 2 * math.Pi * (float64(i) + 0.4*rng.Float64()) / float64(len(them))
 		at := cellMid(fire.X, fire.Y, fire.Z).Add(geometry.Vector3{X: 4 * math.Cos(seat), Z: 4 * math.Sin(seat)})
-		at.Y = float64(fire.Y)
-		for y := fire.Y + 3; y > fire.Y-4; y-- {
-			if solid(w, int(math.Floor(at.X)), y-1, int(math.Floor(at.Z))) {
-				at.Y = float64(y)
-				break
-			}
-		}
+		at.Y = groundAt(w, at, fire.Y)
 		want := wants[rng.IntN(len(wants))]
 		them[i] = person{
-			Pos: at, Yaw: rng.Float64() * 2 * math.Pi, look: looks[i], fire: fire, seat: seat,
+			Pos: at, Yaw: rng.Float64() * 2 * math.Pi, look: looks[i], camp: fire, fire: fire, seat: seat,
 			want: want, say: saying{item: want},
 			rng: rand.New(rand.NewPCG(uint64(w.Seed), rng.Uint64())),
 		}
 	}
 	return them
+}
+
+// groundAt returns the height of the ground under a point, looked for from 3 blocks over
+// a layer to 3 under it: the layer itself when there is none.
+func groundAt(w *world.World, at geometry.Vector3, y int) float64 {
+	for top := y + 3; top > y-4; top-- {
+		if solid(w, int(math.Floor(at.X)), top-1, int(math.Floor(at.Z))) {
+			return float64(top)
+		}
+	}
+	return float64(y)
 }
 
 // stepPeople moves the people near the player on for dt seconds, and once a second
@@ -85,30 +97,53 @@ func (g *Game) stepPeople(dt float64) {
 	night := g.fauna.sun < sunUp
 	for i := range g.people {
 		one := &g.people[i]
+		if one.away > 0 {
+			continue
+		}
 		if one.sayFor -= dt; one.sayFor <= 0 {
-			one.say = saying{item: one.want}
+			one.say = one.idle()
 		}
 		if one.Pos.Distance(g.player.Pos) < creatureAwake {
-			one.think(night, dt)
+			if one.follows {
+				one.follow(g.player.Pos, dt)
+			} else {
+				one.think(night, dt)
+			}
 			one.step(g.world, dt)
 		}
 	}
 }
 
+// idle is what a person shows when nothing has been said to them: what they want, that
+// they would come to the player's fire, or, for one who has come, nothing.
+func (one *person) idle() saying {
+	switch {
+	case one.tribe:
+		return saying{}
+	case one.asks:
+		return asking
+	}
+	return saying{item: one.want}
+}
+
 // settle lets go of the people of camps that are far off or whose fire is out, and makes
-// those of the camps near the player whose fire burns.
+// those of the camps near the player whose fire burns, but for any who came to the
+// player's fire: those are kept wherever they are. Then it settles the tribe.
 func (g *Game) settle() {
 	p := g.player.Pos
 	burns := func(fire world.Cell) bool { return g.world.At(fire.X, fire.Y, fire.Z) == world.Fire }
 	g.people = slices.DeleteFunc(g.people, func(one person) bool {
-		return cellMid(one.fire.X, one.fire.Y, one.fire.Z).Distance(p) > creatureGone || !burns(one.fire)
+		return !one.tribe && (cellMid(one.fire.X, one.fire.Y, one.fire.Z).Distance(p) > creatureGone || !burns(one.fire))
 	})
 	for _, fire := range g.world.Camps(p.X, p.Z, creatureAwake) {
 		if cellMid(fire.X, fire.Y, fire.Z).Distance(p) < creatureAwake && burns(fire) &&
-			!slices.ContainsFunc(g.people, func(one person) bool { return one.fire == fire }) {
-			g.people = append(g.people, campPeople(g.world, fire)...)
+			!slices.ContainsFunc(g.people, func(one person) bool { return !one.tribe && one.camp == fire }) {
+			g.people = append(g.people, slices.DeleteFunc(campPeople(g.world, fire), func(one person) bool {
+				return slices.ContainsFunc(g.people, func(m person) bool { return m.tribe && m.camp == fire && m.look == one.look })
+			})...)
 		}
 	}
+	g.settleTribe()
 }
 
 // think has a person make up their mind, dt seconds on. By day they stand a while, then
@@ -172,8 +207,12 @@ func (one *person) step(w *world.World, dt float64) {
 			ahead = mesh.Camera{Yaw: one.Yaw}.Forward()
 		}
 		if one.walking {
-			move = ahead.Scale(personWalk * dt)
-			one.Stride += math.Pi * personWalk * dt / stepLength
+			speed := personWalk
+			if one.hurry {
+				speed = personRun
+			}
+			move = ahead.Scale(speed * dt)
+			one.Stride += math.Pi * speed * dt / stepLength
 		}
 	}
 	if !one.walking {
@@ -231,7 +270,7 @@ func (g *Game) sayings(c *engine.Canvas, cam mesh.Camera) {
 	}
 	for i := range g.people {
 		one := &g.people[i]
-		if one.Pos.Distance(g.player.Pos) > talkReach {
+		if one.away > 0 || one.say == (saying{}) || one.Pos.Distance(g.player.Pos) > talkReach {
 			continue
 		}
 		x, y, depth, ok := cam.ProjectPixels(one.over(), c)

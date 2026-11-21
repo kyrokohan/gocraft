@@ -317,8 +317,8 @@ func (g *Game) spill(c world.Cell) {
 	}
 }
 
-// loadStores takes the pots, the hearths, the bed, the paintings, what was met and how
-// much each camp trusts the player from a save.
+// loadStores takes the pots, the hearths, the bed, the paintings, what was met, how
+// much each camp trusts the player, and who came to the player's fire from a save.
 func (g *Game) loadStores(s world.Meta) {
 	g.pots, g.hearths, g.bed = map[world.Cell]*world.PotStore{}, map[world.Cell]*world.HearthStore{}, s.Bed
 	for _, c := range s.Pots {
@@ -338,6 +338,7 @@ func (g *Game) loadStores(s world.Meta) {
 	for _, c := range s.Camps {
 		g.trust[c.Fire] = c.Trust
 	}
+	g.loadTribe(s)
 }
 
 // savedStores returns the pots and the hearths as a save holds them: those that hold
